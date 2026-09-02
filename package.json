@@ -1,0 +1,26 @@
+{
+  "name": "goosenest-codex-switch",
+  "displayName": "Goosenest Codex Switch",
+  "description": "Переключение профилей Codex из палитры команд VS Code",
+  "version": "0.1.0",
+  "publisher": "goosenest",
+  "engines": { "vscode": "^1.85.0" },
+  "categories": ["Other"],
+  "main": "./extension.js",
+  "contributes": {
+    "commands": [{
+      "command": "goosenestCodexSwitch.switchProfile",
+      "title": "Codex: Switch Profile"
+    }],
+    "configuration": {
+      "title": "Goosenest Codex Switch",
+      "properties": {
+        "goosenestCodexSwitch.codexHome": {
+          "type": "string",
+          "default": "C:\\Users\\Goose\\.codex",
+          "description": "Путь к каталогу конфигурации Codex"
+        }
+      }
+    }
+  }
+}
