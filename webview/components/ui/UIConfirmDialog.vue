@@ -29,7 +29,13 @@ watch(
 </script>
 
 <template>
-  <div v-if="open" class="backdrop" @click.self="emit('cancel')" @keydown.esc="emit('cancel')">
+  <div
+    v-if="open"
+    class="backdrop"
+    @click.self="emit('cancel')"
+    @keydown.esc.stop.prevent="emit('cancel')"
+    @keydown.enter.stop.prevent="emit('confirm')"
+  >
     <div
       ref="panel"
       class="dialog"
