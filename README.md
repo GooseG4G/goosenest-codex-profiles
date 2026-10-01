@@ -16,8 +16,9 @@ Profile files are stored in the extension's private storage. Authentication cont
 ## Development
 
 ```powershell
-npm install
-npm run check
+./build.ps1
 ```
+
+On macOS or Linux, run `./build.sh`. Both scripts install dependencies from the lockfile, validate the Vue and TypeScript sources, rebuild `build/dist/`, and write the packaged extension to `build/codex-profiles-<version>.vsix`.
 
 Open the project in VS Code and press `F5`. VS Code 1.106 or newer is required.

@@ -9,11 +9,11 @@
   "activationEvents": ["onStartupFinished", "onView:codexProfiles.profilesView"],
   "main": "./src/extension.js",
   "icon": "media/icon.png",
-  "files": ["src", "dist", "media", "README.md"],
+  "files": ["src", "build/dist", "media", "README.md"],
   "scripts": {
     "build": "vite build",
-    "check": "vue-tsc --noEmit && npm run build",
-    "package": "npm run check && vsce package --allow-missing-repository"
+    "check": "vue-tsc --noEmit",
+    "package": "vsce package --allow-missing-repository"
   },
   "contributes": {
     "commands": [

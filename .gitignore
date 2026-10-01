@@ -1,11 +1,11 @@
-node_modules/
+# Build
+build/
 *.vsix
-*.log
-.DS_Store
-Thumbs.db
+
+# Environment
 .env
 .env.*
 !.env.example
-.vscode-test/
-coverage/
-.nyc_output/
+
+# Dependencies
+node_modules/

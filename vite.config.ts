@@ -7,6 +7,7 @@ export default defineConfig({
     'process.env.NODE_ENV': JSON.stringify('production'),
   },
   build: {
+    outDir: 'build/dist',
     emptyOutDir: true,
     lib: {
       entry: 'webview/main.ts',

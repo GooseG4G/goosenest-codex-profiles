@@ -244,9 +244,9 @@ class ProfilesViewProvider {
 
   async getHtml(webview) {
     const nonce = crypto.randomBytes(16).toString('base64');
-    const script = (await fs.promises.readFile(path.join(this.context.extensionUri.fsPath, 'dist', 'webview.js'), 'utf8'))
+    const script = (await fs.promises.readFile(path.join(this.context.extensionUri.fsPath, 'build', 'dist', 'webview.js'), 'utf8'))
       .replace(/<\/script/gi, '<\\/script');
-    const styles = await fs.promises.readFile(path.join(this.context.extensionUri.fsPath, 'dist', 'codex-profiles.css'), 'utf8');
+    const styles = await fs.promises.readFile(path.join(this.context.extensionUri.fsPath, 'build', 'dist', 'codex-profiles.css'), 'utf8');
     const serializedState = JSON.stringify(await this.store.list())
       .replace(/</g, '\\u003c')
       .replace(/\u2028/g, '\\u2028')
