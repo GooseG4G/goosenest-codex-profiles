@@ -2,15 +2,25 @@
 import { computed, shallowRef } from 'vue'
 import type { Profile } from '../types'
 import TrashIcon from './icons/TrashIcon.vue'
+import PlusIcon from './icons/PlusIcon.vue'
+import CloseIcon from './icons/CloseIcon.vue'
 import UIConfirmDialog from './ui/UIConfirmDialog.vue'
 import UIIconButton from './ui/UIIconButton.vue'
 
-const props = defineProps<{ profiles: readonly Profile[] }>()
-const emit = defineEmits<{ activate: [id: string]; delete: [id: string] }>()
+const props = defineProps<{ profiles: readonly Profile[]; awaitingSignIn: boolean; addError: string }>()
+const emit = defineEmits<{
+  activate: [id: string]
+  delete: [id: string]
+  beginAdd: []
+  cancelAdd: []
+  signIn: []
+  retryAdd: []
+}>()
 
 const query = shallowRef('')
 const pendingSwitchProfile = shallowRef<Profile | null>(null)
 const pendingDeleteProfile = shallowRef<Profile | null>(null)
+const isAddPending = shallowRef(false)
 const visibleProfiles = computed(() => {
   const normalizedQuery = query.value.trim().toLocaleLowerCase()
   if (!normalizedQuery) return props.profiles
@@ -48,21 +58,53 @@ function confirmDeletion() {
   pendingDeleteProfile.value = null
   emit('delete', profileId)
 }
+
+function confirmAdd() {
+  isAddPending.value = false
+  emit('beginAdd')
+}
 </script>
 
 <template>
   <div class="profiles-view">
-    <div class="search-card">
-      <label class="visually-hidden" for="profile-search">Search profiles by email</label>
-      <input
-        id="profile-search"
-        v-model="query"
-        class="search-input"
-        type="search"
-        placeholder="Search..."
-        autocomplete="off"
-        spellcheck="false"
+    <div class="search-toolbar">
+      <div class="search-card">
+        <label class="visually-hidden" for="profile-search">Search profiles by email</label>
+        <input
+          id="profile-search"
+          v-model="query"
+          class="search-input"
+          type="text"
+          placeholder="Search..."
+          autocomplete="off"
+          spellcheck="false"
+        >
+        <UIIconButton
+          v-if="query"
+          accessible-label="Clear search"
+          title="Clear search"
+          class="clear-search-button"
+          background="never"
+          surface-motion="scale"
+          icon-motion="together"
+          size="small"
+          @click="query = ''"
+        >
+          <template #icon><CloseIcon /></template>
+        </UIIconButton>
+      </div>
+      <UIIconButton
+        accessible-label="Add profile"
+        title="Add profile"
+        class="add-button"
+        background="always"
+        surface-motion="scale"
+        icon-motion="together"
+        size="medium"
+        @click="isAddPending = true"
       >
+        <template #icon><PlusIcon /></template>
+      </UIIconButton>
     </div>
 
     <div class="table-card">
@@ -105,12 +147,31 @@ function confirmDeletion() {
           </td>
         </tr>
         <tr v-if="!visibleProfiles.length">
-          <td class="empty" colspan="2">No profiles found</td>
+          <td class="empty" colspan="2">{{ props.profiles.length ? 'No profiles found' : 'No profiles yet' }}</td>
         </tr>
         </tbody>
       </table>
     </div>
 
+    <UIConfirmDialog
+      :open="isAddPending"
+      title="Add profile?"
+      message="The current profile will remain saved. VS Code will reload and wait for another Codex sign-in."
+      confirm-label="Continue"
+      @confirm="confirmAdd"
+      @cancel="isAddPending = false"
+    />
+    <UIConfirmDialog
+      :open="props.awaitingSignIn"
+      :title="props.addError ? 'Authentication problem' : 'Waiting for sign-in'"
+      :message="props.addError || 'Open Codex and sign in. The profile will be added automatically when authentication completes.'"
+      confirm-label="Open Codex"
+      cancel-label="Cancel"
+      :secondary-label="props.addError ? 'Retry' : undefined"
+      @confirm="emit('signIn')"
+      @cancel="emit('cancelAdd')"
+      @secondary="emit('retryAdd')"
+    />
     <UIConfirmDialog
       :open="pendingSwitchProfile !== null"
       title="Switch profile?"
@@ -140,17 +201,37 @@ function confirmDeletion() {
   padding: 10px;
   overflow: hidden;
 }
-.search-card {
+.search-toolbar {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
   margin-bottom: 10px;
+}
+.search-card {
+  display: flex;
+  min-width: 0;
+  flex: 1 1 auto;
+  align-items: center;
   padding: 8px;
   border: 1px solid var(--vscode-widget-border);
   border-radius: 7px;
   background: var(--vscode-editor-background);
 }
 .search-card:focus-within { border-color: var(--vscode-focusBorder); }
+.add-button {
+  --button-background: var(--vscode-editor-background);
+  --button-hover-background: var(--vscode-toolbar-hoverBackground);
+  box-sizing: border-box;
+  width: 46px;
+  height: 46px;
+  flex: 0 0 46px;
+  border-color: var(--vscode-widget-border);
+  border-radius: 7px;
+}
 .search-input {
   box-sizing: border-box;
   width: 100%;
+  min-width: 0;
   height: 28px;
   padding: 4px 8px;
   color: var(--vscode-input-foreground);
@@ -160,7 +241,11 @@ function confirmDeletion() {
   font: inherit;
 }
 .search-input::placeholder { color: var(--vscode-input-placeholderForeground); }
-.search-input::-webkit-search-cancel-button { cursor: pointer; }
+.clear-search-button {
+  --button-foreground: var(--vscode-descriptionForeground);
+  flex: 0 0 28px;
+}
+.clear-search-button:hover { --button-foreground: var(--vscode-errorForeground); }
 .table-card {
   max-height: calc(100vh - 82px);
   overflow: auto;

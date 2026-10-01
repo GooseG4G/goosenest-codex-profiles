@@ -6,6 +6,8 @@ const vscode = acquireVsCodeApi()
 export function useAuthProfiles() {
   const profiles = shallowRef<Profile[]>(window.__CODEX_PROFILES_INITIAL_STATE__?.profiles ?? [])
   const error = shallowRef('')
+  const awaitingSignIn = shallowRef(window.__CODEX_PROFILES_INITIAL_STATE__?.awaitingSignIn ?? false)
+  const addError = shallowRef(window.__CODEX_PROFILES_INITIAL_STATE__?.addError ?? '')
   const orderedProfiles = computed(() => [...profiles.value].sort((left, right) => Number(right.active) - Number(left.active)))
 
   function post(type: string, payload: Record<string, unknown> = {}) {
@@ -17,6 +19,8 @@ export function useAuthProfiles() {
     const message = event.data
     if (message.type === 'state') {
       profiles.value = message.profiles
+      awaitingSignIn.value = Boolean(message.awaitingSignIn)
+      addError.value = String(message.addError || '')
     } else if (message.type === 'error') {
       error.value = String(message.message || 'Unknown error')
     }
@@ -30,8 +34,13 @@ export function useAuthProfiles() {
   onUnmounted(() => window.removeEventListener('message', handleMessage))
 
   return {
-    profiles: readonly(orderedProfiles), error: readonly(error),
+    profiles: readonly(orderedProfiles), error: readonly(error), awaitingSignIn: readonly(awaitingSignIn),
+    addError: readonly(addError),
     activate: (id: string) => post('activate', { id }),
     deleteProfile: (id: string) => post('delete', { id }),
+    beginAdd: () => post('beginAdd'),
+    cancelAdd: () => post('cancelAdd'),
+    signIn: () => post('signIn'),
+    retryAdd: () => post('retryAdd'),
   }
 }

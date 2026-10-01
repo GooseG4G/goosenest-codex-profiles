@@ -8,14 +8,16 @@ interface Props {
   message: string
   confirmLabel?: string
   cancelLabel?: string
+  secondaryLabel?: string
 }
 
 const props = withDefaults(defineProps<Props>(), {
   confirmLabel: 'Confirm',
   cancelLabel: 'Cancel',
+  secondaryLabel: undefined,
 })
 
-const emit = defineEmits<{ confirm: []; cancel: [] }>()
+const emit = defineEmits<{ confirm: []; cancel: []; secondary: [] }>()
 const panel = useTemplateRef<HTMLDivElement>('panel')
 
 watch(
@@ -49,6 +51,7 @@ watch(
       <p id="confirm-dialog-message" class="message">{{ message }}</p>
       <div class="actions">
         <UIButton @click="emit('cancel')">{{ cancelLabel }}</UIButton>
+        <UIButton v-if="secondaryLabel" @click="emit('secondary')">{{ secondaryLabel }}</UIButton>
         <UIButton variant="primary" autofocus @click="emit('confirm')">{{ confirmLabel }}</UIButton>
       </div>
     </div>

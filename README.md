@@ -8,6 +8,8 @@ VS Code extension for automatically tracking and switching Codex `auth.json` pro
 - keeps the active profile at the top of the table;
 - uses the account email or `account_id` as its label;
 - supports profile search and deletion of inactive profiles;
+- adds another account without revoking the saved session and restores the previous profile when sign-in is cancelled;
+- watches `auth.json` and records a completed Codex sign-in automatically;
 - creates `auth.json.bak` before switching;
 - reloads the VS Code window immediately after switching.
 

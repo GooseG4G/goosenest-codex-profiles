@@ -2,14 +2,26 @@
 import ProfileTable from './components/ProfileTable.vue'
 import { useAuthProfiles } from './composables/useAuthProfiles'
 
-const { profiles, error, activate, deleteProfile } = useAuthProfiles()
+const {
+  profiles, error, awaitingSignIn, addError,
+  activate, deleteProfile, beginAdd, cancelAdd, signIn, retryAdd,
+} = useAuthProfiles()
 </script>
 
 <template>
   <main class="app">
     <p v-if="error" class="message error">{{ error }}</p>
-    <p v-if="!profiles.length" class="message">auth.json was not found. Sign in to Codex and refresh this view.</p>
-    <ProfileTable v-else :profiles="profiles" @activate="activate" @delete="deleteProfile" />
+    <ProfileTable
+      :profiles="profiles"
+      :awaiting-sign-in="awaitingSignIn"
+      :add-error="addError"
+      @activate="activate"
+      @delete="deleteProfile"
+      @begin-add="beginAdd"
+      @cancel-add="cancelAdd"
+      @sign-in="signIn"
+      @retry-add="retryAdd"
+    />
   </main>
 </template>
 

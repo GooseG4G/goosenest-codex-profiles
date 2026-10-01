@@ -5,6 +5,12 @@ const path = require('path');
 const vscode = require('vscode');
 
 const VIEW_ID = 'codexProfiles.profilesView';
+const AUTH_READ_RETRY_COUNT = 5;
+const AUTH_READ_RETRY_DELAY_MS = 250;
+
+function delay(milliseconds) {
+  return new Promise((resolve) => setTimeout(resolve, milliseconds));
+}
 
 function getCodexHome() {
   const configured = vscode.workspace.getConfiguration('codexProfiles').get('codexHome', '');
@@ -90,6 +96,7 @@ class ProfileStore {
   constructor(context) {
     this.profilesDirectory = path.join(context.globalStorageUri.fsPath, 'auth-profiles');
     this.statePath = path.join(context.globalStorageUri.fsPath, 'profiles.json');
+    this.syncQueue = Promise.resolve();
   }
 
   get authPath() { return path.join(getCodexHome(), 'auth.json'); }
@@ -100,9 +107,12 @@ class ProfileStore {
       return {
         activeId: typeof parsed.activeId === 'string' ? parsed.activeId : null,
         profiles: Array.isArray(parsed.profiles) ? parsed.profiles : [],
+        pendingAdd: parsed.pendingAdd && typeof parsed.pendingAdd === 'object'
+          ? { restoreProfileId: typeof parsed.pendingAdd.restoreProfileId === 'string' ? parsed.pendingAdd.restoreProfileId : null }
+          : null,
       };
     } catch (error) {
-      if (error.code === 'ENOENT') return { activeId: null, profiles: [] };
+      if (error.code === 'ENOENT') return { activeId: null, profiles: [], pendingAdd: null };
       throw new Error(`Could not read profiles: ${error.message}`);
     }
   }
@@ -115,24 +125,59 @@ class ProfileStore {
     await fs.promises.rm(temporary, { force: true });
   }
 
-  async list() {
-    const state = await this.syncCurrent();
+  async list(options = {}) {
+    let state;
+    let addError = null;
+    try {
+      state = await this.syncCurrent(options);
+    } catch (error) {
+      state = await this.readState();
+      if (!state.pendingAdd) throw error;
+      addError = 'Could not read the new Codex authentication file.';
+    }
     const profiles = [];
     for (const profile of state.profiles) {
       if (await exists(path.join(this.profilesDirectory, `${profile.id}.json`))) {
         profiles.push({ id: profile.id, name: profile.name, active: profile.id === state.activeId });
       }
     }
-    return { profiles };
+    return { profiles, awaitingSignIn: state.pendingAdd !== null, addError };
   }
 
-  async syncCurrent() {
+  syncCurrent(options = {}) {
+    const synchronize = () => this.syncCurrentLocked(options);
+    this.syncQueue = this.syncQueue.then(synchronize, synchronize);
+    return this.syncQueue;
+  }
+
+  async readAuthSnapshot(retry = false) {
+    const attempts = retry ? AUTH_READ_RETRY_COUNT : 1;
+    let lastError;
+    for (let attempt = 0; attempt < attempts; attempt += 1) {
+      try {
+        const [contents, authStat] = await Promise.all([
+          fs.promises.readFile(this.authPath),
+          fs.promises.stat(this.authPath),
+        ]);
+        const parsed = JSON.parse(contents.toString('utf8'));
+        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+          throw new Error('auth.json does not contain a JSON object.');
+        }
+        return { contents, authStat };
+      } catch (error) {
+        lastError = error;
+        if (attempt + 1 < attempts) await delay(AUTH_READ_RETRY_DELAY_MS);
+      }
+    }
+    if (lastError?.code === 'ENOENT') return null;
+    throw lastError;
+  }
+
+  async syncCurrentLocked({ retry = false } = {}) {
     const state = await this.readState();
-    if (!(await exists(this.authPath))) return state;
-    const [contents, authStat] = await Promise.all([
-      fs.promises.readFile(this.authPath),
-      fs.promises.stat(this.authPath),
-    ]);
+    const snapshot = await this.readAuthSnapshot(retry);
+    if (!snapshot) return state;
+    const { contents, authStat } = snapshot;
     const fingerprint = crypto.createHash('sha256').update(contents).digest('hex');
     const freshness = getAuthFreshness(contents.toString('utf8'), authStat.mtimeMs);
     const fallback = `Profile ${state.profiles.length + 1}`;
@@ -142,12 +187,16 @@ class ProfileStore {
     );
     if (!current) {
       const id = createProfileId(info.name);
+      const now = new Date().toISOString();
       current = {
         id,
         name: info.name,
         identity: info.identity,
         fingerprint,
         lastRefresh: freshness.refreshAt === null ? null : new Date(freshness.refreshAt).toISOString(),
+        createdAt: now,
+        updatedAt: now,
+        lastSeenAt: now,
       };
       await writeAtomic(path.join(this.profilesDirectory, `${id}.json`), contents);
       state.profiles.push(current);
@@ -155,12 +204,14 @@ class ProfileStore {
       const profilePath = path.join(this.profilesDirectory, `${current.id}.json`);
       const profileExists = await exists(profilePath);
       let shouldStoreCurrent = !profileExists;
+      let storedStat = null;
 
       if (profileExists && current.fingerprint !== fingerprint) {
-        const [storedContents, storedStat] = await Promise.all([
+        const [storedContents, profileStat] = await Promise.all([
           fs.promises.readFile(profilePath),
           fs.promises.stat(profilePath),
         ]);
+        storedStat = profileStat;
         const storedFreshness = getAuthFreshness(storedContents.toString('utf8'), storedStat.mtimeMs);
         shouldStoreCurrent = compareFreshness(freshness, storedFreshness) >= 0;
         if (!shouldStoreCurrent) {
@@ -171,15 +222,29 @@ class ProfileStore {
         }
       }
 
+      if (profileExists && !storedStat && (!current.createdAt || !current.updatedAt)) {
+        storedStat = await fs.promises.stat(profilePath);
+      }
+      const storedCreatedAt = storedStat
+        ? new Date(Number.isFinite(storedStat.birthtimeMs) ? storedStat.birthtimeMs : storedStat.mtimeMs).toISOString()
+        : new Date().toISOString();
+      current.createdAt ??= storedCreatedAt;
+      current.updatedAt ??= current.lastRefresh || (storedStat ? new Date(storedStat.mtimeMs).toISOString() : storedCreatedAt);
+
       current.name = info.name;
       current.identity = info.identity;
       if (shouldStoreCurrent || current.fingerprint === fingerprint) {
         current.fingerprint = fingerprint;
         current.lastRefresh = freshness.refreshAt === null ? null : new Date(freshness.refreshAt).toISOString();
       }
-      if (shouldStoreCurrent) await writeAtomic(profilePath, contents);
+      if (shouldStoreCurrent) {
+        await writeAtomic(profilePath, contents);
+        current.updatedAt = new Date().toISOString();
+      }
+      current.lastSeenAt = new Date().toISOString();
     }
     state.activeId = current.id;
+    state.pendingAdd = null;
     await this.writeState(state);
     return state;
   }
@@ -196,6 +261,29 @@ class ProfileStore {
     state.activeId = id;
     await this.writeState(state);
     return profile.name;
+  }
+
+  async beginAddProfile() {
+    // Save the latest tokens without calling Codex logout, which could revoke the session.
+    const state = await this.syncCurrent();
+    state.pendingAdd = { restoreProfileId: state.activeId };
+    await fs.promises.rm(this.authPath, { force: true });
+    state.activeId = null;
+    await this.writeState(state);
+  }
+
+  async cancelAddProfile() {
+    const state = await this.readState();
+    const restoreProfileId = state.pendingAdd?.restoreProfileId ?? null;
+    if (restoreProfileId) {
+      const source = path.join(this.profilesDirectory, `${restoreProfileId}.json`);
+      if (await exists(source)) {
+        await copyAtomic(source, this.authPath);
+        state.activeId = restoreProfileId;
+      }
+    }
+    state.pendingAdd = null;
+    await this.writeState(state);
   }
 
   async delete(id) {
@@ -228,6 +316,21 @@ class ProfilesViewProvider {
         await vscode.commands.executeCommand('workbench.action.reloadWindow');
         return;
       }
+      if (message.type === 'beginAdd') {
+        await this.store.beginAddProfile();
+        await vscode.commands.executeCommand('workbench.action.reloadWindow');
+        return;
+      }
+      if (message.type === 'cancelAdd') {
+        await this.store.cancelAddProfile();
+        await vscode.commands.executeCommand('workbench.action.reloadWindow');
+        return;
+      }
+      if (message.type === 'signIn') {
+        await vscode.commands.executeCommand('chatgpt.openSidebar');
+        return;
+      }
+      if (message.type === 'retryAdd') return await this.sendState({ retry: true });
       if (message.type === 'delete') {
         await this.store.delete(String(message.id || ''));
         await this.sendState();
@@ -239,7 +342,7 @@ class ProfilesViewProvider {
     }
   }
 
-  async sendState() { this.post({ type: 'state', ...(await this.store.list()) }); }
+  async sendState(options = {}) { this.post({ type: 'state', ...(await this.store.list(options)) }); }
   post(message) { this.view?.webview.postMessage(message); }
 
   async getHtml(webview) {
@@ -263,7 +366,22 @@ async function activate(context) {
     console.error('Codex Profiles: automatic profile sync failed', error);
   }
   const provider = new ProfilesViewProvider(context, store);
+  let syncTimer;
+  const authWatcher = vscode.workspace.createFileSystemWatcher(
+    new vscode.RelativePattern(getCodexHome(), 'auth.json'),
+  );
+  const scheduleSync = () => {
+    clearTimeout(syncTimer);
+    syncTimer = setTimeout(() => {
+      provider.sendState({ retry: true }).catch((error) => console.error('Codex Profiles: auth.json sync failed', error));
+    }, 400);
+  };
+  authWatcher.onDidCreate(scheduleSync);
+  authWatcher.onDidChange(scheduleSync);
+  authWatcher.onDidDelete(scheduleSync);
   context.subscriptions.push(
+    authWatcher,
+    { dispose: () => clearTimeout(syncTimer) },
     vscode.window.registerWebviewViewProvider(VIEW_ID, provider),
     vscode.commands.registerCommand('codexProfiles.open', () => vscode.commands.executeCommand(`${VIEW_ID}.focus`)),
     vscode.commands.registerCommand('codexProfiles.refresh', () => provider.sendState()),
