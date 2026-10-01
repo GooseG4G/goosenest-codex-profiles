@@ -1,18 +1,23 @@
-# Goosenest Codex Switch
+# Codex Profiles
 
-Расширение VS Code для переключения профилей Codex.
+VS Code extension for automatically tracking and switching Codex `auth.json` profiles.
 
-## Запуск
+- opens from the secondary sidebar;
+- automatically saves the current `~/.codex/auth.json` as a profile;
+- preserves the freshest saved credentials using `last_refresh` and file modification time;
+- keeps the active profile at the top of the table;
+- uses the account email or `account_id` as its label;
+- supports profile search and deletion of inactive profiles;
+- creates `auth.json.bak` before switching;
+- reloads the VS Code window immediately after switching.
 
-1. Откройте эту папку в VS Code.
-2. Нажмите `F5` (Extension Development Host).
-3. В палитре команд запустите `Codex: Switch Profile`.
+Profile files are stored in the extension's private storage. Authentication contents are never sent to the webview.
 
-Расширение копирует выбранный профиль в `.codex/config.toml`, предварительно сохраняя текущий файл как `config.toml.bak`.
+## Development
 
-Профили:
+```powershell
+npm install
+npm run check
+```
 
-- `config.deafult.toml` — Default (сохранено исходное имя файла в `.codex`);
-- `config.routercheap.toml` — Router.
-
-Сейчас оба файла указывают на `cheaprouter`; для профиля OpenAI создайте отдельный TOML с настройками OpenAI и добавьте его в массив `profiles` в `extension.js`.
+Open the project in VS Code and press `F5`. VS Code 1.106 or newer is required.

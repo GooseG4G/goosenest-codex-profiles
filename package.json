@@ -1,26 +1,53 @@
 {
-  "name": "goosenest-codex-switch",
-  "displayName": "Goosenest Codex Switch",
-  "description": "Переключение профилей Codex из палитры команд VS Code",
-  "version": "0.1.0",
+  "name": "codex-profiles",
+  "displayName": "Codex Profiles",
+  "description": "Manage Codex auth.json profiles from the VS Code secondary sidebar",
+  "version": "0.6.3",
   "publisher": "goosenest",
-  "engines": { "vscode": "^1.85.0" },
+  "engines": { "vscode": "^1.106.0" },
   "categories": ["Other"],
-  "main": "./extension.js",
+  "activationEvents": ["onStartupFinished", "onView:codexProfiles.profilesView"],
+  "main": "./src/extension.js",
+  "icon": "media/icon.png",
+  "files": ["src", "dist", "media", "README.md"],
+  "scripts": {
+    "build": "vite build",
+    "check": "vue-tsc --noEmit && npm run build",
+    "package": "npm run check && vsce package --allow-missing-repository"
+  },
   "contributes": {
-    "commands": [{
-      "command": "goosenestCodexSwitch.switchProfile",
-      "title": "Codex: Switch Profile"
-    }],
+    "commands": [
+      { "command": "codexProfiles.open", "title": "Codex Profiles: Open", "icon": "$(arrow-swap)" },
+      { "command": "codexProfiles.refresh", "title": "Codex Profiles: Refresh", "icon": "$(refresh)" }
+    ],
+    "viewsContainers": {
+      "secondarySidebar": [{ "id": "codexProfiles", "title": "Codex Profiles", "icon": "media/switch.svg" }]
+    },
+    "views": {
+      "codexProfiles": [{ "type": "webview", "id": "codexProfiles.profilesView", "name": "Profiles" }]
+    },
+    "menus": {
+      "view/title": [{ "command": "codexProfiles.refresh", "when": "view == codexProfiles.profilesView", "group": "navigation" }],
+      "editor/title": [{ "command": "codexProfiles.open", "when": "editorIsOpen", "group": "navigation@50" }]
+    },
     "configuration": {
-      "title": "Goosenest Codex Switch",
+      "title": "Codex Profiles",
       "properties": {
-        "goosenestCodexSwitch.codexHome": {
+        "codexProfiles.codexHome": {
           "type": "string",
-          "default": "C:\\Users\\Goose\\.codex",
-          "description": "Путь к каталогу конфигурации Codex"
+          "default": "",
+          "description": "Codex directory. When empty, ~/.codex is used."
         }
       }
     }
-  }
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.106.0",
+    "@vscode/vsce": "^3.6.2",
+    "@vitejs/plugin-vue": "^6.0.1",
+    "typescript": "^5.9.3",
+    "vite": "^7.1.7",
+    "vue-tsc": "^3.1.0"
+  },
+  "dependencies": { "vue": "^3.5.22" }
 }
