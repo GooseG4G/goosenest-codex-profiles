@@ -35,13 +35,38 @@ function getProfileInfo(contents, fallback) {
       }
     }
     const email = candidates.find((value) => typeof value === 'string' && value.includes('@'));
-    if (email) return { name: email, identity: `email:${email.toLocaleLowerCase()}` };
     const accountId = auth.tokens?.account_id || auth.account_id;
-    if (typeof accountId === 'string' && accountId) return { name: accountId, identity: `account:${accountId}` };
+    const normalizedAccountId = typeof accountId === 'string' && accountId ? accountId : null;
+    const normalizedEmail = email ? email.toLocaleLowerCase() : null;
+    if (normalizedAccountId || normalizedEmail) {
+      return {
+        name: email || normalizedAccountId,
+        identity: normalizedAccountId ? `account:${normalizedAccountId}` : `email:${normalizedEmail}`,
+        accountId: normalizedAccountId,
+        email: normalizedEmail,
+      };
+    }
   } catch {
     // The profile is still tracked by its content hash; no secret is exposed to the webview.
   }
-  return { name: fallback, identity: null };
+  return { name: fallback, identity: null, accountId: null, email: null };
+}
+
+function findProfile(profiles, info, fingerprint) {
+  if (info.accountId) {
+    const accountMatch = profiles.find((profile) =>
+      profile.accountId === info.accountId || profile.identity === `account:${info.accountId}`
+    );
+    if (accountMatch) return accountMatch;
+  }
+  if (info.email) {
+    const emailMatch = profiles.find((profile) =>
+      (!info.accountId || !profile.accountId)
+      && (profile.email === info.email || profile.identity === `email:${info.email}`)
+    );
+    if (emailMatch) return emailMatch;
+  }
+  return profiles.find((profile) => profile.fingerprint === fingerprint);
 }
 
 function getAuthFreshness(contents, modifiedAt) {
@@ -182,9 +207,7 @@ class ProfileStore {
     const freshness = getAuthFreshness(contents.toString('utf8'), authStat.mtimeMs);
     const fallback = `Profile ${state.profiles.length + 1}`;
     const info = getProfileInfo(contents.toString('utf8'), fallback);
-    let current = state.profiles.find((profile) =>
-      (info.identity && profile.identity === info.identity) || profile.fingerprint === fingerprint
-    );
+    let current = findProfile(state.profiles, info, fingerprint);
     if (!current) {
       const id = createProfileId(info.name);
       const now = new Date().toISOString();
@@ -192,6 +215,8 @@ class ProfileStore {
         id,
         name: info.name,
         identity: info.identity,
+        accountId: info.accountId,
+        email: info.email,
         fingerprint,
         lastRefresh: freshness.refreshAt === null ? null : new Date(freshness.refreshAt).toISOString(),
         createdAt: now,
@@ -219,6 +244,8 @@ class ProfileStore {
           current.lastRefresh = storedFreshness.refreshAt === null
             ? null
             : new Date(storedFreshness.refreshAt).toISOString();
+          await copyAtomic(this.authPath, `${this.authPath}.bak`);
+          await copyAtomic(profilePath, this.authPath);
         }
       }
 
@@ -233,6 +260,8 @@ class ProfileStore {
 
       current.name = info.name;
       current.identity = info.identity;
+      current.accountId = info.accountId;
+      current.email = info.email;
       if (shouldStoreCurrent || current.fingerprint === fingerprint) {
         current.fingerprint = fingerprint;
         current.lastRefresh = freshness.refreshAt === null ? null : new Date(freshness.refreshAt).toISOString();
