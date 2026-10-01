@@ -2,7 +2,7 @@
 import { computed, shallowRef } from 'vue'
 import type { Profile } from '../types'
 import TrashIcon from './icons/TrashIcon.vue'
-import PlusIcon from './icons/PlusIcon.vue'
+import PersonAddIcon from './icons/PersonAddIcon.vue'
 import CloseIcon from './icons/CloseIcon.vue'
 import UIConfirmDialog from './ui/UIConfirmDialog.vue'
 import UIIconButton from './ui/UIIconButton.vue'
@@ -103,7 +103,7 @@ function confirmAdd() {
         size="medium"
         @click="isAddPending = true"
       >
-        <template #icon><PlusIcon /></template>
+        <template #icon><PersonAddIcon /></template>
       </UIIconButton>
     </div>
 
@@ -228,6 +228,7 @@ function confirmAdd() {
   border-color: var(--vscode-widget-border);
   border-radius: 7px;
 }
+.add-button :deep(.icon) { width: 18px; height: 18px; }
 .search-input {
   box-sizing: border-box;
   width: 100%;
