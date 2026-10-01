@@ -2,7 +2,7 @@
   "name": "codex-profiles",
   "displayName": "Codex Profiles",
   "description": "Manage Codex auth.json profiles from the VS Code secondary sidebar",
-  "version": "0.8.4",
+  "version": "0.8.7",
   "publisher": "goosenest",
   "engines": { "vscode": "^1.106.0" },
   "categories": ["Other"],
