@@ -141,8 +141,9 @@ const buttonClasses = computed(() => [
 .icon-tilt-counterclockwise:active .icon { transform: rotate(5deg) scale(.9); }
 .icon-shift-diagonal:hover .icon { transform: translate3d(2px, -2px, 0); }
 .icon-shift-diagonal:active .icon { transform: translate3d(-1px, 1px, 0) scale(.9); }
-.icon-button:disabled { color: var(--vscode-disabledForeground); background: transparent; cursor: default; opacity: .65; transform: none; }
-.icon-button:disabled .icon { transform: none; }
+.icon-button:disabled { color: var(--vscode-disabledForeground); background: transparent; cursor: default; transform: none; }
+.icon-button:disabled .icon { opacity: .65; transform: none; }
+.icon-button:disabled .label { opacity: .65; }
 .label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tooltip {
   position: absolute;

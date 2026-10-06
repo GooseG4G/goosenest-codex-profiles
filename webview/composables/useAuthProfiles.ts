@@ -1,7 +1,6 @@
 import { computed, onMounted, onUnmounted, readonly, shallowRef } from 'vue'
 import type { Profile, ProviderDraft } from '../types'
-
-const vscode = acquireVsCodeApi()
+import { vscode } from '../vscode'
 
 export function useAuthProfiles() {
   const profiles = shallowRef<Profile[]>(window.__CODEX_PROFILES_INITIAL_STATE__?.profiles ?? [])
@@ -51,5 +50,6 @@ export function useAuthProfiles() {
     cancelAdd: () => post('cancelAdd'),
     signIn: () => post('signIn'),
     retryAdd: () => post('retryAdd'),
+    setExpandedUsage: (ids: string[]) => post('setExpandedUsage', { ids }),
   }
 }

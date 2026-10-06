@@ -11,11 +11,44 @@ const AUTH_READ_RETRY_DELAY_MS = 250;
 const DEFAULT_KIND = 'default';
 const PROVIDER_KIND = 'provider';
 const ACTIVE_USAGE_INTERVAL_MS = 60 * 1000;
-const INACTIVE_USAGE_INTERVAL_MS = 60 * 60 * 1000;
+const MIN_USAGE_REQUEST_INTERVAL_MS = 60 * 1000;
 const USAGE_REQUEST_TIMEOUT_MS = 20 * 1000;
+const SCRATCH_ROOT = path.join(os.tmpdir(), 'goosenest-codex-profiles');
+const ORPHAN_SCRATCH_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 
 function delay(milliseconds) {
   return new Promise((resolve) => setTimeout(resolve, milliseconds));
+}
+
+function isProcessAlive(pid) {
+  if (!Number.isInteger(pid) || pid <= 0) return false;
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    return error?.code === 'EPERM';
+  }
+}
+
+async function cleanOrphanedScratchHomes(now = Date.now()) {
+  await fs.promises.mkdir(SCRATCH_ROOT, { recursive: true });
+  const entries = await fs.promises.readdir(SCRATCH_ROOT, { withFileTypes: true });
+  await Promise.all(entries.filter((entry) => entry.isDirectory()).map(async (entry) => {
+    const scratchHome = path.join(SCRATCH_ROOT, entry.name);
+    try {
+      const ownerContents = await fs.promises.readFile(path.join(scratchHome, '.owner.json'), 'utf8')
+        .catch(() => fs.promises.readFile(path.join(scratchHome, 'owner.json'), 'utf8'));
+      const owner = JSON.parse(ownerContents);
+      if (owner.pid !== process.pid && !isProcessAlive(owner.pid)) {
+        await fs.promises.rm(scratchHome, { recursive: true, force: true });
+      }
+    } catch {
+      const stat = await fs.promises.stat(scratchHome).catch(() => null);
+      if (stat && now - stat.mtimeMs >= ORPHAN_SCRATCH_MAX_AGE_MS) {
+        await fs.promises.rm(scratchHome, { recursive: true, force: true }).catch(() => undefined);
+      }
+    }
+  }));
 }
 
 function getCodexHome() {
@@ -259,8 +292,10 @@ function normalizeUsageResponse(result) {
   const primary = normalizeRateLimitWindow(snapshot.primary);
   const secondary = normalizeRateLimitWindow(snapshot.secondary);
   if (!primary && !secondary) throw new Error('Codex returned no usage windows.');
+  const receivedAt = new Date().toISOString();
   return {
-    checkedAt: new Date().toISOString(),
+    checkedAt: receivedAt,
+    updatedAt: receivedAt,
     planType: typeof snapshot.planType === 'string' ? snapshot.planType : null,
     ordinaryUsageAllowed: typeof result.ordinaryUsageAllowed === 'boolean' ? result.ordinaryUsageAllowed : null,
     primary,
@@ -428,28 +463,44 @@ class ProfileStore {
     return this.syncQueue;
   }
 
-  async getDueUsageTargets(now = Date.now()) {
+  async getDueUsageTargets({
+    now = Date.now(),
+    requestedIds = new Set(),
+    hotIds = new Set(),
+    includeScheduled = true,
+  } = {}) {
     const state = await this.syncCurrent();
     const targets = [];
+    let nextDueIn = ACTIVE_USAGE_INTERVAL_MS;
     for (const profile of state.profiles) {
       if ((profile.kind || DEFAULT_KIND) !== DEFAULT_KIND) continue;
       const profilePath = path.join(this.profilesDirectory, `${profile.id}.json`);
       if (!(await exists(profilePath))) continue;
       const active = profile.id === state.activeId;
-      const interval = active ? ACTIVE_USAGE_INTERVAL_MS : INACTIVE_USAGE_INTERVAL_MS;
       const checkedAt = Date.parse(profile.usage?.checkedAt || '');
-      if (Number.isFinite(checkedAt) && now - checkedAt < interval) continue;
+      const hot = active || hotIds.has(profile.id);
+      const requested = requestedIds.has(profile.id);
+      if (!hot && !requested) continue;
+      if (!requested && !includeScheduled) continue;
+      if (Number.isFinite(checkedAt) && now - checkedAt < MIN_USAGE_REQUEST_INTERVAL_MS) {
+        nextDueIn = Math.min(nextDueIn, MIN_USAGE_REQUEST_INTERVAL_MS - (now - checkedAt));
+        continue;
+      }
       const contents = await fs.promises.readFile(profilePath);
       targets.push({
         id: profile.id,
         active,
+        hot,
         profilePath,
         contents,
         fingerprint: crypto.createHash('sha256').update(contents).digest('hex'),
         usage: profile.usage || null,
       });
     }
-    return targets.sort((left, right) => Number(right.active) - Number(left.active));
+    return {
+      targets: targets.sort((left, right) => Number(right.active) - Number(left.active)),
+      nextDueIn,
+    };
   }
 
   async getActiveId() {
@@ -780,15 +831,24 @@ class UsagePoller {
     this.running = false;
     this.timer = undefined;
     this.inFlight = new Map();
+    this.pendingIds = new Set();
+    this.hotIds = new Set();
+    this.scratchHomePromise = undefined;
+    this.disposed = false;
   }
 
   start() {
-    this.tick();
-    this.timer = setInterval(() => this.tick(), ACTIVE_USAGE_INTERVAL_MS);
+    void cleanOrphanedScratchHomes()
+      .catch((error) => console.error('Codex Profiles: scratch cleanup failed', error))
+      .finally(() => {
+        if (!this.disposed) void this.tick();
+      });
   }
 
   dispose() {
-    clearInterval(this.timer);
+    this.disposed = true;
+    clearTimeout(this.timer);
+    if (!this.running) void this.removeScratchHome();
   }
 
   getBusyIds() {
@@ -802,6 +862,48 @@ class UsagePoller {
     await Promise.all(waits);
   }
 
+  setExpanded(ids) {
+    const nextHotIds = new Set(ids.filter(Boolean));
+    for (const id of nextHotIds) {
+      if (!this.hotIds.has(id) && !this.inFlight.has(id)) this.pendingIds.add(id);
+    }
+    this.hotIds = nextHotIds;
+    if (this.pendingIds.size && !this.running) {
+      clearTimeout(this.timer);
+      this.timer = undefined;
+      void this.tick();
+    }
+  }
+
+  async getScratchHome() {
+    if (!this.scratchHomePromise) {
+      const scratchHome = path.join(SCRATCH_ROOT, crypto.randomUUID());
+      this.scratchHomePromise = fs.promises.mkdir(scratchHome, { recursive: true })
+        .then(async () => {
+          await writeAtomic(path.join(scratchHome, '.owner.json'), Buffer.from(JSON.stringify({
+            pid: process.pid,
+            timestamp: Date.now(),
+          })));
+          return scratchHome;
+        })
+        .catch((error) => {
+          this.scratchHomePromise = undefined;
+          throw error;
+        });
+    }
+    return this.scratchHomePromise;
+  }
+
+  async removeScratchHome() {
+    const scratchHomePromise = this.scratchHomePromise;
+    this.scratchHomePromise = undefined;
+    if (!scratchHomePromise) return;
+    const scratchHome = await scratchHomePromise.catch(() => null);
+    if (scratchHome) {
+      await fs.promises.rm(scratchHome, { recursive: true, force: true }).catch(() => undefined);
+    }
+  }
+
   async notify() {
     try {
       await this.onUpdate();
@@ -813,49 +915,74 @@ class UsagePoller {
   async tick() {
     if (this.running) return;
     this.running = true;
+    let nextDueIn = ACTIVE_USAGE_INTERVAL_MS;
     try {
-      const targets = await this.store.getDueUsageTargets();
-      for (const target of targets) {
-        let release;
-        const completed = new Promise((resolve) => { release = resolve; });
-        this.inFlight.set(target.id, { completed, release });
-      }
-      if (targets.length) await this.notify();
-      for (const target of targets) {
-        let temporaryHome;
-        try {
-          const codexHome = target.active
-            ? getCodexHome()
-            : temporaryHome = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'codex-profiles-usage-'));
-          if (!target.active) await writeAtomic(path.join(codexHome, 'auth.json'), target.contents);
-          const usage = await readCodexUsage(codexHome);
-          const refreshedAuth = target.active
-            ? null
-            : await fs.promises.readFile(path.join(codexHome, 'auth.json')).catch(() => null);
-          await this.store.commitUsage(target, usage, refreshedAuth);
-          await this.notify();
-        } catch (error) {
-          console.error(`Codex Profiles: usage refresh failed for ${target.id}`, error);
-          await this.store.commitUsage(target, {
-            ...target.usage,
-            checkedAt: new Date().toISOString(),
-            error: error.message || String(error),
-          }, null);
-          await this.notify();
-        } finally {
-          if (temporaryHome) {
-            await fs.promises.rm(temporaryHome, { recursive: true, force: true }).catch(() => undefined);
-          }
-          const operation = this.inFlight.get(target.id);
-          this.inFlight.delete(target.id);
-          operation?.release();
-          await this.notify();
+      let includeScheduled = true;
+      do {
+        const requestedIds = new Set(this.pendingIds);
+        this.pendingIds.clear();
+        const due = await this.store.getDueUsageTargets({
+          requestedIds,
+          hotIds: this.hotIds,
+          includeScheduled,
+        });
+        const { targets } = due;
+        nextDueIn = Math.min(nextDueIn, due.nextDueIn);
+        includeScheduled = false;
+        for (const target of targets) {
+          let release;
+          const completed = new Promise((resolve) => { release = resolve; });
+          this.inFlight.set(target.id, { completed, release });
         }
-      }
+        if (targets.length) await this.notify();
+        for (const target of targets) {
+          let scratchAuthPath;
+          try {
+            const codexHome = target.active ? getCodexHome() : await this.getScratchHome();
+            if (!target.active) {
+              scratchAuthPath = path.join(codexHome, 'auth.json');
+              await writeAtomic(scratchAuthPath, target.contents);
+            }
+            const usage = await readCodexUsage(codexHome);
+            const refreshedAuth = target.active
+              ? null
+              : await fs.promises.readFile(scratchAuthPath).catch(() => null);
+            await this.store.commitUsage(target, usage, refreshedAuth);
+            await this.notify();
+          } catch (error) {
+            console.error(`Codex Profiles: usage refresh failed for ${target.id}`, error);
+            const lastSuccessfulUpdate = target.usage?.updatedAt
+              || (target.usage?.error ? null : target.usage?.checkedAt)
+              || null;
+            await this.store.commitUsage(target, {
+              ...target.usage,
+              checkedAt: new Date().toISOString(),
+              updatedAt: lastSuccessfulUpdate,
+              error: error.message || String(error),
+            }, null);
+            await this.notify();
+          } finally {
+            if (scratchAuthPath) await fs.promises.rm(scratchAuthPath, { force: true }).catch(() => undefined);
+            const operation = this.inFlight.get(target.id);
+            this.inFlight.delete(target.id);
+            operation?.release();
+            await this.notify();
+          }
+        }
+      } while (this.pendingIds.size);
     } catch (error) {
       console.error('Codex Profiles: usage polling failed', error);
     } finally {
       this.running = false;
+      if (this.disposed) await this.removeScratchHome();
+      else if (this.pendingIds.size) void this.tick();
+      else {
+        clearTimeout(this.timer);
+        this.timer = setTimeout(() => {
+          this.timer = undefined;
+          void this.tick();
+        }, Math.max(0, nextDueIn));
+      }
     }
   }
 }
@@ -878,6 +1005,11 @@ class ProfilesViewProvider {
   async handleMessage(message) {
     try {
       if (message.type === 'ready' || message.type === 'refresh') return await this.sendState();
+      if (message.type === 'setExpandedUsage') {
+        const ids = Array.isArray(message.ids) ? message.ids.map(String) : [];
+        this.usagePoller?.setExpanded(ids);
+        return;
+      }
       if (message.type === 'activate') {
         const id = String(message.id || '');
         const activeId = await this.store.getActiveId();
@@ -887,12 +1019,12 @@ class ProfilesViewProvider {
         }
         await this.usagePoller?.waitForProfiles([activeId, id]);
         await this.store.activate(id);
-        await vscode.commands.executeCommand('workbench.action.reloadWindow');
+        await vscode.commands.executeCommand('workbench.action.restartExtensionHost');
         return;
       }
       if (message.type === 'beginAdd') {
         await this.store.beginAddProfile();
-        await vscode.commands.executeCommand('workbench.action.reloadWindow');
+        await vscode.commands.executeCommand('workbench.action.restartExtensionHost');
         return;
       }
       if (message.type === 'addProvider') {
@@ -901,12 +1033,12 @@ class ProfilesViewProvider {
           baseUrl: message.baseUrl,
           token: message.token,
         });
-        await vscode.commands.executeCommand('workbench.action.reloadWindow');
+        await vscode.commands.executeCommand('workbench.action.restartExtensionHost');
         return;
       }
       if (message.type === 'cancelAdd') {
         await this.store.cancelAddProfile();
-        await vscode.commands.executeCommand('workbench.action.reloadWindow');
+        await vscode.commands.executeCommand('workbench.action.restartExtensionHost');
         return;
       }
       if (message.type === 'signIn') {
@@ -932,7 +1064,10 @@ class ProfilesViewProvider {
     this.post({
       type: 'state',
       ...state,
-      profiles: state.profiles.map((profile) => ({ ...profile, busy: busyIds.has(profile.id) })),
+      profiles: state.profiles.map((profile) => ({
+        ...profile,
+        busy: busyIds.has(profile.id),
+      })),
     });
   }
   post(message) { this.view?.webview.postMessage(message); }
@@ -978,7 +1113,9 @@ async function activate(context) {
     authWatcher,
     { dispose: () => clearTimeout(syncTimer) },
     usagePoller,
-    vscode.window.registerWebviewViewProvider(VIEW_ID, provider),
+    vscode.window.registerWebviewViewProvider(VIEW_ID, provider, {
+      webviewOptions: { retainContextWhenHidden: true },
+    }),
     vscode.commands.registerCommand('codexProfiles.open', () => vscode.commands.executeCommand(`${VIEW_ID}.focus`)),
     vscode.commands.registerCommand('codexProfiles.refresh', () => provider.sendState()),
   );

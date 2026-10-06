@@ -41,39 +41,41 @@ watch(
 </script>
 
 <template>
-  <div
-    v-if="open"
-    class="backdrop"
-    @click.self="cancel"
-    @keydown.esc.stop.prevent="cancel"
-    @keydown.enter.stop.prevent="confirm"
-  >
+  <Transition name="dialog-layer">
     <div
-      ref="panel"
-      class="dialog"
-      role="alertdialog"
-      aria-modal="true"
-      aria-labelledby="confirm-dialog-title"
-      aria-describedby="confirm-dialog-message"
-      tabindex="-1"
+      v-if="open"
+      class="backdrop"
+      @click.self="cancel"
+      @keydown.esc.stop.prevent="cancel"
+      @keydown.enter.stop.prevent="confirm"
     >
-      <h2 id="confirm-dialog-title" class="title">{{ title }}</h2>
-      <p id="confirm-dialog-message" class="message">{{ message }}</p>
-      <div class="actions">
-        <UIButton :disabled="confirmPending" @click="cancel">{{ cancelLabel }}</UIButton>
-        <UIButton v-if="secondaryLabel" @click="emit('secondary')">{{ secondaryLabel }}</UIButton>
-        <UIButton
-          variant="primary"
-          autofocus
-          :disabled="confirmPending"
-          :pending="confirmPending"
-          @click="confirm"
-        >
-          {{ confirmLabel }}
-        </UIButton>
+      <div
+        ref="panel"
+        class="dialog"
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby="confirm-dialog-title"
+        aria-describedby="confirm-dialog-message"
+        tabindex="-1"
+      >
+        <h2 id="confirm-dialog-title" class="title">{{ title }}</h2>
+        <p id="confirm-dialog-message" class="message">{{ message }}</p>
+        <div class="actions">
+          <UIButton :disabled="confirmPending" @click="cancel">{{ cancelLabel }}</UIButton>
+          <UIButton v-if="secondaryLabel" @click="emit('secondary')">{{ secondaryLabel }}</UIButton>
+          <UIButton
+            variant="primary"
+            autofocus
+            :disabled="confirmPending"
+            :pending="confirmPending"
+            @click="confirm"
+          >
+            {{ confirmLabel }}
+          </UIButton>
+        </div>
       </div>
     </div>
-  </div>
+  </Transition>
 </template>
 
 <style scoped>
@@ -100,4 +102,13 @@ watch(
 .title { margin: 0 0 8px; font-size: 15px; font-weight: 600; }
 .message { margin: 0; color: var(--vscode-descriptionForeground); line-height: 1.45; overflow-wrap: anywhere; }
 .actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
+.dialog-layer-enter-active { transition: opacity 180ms ease; }
+.dialog-layer-leave-active { transition: opacity 140ms ease; }
+.dialog-layer-enter-active .dialog { transition: opacity 180ms ease, transform 180ms ease; }
+.dialog-layer-leave-active .dialog { transition: opacity 140ms ease, transform 140ms ease; }
+.dialog-layer-enter-from, .dialog-layer-leave-to { opacity: 0; }
+.dialog-layer-enter-from .dialog, .dialog-layer-leave-to .dialog { opacity: 0; transform: translateY(5px) scale(.98); }
+@media (prefers-reduced-motion: reduce) {
+  .dialog-layer-enter-active, .dialog-layer-leave-active, .dialog-layer-enter-active .dialog, .dialog-layer-leave-active .dialog { transition: none; }
+}
 </style>

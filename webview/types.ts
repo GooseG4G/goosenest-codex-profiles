@@ -8,6 +8,7 @@ export interface UsageWindow {
 
 export interface ProfileUsage {
   checkedAt: string
+  updatedAt?: string | null
   planType?: string | null
   ordinaryUsageAllowed?: boolean | null
   primary?: UsageWindow | null

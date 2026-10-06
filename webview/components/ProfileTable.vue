@@ -9,6 +9,7 @@ import ChevronIcon from './icons/ChevronIcon.vue'
 import UIConfirmDialog from './ui/UIConfirmDialog.vue'
 import UIIconButton from './ui/UIIconButton.vue'
 import UIButton from './ui/UIButton.vue'
+import { vscode } from '../vscode'
 
 const props = defineProps<{
   profiles: readonly Profile[]
@@ -25,9 +26,11 @@ const emit = defineEmits<{
   cancelAdd: []
   signIn: []
   retryAdd: []
+  expandedUsageChange: [ids: string[]]
 }>()
 
-const query = shallowRef('')
+const restoredUiState = vscode.getState()
+const query = shallowRef(restoredUiState?.query ?? '')
 const pendingSwitchProfile = shallowRef<Profile | null>(null)
 const isSwitchPending = shallowRef(false)
 const pendingDeleteProfile = shallowRef<Profile | null>(null)
@@ -39,7 +42,7 @@ const providerToken = shallowRef('')
 const providerNameInput = useTemplateRef<HTMLInputElement>('providerNameInput')
 const providerBaseUrlInput = useTemplateRef<HTMLInputElement>('providerBaseUrlInput')
 const showProviderBaseUrlError = shallowRef(false)
-const expandedUsageIds = shallowRef<Set<string>>(new Set())
+const expandedUsageIds = shallowRef<Set<string>>(new Set(restoredUiState?.expandedUsageIds ?? []))
 const visibleProfiles = computed(() => {
   const normalizedQuery = query.value.trim().toLocaleLowerCase()
   if (!normalizedQuery) return props.profiles
@@ -164,12 +167,27 @@ function isUsageExpanded(profile: Profile) {
   return expandedUsageIds.value.has(profile.id)
 }
 
+function canShowUsage(profile: Profile) {
+  return profile.kind !== 'provider'
+}
+
+function isUsageRefreshing(profile: Profile) {
+  const updatedAt = Date.parse(profile.usage?.updatedAt ?? profile.usage?.checkedAt ?? '')
+  return Boolean(profile.busy) && (!Number.isFinite(updatedAt) || Date.now() - updatedAt >= 180_000)
+}
+
 function toggleUsage(profile: Profile, event: MouseEvent) {
   if (event.detail > 0 && event.currentTarget instanceof HTMLElement) event.currentTarget.blur()
-  const next = new Set(expandedUsageIds.value)
-  if (next.has(profile.id)) next.delete(profile.id)
-  else next.add(profile.id)
-  expandedUsageIds.value = next
+  const opening = !expandedUsageIds.value.has(profile.id)
+  expandedUsageIds.value = opening ? new Set([profile.id]) : new Set()
+}
+
+function publishExpandedUsage() {
+  emit('expandedUsageChange', document.hidden ? [] : [...expandedUsageIds.value])
+}
+
+function persistUiState() {
+  vscode.setState({ query: query.value, expandedUsageIds: [...expandedUsageIds.value] })
 }
 
 function getRemainingPercent(usedPercent: number) {
@@ -211,9 +229,21 @@ watch(providerBaseUrl, (value) => {
   }
 })
 
-onMounted(() => window.addEventListener('keydown', handleUsageKeydown))
+watch(query, persistUiState)
+watch(expandedUsageIds, () => {
+  persistUiState()
+  publishExpandedUsage()
+})
+
+onMounted(() => {
+  window.addEventListener('keydown', handleUsageKeydown)
+  document.addEventListener('visibilitychange', publishExpandedUsage)
+  publishExpandedUsage()
+})
 onUnmounted(() => {
   window.removeEventListener('keydown', handleUsageKeydown)
+  document.removeEventListener('visibilitychange', publishExpandedUsage)
+  emit('expandedUsageChange', [])
 })
 </script>
 
@@ -315,9 +345,9 @@ onUnmounted(() => {
                 aria-hidden="true"
               />
               <UIIconButton
-                :accessible-label="getUsageWindows(profile).length === 0 ? 'Usage limits unavailable' : isUsageExpanded(profile) ? 'Hide usage limits' : 'Show usage limits'"
-                :title="getUsageWindows(profile).length === 0 ? 'Usage limits unavailable' : isUsageExpanded(profile) ? 'Hide' : 'Show'"
-                :disabled="getUsageWindows(profile).length === 0"
+                :accessible-label="!canShowUsage(profile) ? 'Action unavailable' : isUsageExpanded(profile) ? 'Hide usage limits' : 'Show usage limits'"
+                :title="!canShowUsage(profile) ? 'Action unavailable' : isUsageExpanded(profile) ? 'Hide' : 'Show'"
+                :disabled="!canShowUsage(profile)"
                 class="usage-toggle"
                 background="hover"
                 surface-motion="scale"
@@ -330,21 +360,38 @@ onUnmounted(() => {
               </UIIconButton>
             </div>
           </div>
-          <div v-if="isUsageExpanded(profile)" class="usage-widgets">
-            <section v-for="window in getUsageWindows(profile)" :key="window.label" class="usage-widget">
-              <span class="usage-copy">
-                <span class="usage-title">{{ window.label }}</span>
-                <span class="usage-reset">{{ formatResetTime(window.resetsAt) }}</span>
-              </span>
-              <span class="usage-track" aria-hidden="true">
-                <span
-                  class="usage-fill"
-                  :style="{ width: `${getRemainingPercent(window.usedPercent)}%` }"
-                />
-              </span>
-              <span class="usage-remaining">{{ getRemainingPercent(window.usedPercent) }}% left</span>
-            </section>
-          </div>
+          <Transition name="usage-expand">
+            <div v-if="isUsageExpanded(profile)" class="usage-widgets">
+              <section
+                v-for="window in getUsageWindows(profile)"
+                :key="window.label"
+                class="usage-widget"
+                :class="{ refreshing: isUsageRefreshing(profile) }"
+              >
+                <span class="usage-copy">
+                  <span class="usage-title">{{ window.label }}</span>
+                  <span class="usage-reset">{{ formatResetTime(window.resetsAt) }}</span>
+                </span>
+                <span class="usage-track" aria-hidden="true">
+                  <span
+                    class="usage-fill"
+                    :style="{ width: `${getRemainingPercent(window.usedPercent)}%` }"
+                  />
+                </span>
+                <span class="usage-remaining">{{ getRemainingPercent(window.usedPercent) }}% left</span>
+              </section>
+              <section
+                v-if="getUsageWindows(profile).length === 0"
+                class="usage-widget usage-placeholder"
+                :class="{ refreshing: isUsageRefreshing(profile) }"
+              >
+                <span class="usage-copy">
+                  <span class="usage-title">Usage limits</span>
+                  <span class="usage-reset">{{ isUsageRefreshing(profile) ? 'Updating...' : 'Usage limits unavailable' }}</span>
+                </span>
+              </section>
+            </div>
+          </Transition>
         </article>
         <div v-if="!visibleProfiles.length" class="empty">
           {{ props.profiles.length ? 'No profiles found' : 'No profiles yet' }}
@@ -360,13 +407,14 @@ onUnmounted(() => {
       @confirm="confirmAdd"
       @cancel="isAddPending = false"
     />
-    <div
-      v-if="isProviderFormOpen"
-      class="backdrop"
-      @click.self="closeProviderForm"
-      @keydown.esc.stop.prevent="closeProviderForm"
-    >
-      <form class="provider-dialog" novalidate @submit.prevent="submitProvider">
+    <Transition name="provider-layer">
+      <div
+        v-if="isProviderFormOpen"
+        class="backdrop"
+        @click.self="closeProviderForm"
+        @keydown.esc.stop.prevent="closeProviderForm"
+      >
+        <form class="provider-dialog" novalidate @submit.prevent="submitProvider">
         <h2 class="dialog-title">Add provider</h2>
         <label class="field">
           <span class="field-label">Name</span>
@@ -384,12 +432,14 @@ onUnmounted(() => {
             :aria-describedby="showProviderBaseUrlError ? 'provider-base-url-error' : undefined"
             @blur="showProviderBaseUrlError = providerBaseUrl.trim() !== '' && !isValidProviderBaseUrl(providerBaseUrl.trim())"
           >
-          <span
-            v-if="showProviderBaseUrlError"
-            id="provider-base-url-error"
-            class="field-error"
-            role="alert"
-          >Please enter a URL.</span>
+          <Transition name="field-error">
+            <span
+              v-if="showProviderBaseUrlError"
+              id="provider-base-url-error"
+              class="field-error"
+              role="alert"
+            >Please enter a URL.</span>
+          </Transition>
         </label>
         <label class="field">
           <span class="field-label">Token</span>
@@ -406,8 +456,9 @@ onUnmounted(() => {
             Add
           </UIButton>
         </div>
-      </form>
-    </div>
+        </form>
+      </div>
+    </Transition>
     <UIConfirmDialog
       :open="props.awaitingSignIn"
       :title="props.addError ? 'Authentication problem' : 'Waiting for sign-in'"
@@ -537,13 +588,18 @@ onUnmounted(() => {
 .profile-copy { display: flex; min-width: 0; flex-direction: column; justify-content: center; gap: 2px; }
 .name { overflow: hidden; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
 .meta { overflow: hidden; color: var(--vscode-descriptionForeground); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
-.action { position: relative; z-index: 1; display: grid; grid-template-columns: 28px 8px 28px; align-items: center; justify-content: flex-end; white-space: nowrap; }
+.action { position: relative; z-index: 1; display: grid; grid-template-columns: 28px 12px 28px; align-items: center; justify-content: flex-end; white-space: nowrap; }
 .action-divider { width: 1px; height: 16px; grid-column: 2; justify-self: center; background: var(--vscode-widget-border); }
 .action .delete-button { grid-column: 1; }
 .action .usage-toggle { grid-column: 3; }
 .usage-toggle:disabled { cursor: not-allowed; }
 .usage-widgets { display: flex; min-width: 0; flex-direction: column; gap: 8px; padding: 0 12px 12px; background: transparent; transition: background-color 120ms ease; }
-.usage-widget { box-sizing: border-box; display: grid; width: 100%; min-width: 0; overflow: hidden; grid-template-columns: minmax(0, 1fr) minmax(72px, 120px) max-content; align-items: center; gap: 12px; padding: 12px; border: 1px solid var(--vscode-widget-border); border-radius: 7px; background: var(--vscode-editorWidget-background, var(--vscode-editor-background)); }
+.usage-expand-enter-active, .usage-expand-leave-active { max-height: 360px; overflow: hidden; transition: max-height 220ms ease, opacity 160ms ease, transform 180ms ease, padding-bottom 220ms ease; }
+.usage-expand-enter-from, .usage-expand-leave-to { max-height: 0; padding-bottom: 0; opacity: 0; transform: translateY(-4px); }
+.usage-widget { position: relative; box-sizing: border-box; display: grid; width: 100%; min-width: 0; overflow: hidden; grid-template-columns: minmax(0, 1fr) minmax(72px, 120px) max-content; align-items: center; gap: 12px; padding: 12px; border: 1px solid var(--vscode-widget-border); border-radius: 7px; background: var(--vscode-editorWidget-background, var(--vscode-editor-background)); }
+.usage-placeholder { min-height: 66px; grid-template-columns: minmax(0, 1fr); }
+.usage-widget.refreshing::after { position: absolute; inset: 0; content: ''; pointer-events: none; background: linear-gradient(100deg, transparent 30%, color-mix(in srgb, var(--vscode-foreground) 10%, transparent) 48%, transparent 66%); background-position: 140% 0; background-size: 220% 100%; animation: usage-shimmer 1.4s linear infinite; }
+@keyframes usage-shimmer { to { background-position: -120% 0; } }
 .usage-copy { display: flex; min-width: 0; flex-direction: column; gap: 4px; }
 .usage-title { overflow: hidden; color: var(--vscode-foreground); font-size: var(--vscode-font-size); font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
 .usage-track { display: block; width: 100%; height: 8px; overflow: hidden; border-radius: 4px; background: rgb(127 127 127 / 18%); }
@@ -554,6 +610,10 @@ onUnmounted(() => {
   .usage-widget { grid-template-columns: minmax(0, 1fr) 58px; gap: 10px; }
   .usage-track { grid-row: 2; grid-column: 1 / -1; }
   .usage-remaining { grid-row: 1; grid-column: 2; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .usage-expand-enter-active, .usage-expand-leave-active { transition: none; }
+  .usage-widget.refreshing::after { animation: none; background: color-mix(in srgb, var(--vscode-foreground) 4%, transparent); }
 }
 .empty { padding: 14px 10px; color: var(--vscode-descriptionForeground); text-align: center; }
 .backdrop {
@@ -595,8 +655,19 @@ onUnmounted(() => {
 }
 .field-input:focus { border-color: var(--vscode-focusBorder); }
 .field-input[aria-invalid="true"] { border-color: var(--vscode-inputValidation-errorBorder, var(--vscode-errorForeground)); }
-.field-error { padding: 6px 8px; color: var(--vscode-inputValidation-errorForeground, var(--vscode-errorForeground)); border: 1px solid var(--vscode-inputValidation-errorBorder, var(--vscode-errorForeground)); border-radius: 4px; background: var(--vscode-inputValidation-errorBackground, var(--vscode-editorHoverWidget-background, var(--vscode-editorWidget-background))); font-size: 11px; line-height: 1.35; }
+.field-error { box-sizing: border-box; display: block; max-height: 48px; overflow: hidden; padding: 6px 8px; color: var(--vscode-inputValidation-errorForeground, var(--vscode-errorForeground)); border: 1px solid var(--vscode-inputValidation-errorBorder, var(--vscode-errorForeground)); border-radius: 4px; background: var(--vscode-inputValidation-errorBackground, var(--vscode-editorHoverWidget-background, var(--vscode-editorWidget-background))); font-size: 11px; line-height: 1.35; }
+.field-error-enter-active, .field-error-leave-active { transition: max-height 160ms ease, padding 160ms ease, opacity 120ms ease, transform 160ms ease; }
+.field-error-enter-from, .field-error-leave-to { max-height: 0; padding-top: 0; padding-bottom: 0; opacity: 0; transform: translateY(-3px); }
 .actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 6px; }
+.provider-layer-enter-active { transition: opacity 180ms ease; }
+.provider-layer-leave-active { transition: opacity 140ms ease; }
+.provider-layer-enter-active .provider-dialog { transition: opacity 180ms ease, transform 180ms ease; }
+.provider-layer-leave-active .provider-dialog { transition: opacity 140ms ease, transform 140ms ease; }
+.provider-layer-enter-from, .provider-layer-leave-to { opacity: 0; }
+.provider-layer-enter-from .provider-dialog, .provider-layer-leave-to .provider-dialog { opacity: 0; transform: translateY(5px) scale(.98); }
+@media (prefers-reduced-motion: reduce) {
+  .field-error-enter-active, .field-error-leave-active, .provider-layer-enter-active, .provider-layer-leave-active, .provider-layer-enter-active .provider-dialog, .provider-layer-leave-active .provider-dialog { transition: none; }
+}
 .visually-hidden {
   position: absolute;
   width: 1px;

@@ -4,7 +4,11 @@ declare module '*.vue' {
   export default component
 }
 
-declare function acquireVsCodeApi(): { postMessage(message: unknown): void }
+declare function acquireVsCodeApi<State = unknown>(): {
+  postMessage(message: unknown): void
+  getState(): State | undefined
+  setState(state: State): void
+}
 
 interface Window {
   __CODEX_PROFILES_INITIAL_STATE__?: {
