@@ -16,6 +16,8 @@ const {
   upsertEnvValue,
 } = require('./provider-config');
 const { resolveReauthenticationProfile } = require('./profile-selection');
+const { SerialQueue } = require('./serial-queue');
+const { StoreTransactionQueue } = require('./store-transaction');
 
 const VIEW_ID = 'codexProfiles.profilesView';
 const AUTH_READ_RETRY_COUNT = 5;
@@ -74,33 +76,33 @@ function createProfileId(name) {
 }
 
 function getProfileInfo(contents, fallback) {
-  try {
-    const auth = JSON.parse(contents);
-    const candidates = [auth.email, auth.account_email, auth.user?.email, auth.tokens?.email];
-    const token = auth.tokens?.id_token || auth.id_token;
-    if (typeof token === 'string') {
+  const auth = JSON.parse(contents);
+  const candidates = [auth.email, auth.account_email, auth.user?.email, auth.tokens?.email];
+  const token = auth.tokens?.id_token || auth.id_token;
+  if (typeof token === 'string') {
+    try {
       const payload = token.split('.')[1];
       if (payload) {
         const claims = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8'));
         candidates.unshift(claims.email, claims['https://api.openai.com/profile']?.email);
       }
+    } catch {
+      // A malformed ID token must not hide an explicit account identifier in auth.json.
     }
-    const email = candidates.find((value) => typeof value === 'string' && value.includes('@'));
-    const accountId = auth.tokens?.account_id || auth.account_id;
-    const normalizedAccountId = typeof accountId === 'string' && accountId ? accountId : null;
-    const normalizedEmail = email ? email.toLocaleLowerCase() : null;
-    if (normalizedAccountId || normalizedEmail) {
-      return {
-        name: email || normalizedAccountId,
-        identity: normalizedAccountId ? `account:${normalizedAccountId}` : `email:${normalizedEmail}`,
-        accountId: normalizedAccountId,
-        email: normalizedEmail,
-      };
-    }
-  } catch {
-    // The profile is still tracked by its content hash; no secret is exposed to the webview.
   }
-  return { name: fallback, identity: null, accountId: null, email: null };
+  const email = candidates.find((value) => typeof value === 'string' && value.includes('@'));
+  const accountId = auth.tokens?.account_id || auth.account_id;
+  const normalizedAccountId = typeof accountId === 'string' && accountId ? accountId : null;
+  const normalizedEmail = email ? email.toLocaleLowerCase() : null;
+  if (!normalizedAccountId && !normalizedEmail) {
+    throw new Error(`${fallback} does not contain a Codex account identity.`);
+  }
+  return {
+    name: email || normalizedAccountId,
+    identity: normalizedAccountId ? `account:${normalizedAccountId}` : `email:${normalizedEmail}`,
+    accountId: normalizedAccountId,
+    email: normalizedEmail,
+  };
 }
 
 function findProfile(profiles, info, fingerprint) {
@@ -326,7 +328,7 @@ class ProfileStore {
     this.profilesDirectory = path.join(context.globalStorageUri.fsPath, 'auth-profiles');
     this.configSnapshotsDirectory = path.join(context.globalStorageUri.fsPath, 'config-profiles');
     this.statePath = path.join(context.globalStorageUri.fsPath, 'profiles.json');
-    this.syncQueue = Promise.resolve();
+    this.stateQueue = new StoreTransactionQueue(this.statePath);
   }
 
   get authPath() { return path.join(getCodexHome(), 'auth.json'); }
@@ -366,11 +368,19 @@ class ProfileStore {
     await writeAtomic(this.statePath, JSON.stringify(state, null, 2));
   }
 
-  async list(options = {}) {
+  runExclusive(operation) {
+    return this.stateQueue.run(operation);
+  }
+
+  list(options = {}) {
+    return this.runExclusive(() => this.listLocked(options));
+  }
+
+  async listLocked(options = {}) {
     let state;
     let addError = null;
     try {
-      state = await this.syncCurrent(options);
+      state = await this.syncCurrentLocked(options);
     } catch (error) {
       state = await this.readState();
       if (!state.pendingAdd) throw error;
@@ -405,18 +415,20 @@ class ProfileStore {
   }
 
   syncCurrent(options = {}) {
-    const synchronize = () => this.syncCurrentLocked(options);
-    this.syncQueue = this.syncQueue.then(synchronize, synchronize);
-    return this.syncQueue;
+    return this.runExclusive(() => this.syncCurrentLocked(options));
   }
 
-  async getDueUsageTargets({
+  getDueUsageTargets(options = {}) {
+    return this.runExclusive(() => this.getDueUsageTargetsLocked(options));
+  }
+
+  async getDueUsageTargetsLocked({
     now = Date.now(),
     requestedIds = new Set(),
     hotIds = new Set(),
     includeScheduled = true,
   } = {}) {
-    const state = await this.syncCurrent();
+    const state = await this.syncCurrentLocked();
     const targets = [];
     let nextDueIn = ACTIVE_USAGE_INTERVAL_MS;
     for (const profile of state.profiles) {
@@ -450,12 +462,12 @@ class ProfileStore {
     };
   }
 
-  async getActiveId() {
-    return (await this.readState()).activeId;
+  getActiveId() {
+    return this.runExclusive(async () => (await this.readState()).activeId);
   }
 
-  async commitUsage(target, usage, refreshedAuth) {
-    const commit = async () => {
+  commitUsage(target, usage, refreshedAuth) {
+    return this.runExclusive(async () => {
       const state = await this.readState();
       const profile = state.profiles.find((item) => item.id === target.id);
       if (!profile || (profile.kind || DEFAULT_KIND) !== DEFAULT_KIND) return;
@@ -500,9 +512,7 @@ class ProfileStore {
 
       profile.usage = usage;
       await this.writeState(state);
-    };
-    this.syncQueue = this.syncQueue.then(commit, commit);
-    return this.syncQueue;
+    });
   }
 
   async readAuthSnapshot(retry = false) {
@@ -640,9 +650,13 @@ class ProfileStore {
     return state;
   }
 
-  async activate(id) {
+  activate(id) {
+    return this.runExclusive(() => this.activateLocked(id));
+  }
+
+  async activateLocked(id) {
     // Persist the freshest access/refresh tokens of the account we are leaving.
-    const state = await this.syncCurrent();
+    const state = await this.syncCurrentLocked();
     const profile = state.profiles.find((item) => item.id === id);
     if (!profile) throw new Error('Profile not found.');
     if ((profile.kind || DEFAULT_KIND) === PROVIDER_KIND) {
@@ -712,13 +726,17 @@ class ProfileStore {
     return { cleanName, cleanBaseUrl };
   }
 
-  async addProvider({ name, baseUrl, token }) {
+  addProvider(input) {
+    return this.runExclusive(() => this.addProviderLocked(input));
+  }
+
+  async addProviderLocked({ name, baseUrl, token }) {
     const { cleanName, cleanBaseUrl } = this.validateProviderInput(name, baseUrl);
     const cleanToken = String(token || '').trim();
     if (!cleanToken) throw new Error('Access token is required.');
     if (/[\r\n]/.test(cleanToken)) throw new Error('Access token must be a single line.');
 
-    const state = await this.syncCurrent();
+    const state = await this.syncCurrentLocked();
     const normalizedName = cleanName.toLocaleLowerCase();
     const duplicate = state.profiles.find((profile) =>
       (profile.kind || DEFAULT_KIND) === PROVIDER_KIND
@@ -752,11 +770,15 @@ class ProfileStore {
     return profile.name;
   }
 
-  async updateProvider({ id, name, baseUrl, token }) {
+  updateProvider(input) {
+    return this.runExclusive(() => this.updateProviderLocked(input));
+  }
+
+  async updateProviderLocked({ id, name, baseUrl, token }) {
     const { cleanName, cleanBaseUrl } = this.validateProviderInput(name, baseUrl);
     const cleanToken = String(token || '').trim();
     if (/[\r\n]/.test(cleanToken)) throw new Error('Access token must be a single line.');
-    const state = await this.syncCurrent();
+    const state = await this.syncCurrentLocked();
     const profile = state.profiles.find((item) => item.id === id && (item.kind || DEFAULT_KIND) === PROVIDER_KIND);
     if (!profile) throw new Error('Provider profile not found.');
 
@@ -787,14 +809,21 @@ class ProfileStore {
     return { name: profile.name, active };
   }
 
-  async beginAddProfile(reauthenticateProfileId = null) {
+  beginAddProfile(reauthenticateProfileId = null) {
+    return this.runExclusive(() => this.beginAddProfileLocked(reauthenticateProfileId));
+  }
+
+  async beginAddProfileLocked(reauthenticateProfileId = null) {
     // Save the latest tokens without calling Codex logout, which could revoke the session.
-    const state = await this.syncCurrent();
+    const state = await this.syncCurrentLocked();
     if (reauthenticateProfileId) {
       const profile = state.profiles.find((item) =>
         item.id === reauthenticateProfileId && (item.kind || DEFAULT_KIND) === DEFAULT_KIND
       );
       if (!profile) throw new Error('The profile selected for re-authentication was not found.');
+      if (!profile.accountId && !profile.email) {
+        throw new Error('The saved profile does not contain a verifiable Codex account identity.');
+      }
     }
     state.pendingAdd = {
       restoreProfileId: state.activeId,
@@ -806,7 +835,11 @@ class ProfileStore {
     await this.writeState(state);
   }
 
-  async cancelAddProfile() {
+  cancelAddProfile() {
+    return this.runExclusive(() => this.cancelAddProfileLocked());
+  }
+
+  async cancelAddProfileLocked() {
     const state = await this.readState();
     const restoreProfileId = state.pendingAdd?.restoreProfileId ?? null;
     if (restoreProfileId) {
@@ -826,8 +859,12 @@ class ProfileStore {
     await this.writeState(state);
   }
 
-  async delete(id) {
-    const state = await this.syncCurrent();
+  delete(id) {
+    return this.runExclusive(() => this.deleteLocked(id));
+  }
+
+  async deleteLocked(id) {
+    const state = await this.syncCurrentLocked();
     const profile = state.profiles.find((item) => item.id === id);
     if (!profile) throw new Error('Profile not found.');
     const active = profile.id === state.activeId;
@@ -1021,7 +1058,7 @@ class ProfilesViewProvider {
     this.store = store;
     this.view = undefined;
     this.usagePoller = undefined;
-    this.messageQueue = Promise.resolve();
+    this.messageQueue = new SerialQueue();
   }
 
   async resolveWebviewView(view) {
@@ -1029,8 +1066,7 @@ class ProfilesViewProvider {
     this.view = view;
     view.webview.options = { enableScripts: true, localResourceRoots: [] };
     view.webview.onDidReceiveMessage((message) => {
-      const handle = () => this.handleMessage(message);
-      this.messageQueue = this.messageQueue.then(handle, handle);
+      void this.messageQueue.run(() => this.handleMessage(message));
     });
     view.onDidDispose(() => {
       disposed = true;

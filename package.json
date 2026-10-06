@@ -2,7 +2,7 @@
   "name": "codex-profiles",
   "displayName": "Codex Profiles",
   "description": "Switch Codex accounts, view usage limits, and manage compatible providers from VS Code",
-  "version": "0.10.11",
+  "version": "0.10.12",
   "publisher": "goosenest",
   "repository": {
     "type": "git",
@@ -35,6 +35,10 @@
     "src",
     "build/dist",
     "images",
+    "node_modules/graceful-fs",
+    "node_modules/proper-lockfile",
+    "node_modules/retry",
+    "node_modules/signal-exit",
     "README.md"
   ],
   "scripts": {
@@ -110,6 +114,7 @@
     "vue-tsc": "^3.1.0"
   },
   "dependencies": {
+    "proper-lockfile": "^4.1.2",
     "vue": "^3.5.22"
   }
 }

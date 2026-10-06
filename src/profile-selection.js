@@ -24,6 +24,9 @@ function resolveReauthenticationProfile(profiles, info, matchingProfile, profile
       `Signed in as ${info.name}, but ${selectedProfile.name} was selected for re-authentication.`,
     );
   }
+  if (!matchingProfile && !comparableAccountIds && !comparableEmails) {
+    throw reauthenticationError(`Could not verify the saved identity for ${selectedProfile.name}.`);
+  }
   return selectedProfile;
 }
 

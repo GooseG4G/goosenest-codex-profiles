@@ -20,8 +20,11 @@ test('re-authentication rejects a different saved account', () => {
   );
 });
 
-test('re-authentication preserves legacy profiles without comparable identity fields', () => {
+test('re-authentication rejects profiles whose identity was not recovered', () => {
   const anonymousProfile = { id: 'anonymous', kind: 'default', name: 'Profile 3' };
   const info = { name: 'Profile 3', accountId: null, email: null };
-  assert.equal(resolveReauthenticationProfile([anonymousProfile], info, null, 'anonymous'), anonymousProfile);
+  assert.throws(
+    () => resolveReauthenticationProfile([anonymousProfile], info, null, 'anonymous'),
+    (error) => error.code === 'REAUTH_ACCOUNT_MISMATCH',
+  );
 });
