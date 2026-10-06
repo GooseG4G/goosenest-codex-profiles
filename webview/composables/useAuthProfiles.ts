@@ -1,5 +1,5 @@
 import { computed, onMounted, onUnmounted, readonly, shallowRef } from 'vue'
-import type { Profile, ProviderDraft } from '../types'
+import type { Profile, ProviderDraft, ProviderUpdate } from '../types'
 import { vscode } from '../vscode'
 
 export function useAuthProfiles() {
@@ -9,6 +9,7 @@ export function useAuthProfiles() {
   const addError = shallowRef(window.__CODEX_PROFILES_INITIAL_STATE__?.addError ?? '')
   const activationFailureCount = shallowRef(0)
   const activationWaitingProfileId = shallowRef<string | null>(null)
+  const providerUpdateCount = shallowRef(0)
   const orderedProfiles = computed(() => [...profiles.value].sort((left, right) => Number(right.active) - Number(left.active)))
 
   function post(type: string, payload: object = {}) {
@@ -29,6 +30,8 @@ export function useAuthProfiles() {
       activationFailureCount.value += 1
     } else if (message.type === 'activationWaiting') {
       activationWaitingProfileId.value = String(message.id || '') || null
+    } else if (message.type === 'providerUpdated') {
+      providerUpdateCount.value += 1
     }
   }
 
@@ -43,10 +46,13 @@ export function useAuthProfiles() {
     profiles: readonly(orderedProfiles), error: readonly(error), awaitingSignIn: readonly(awaitingSignIn),
     addError: readonly(addError), activationFailureCount: readonly(activationFailureCount),
     activationWaitingProfileId: readonly(activationWaitingProfileId),
+    providerUpdateCount: readonly(providerUpdateCount),
     activate: (id: string) => post('activate', { id }),
     deleteProfile: (id: string) => post('delete', { id }),
     beginAdd: () => post('beginAdd'),
+    reauthenticate: (id: string) => post('reauthenticate', { id }),
     addProvider: (draft: ProviderDraft) => post('addProvider', draft),
+    updateProvider: (update: ProviderUpdate) => post('updateProvider', update),
     cancelAdd: () => post('cancelAdd'),
     signIn: () => post('signIn'),
     retryAdd: () => post('retryAdd'),

@@ -4,27 +4,32 @@ import { useAuthProfiles } from './composables/useAuthProfiles'
 
 const {
   profiles, error, awaitingSignIn, addError,
-  activationFailureCount, activationWaitingProfileId,
-  activate, deleteProfile, beginAdd, addProvider, cancelAdd, signIn, retryAdd, setExpandedUsage,
+  activationFailureCount, activationWaitingProfileId, providerUpdateCount,
+  activate, deleteProfile, beginAdd, addProvider, updateProvider, cancelAdd, signIn, retryAdd, setExpandedUsage,
+  reauthenticate,
 } = useAuthProfiles()
 </script>
 
 <template>
   <main class="app">
-    <p v-if="error" class="message error">{{ error }}</p>
+    <p v-if="error && !error.toLocaleLowerCase().includes('provider named')" class="message error">{{ error }}</p>
     <ProfileTable
       :profiles="profiles"
+      :error="error"
       :awaiting-sign-in="awaitingSignIn"
       :add-error="addError"
       :activation-failure-count="activationFailureCount"
       :activation-waiting-profile-id="activationWaitingProfileId"
+      :provider-update-count="providerUpdateCount"
       @activate="activate"
       @delete="deleteProfile"
       @begin-add="beginAdd"
       @add-provider="addProvider"
+      @update-provider="updateProvider"
       @cancel-add="cancelAdd"
       @sign-in="signIn"
       @retry-add="retryAdd"
+      @reauthenticate="reauthenticate"
       @expanded-usage-change="setExpandedUsage"
     />
   </main>

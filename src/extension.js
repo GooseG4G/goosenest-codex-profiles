@@ -145,6 +145,12 @@ function upsertEnvValue(contents, key, value) {
   return `${nextLines.filter((line, index) => line || index < nextLines.length - 1).join('\n').trimEnd()}\n`;
 }
 
+function readEnvValue(contents, key) {
+  const escaped = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const match = contents.match(new RegExp(`^\\s*(?:export\\s+)?${escaped}\\s*=\\s*(.*)$`, 'm'));
+  return match ? match[1].trim() : '';
+}
+
 function removeEnvValue(contents, key) {
   const escaped = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const pattern = new RegExp(`^\\s*(?:export\\s+)?${escaped}\\s*=`);
@@ -294,13 +300,24 @@ function normalizeUsageResponse(result) {
   if (!primary && !secondary) throw new Error('Codex returned no usage windows.');
   const receivedAt = new Date().toISOString();
   return {
-    checkedAt: receivedAt,
+    status: 'ready',
+    fetchedAt: receivedAt,
     updatedAt: receivedAt,
     planType: typeof snapshot.planType === 'string' ? snapshot.planType : null,
     ordinaryUsageAllowed: typeof result.ordinaryUsageAllowed === 'boolean' ? result.ordinaryUsageAllowed : null,
     primary,
     secondary,
   };
+}
+
+function classifyUsageError(error) {
+  const message = error?.message || String(error);
+  if (error?.code === 'AUTH_EXPIRED' || /401|403|unauthori|forbidden|token expired|authentication expired/i.test(message)) {
+    return { code: 'AUTH_EXPIRED', message: 'Authentication expired.' };
+  }
+  if (/timed out|timeout/i.test(message)) return { code: 'TIMEOUT', message };
+  if (/network|connect|econn|socket/i.test(message)) return { code: 'NETWORK', message };
+  return { code: 'UNKNOWN', message };
 }
 
 async function readCodexUsage(codexHome) {
@@ -401,7 +418,13 @@ class ProfileStore {
       return {
         activeId: typeof parsed.activeId === 'string' ? parsed.activeId : null,
         profiles: Array.isArray(parsed.profiles)
-          ? parsed.profiles.map((profile) => ({ ...profile, kind: profile.kind || DEFAULT_KIND }))
+          ? parsed.profiles.map((profile) => ({
+            ...profile,
+            kind: profile.kind || DEFAULT_KIND,
+            usage: profile.usage
+              ? { ...profile.usage, fetchedAt: profile.usage.fetchedAt || profile.usage.checkedAt || null }
+              : profile.usage,
+          }))
           : [],
         pendingAdd: parsed.pendingAdd && typeof parsed.pendingAdd === 'object'
           ? { restoreProfileId: typeof parsed.pendingAdd.restoreProfileId === 'string' ? parsed.pendingAdd.restoreProfileId : null }
@@ -477,13 +500,13 @@ class ProfileStore {
       const profilePath = path.join(this.profilesDirectory, `${profile.id}.json`);
       if (!(await exists(profilePath))) continue;
       const active = profile.id === state.activeId;
-      const checkedAt = Date.parse(profile.usage?.checkedAt || '');
+      const fetchedAt = Date.parse(profile.usage?.fetchedAt || '');
       const hot = active || hotIds.has(profile.id);
       const requested = requestedIds.has(profile.id);
       if (!hot && !requested) continue;
       if (!requested && !includeScheduled) continue;
-      if (Number.isFinite(checkedAt) && now - checkedAt < MIN_USAGE_REQUEST_INTERVAL_MS) {
-        nextDueIn = Math.min(nextDueIn, MIN_USAGE_REQUEST_INTERVAL_MS - (now - checkedAt));
+      if (Number.isFinite(fetchedAt) && now - fetchedAt < MIN_USAGE_REQUEST_INTERVAL_MS) {
+        nextDueIn = Math.min(nextDueIn, MIN_USAGE_REQUEST_INTERVAL_MS - (now - fetchedAt));
         continue;
       }
       const contents = await fs.promises.readFile(profilePath);
@@ -603,6 +626,11 @@ class ProfileStore {
     const fallback = `Profile ${state.profiles.length + 1}`;
     const info = getProfileInfo(contents.toString('utf8'), fallback);
     let current = findProfile(state.profiles, info, fingerprint);
+    // Re-authentication may intentionally replace the selected profile when the
+    // newly signed-in account is not already tracked.
+    if (!current && state.pendingAdd?.restoreProfileId) {
+      current = state.profiles.find((profile) => profile.id === state.pendingAdd.restoreProfileId) || null;
+    }
     if (!current) {
       const id = createProfileId(info.name);
       const now = new Date().toISOString();
@@ -731,13 +759,11 @@ class ProfileStore {
     await this.writeState(state);
   }
 
-  async addProvider({ name, baseUrl, token }) {
+  validateProviderInput(name, baseUrl) {
     const cleanName = String(name || '').trim();
     const cleanBaseUrl = String(baseUrl || '').trim();
-    const cleanToken = String(token || '').trim();
     if (!cleanName) throw new Error('Provider name is required.');
     if (!cleanBaseUrl) throw new Error('Base URL is required.');
-    if (!cleanToken) throw new Error('Access token is required.');
     let parsedUrl;
     try {
       parsedUrl = new URL(cleanBaseUrl);
@@ -745,8 +771,21 @@ class ProfileStore {
       throw new Error('Base URL must be a valid URL.');
     }
     if (!['http:', 'https:'].includes(parsedUrl.protocol)) throw new Error('Base URL must use http or https.');
+    return { cleanName, cleanBaseUrl };
+  }
+
+  async addProvider({ name, baseUrl, token }) {
+    const { cleanName, cleanBaseUrl } = this.validateProviderInput(name, baseUrl);
+    const cleanToken = String(token || '').trim();
+    if (!cleanToken) throw new Error('Access token is required.');
 
     const state = await this.syncCurrent();
+    const normalizedName = cleanName.toLocaleLowerCase();
+    const duplicate = state.profiles.find((profile) =>
+      (profile.kind || DEFAULT_KIND) === PROVIDER_KIND
+      && String(profile.name || '').trim().toLocaleLowerCase() === normalizedName
+    );
+    if (duplicate) throw new Error(`A provider named "${cleanName}" already exists.`);
     const baseSlug = createProviderSlug(cleanName);
     let provider = baseSlug;
     let suffix = 2;
@@ -774,10 +813,45 @@ class ProfileStore {
     return profile.name;
   }
 
-  async beginAddProfile() {
+  async updateProvider({ id, name, baseUrl, token }) {
+    const { cleanName, cleanBaseUrl } = this.validateProviderInput(name, baseUrl);
+    const cleanToken = String(token || '').trim();
+    const state = await this.syncCurrent();
+    const profile = state.profiles.find((item) => item.id === id && (item.kind || DEFAULT_KIND) === PROVIDER_KIND);
+    if (!profile) throw new Error('Provider profile not found.');
+
+    const normalizedName = cleanName.toLocaleLowerCase();
+    const duplicate = state.profiles.find((item) =>
+      item.id !== id
+      && (item.kind || DEFAULT_KIND) === PROVIDER_KIND
+      && String(item.name || '').trim().toLocaleLowerCase() === normalizedName
+    );
+    if (duplicate) throw new Error(`A provider named "${cleanName}" already exists.`);
+
+    const envContents = await this.readTextIfExists(this.envPath);
+    const tokenToStore = cleanToken || readEnvValue(envContents, profile.envKey);
+    if (!tokenToStore) throw new Error('Access token is required.');
+    await writeAtomic(this.envPath, upsertEnvValue(envContents, profile.envKey, tokenToStore));
+
+    profile.name = cleanName;
+    profile.baseUrl = cleanBaseUrl;
+    profile.updatedAt = new Date().toISOString();
+    const active = state.activeId === profile.id;
+    if (active) {
+      const configContents = await this.readTextIfExists(this.configPath);
+      await this.backupConfig();
+      await writeAtomic(this.configPath, appendProviderConfig(configContents, profile));
+      profile.lastSeenAt = new Date().toISOString();
+    }
+    await this.writeState(state);
+    return { name: profile.name, active };
+  }
+
+  async beginAddProfile(restoreProfileId = null) {
     // Save the latest tokens without calling Codex logout, which could revoke the session.
     const state = await this.syncCurrent();
-    state.pendingAdd = { restoreProfileId: state.activeId };
+    const restoreId = restoreProfileId || state.activeId;
+    state.pendingAdd = { restoreProfileId: restoreId };
     await this.applyDefaultConfig(state);
     await fs.promises.rm(this.authPath, { force: true });
     state.activeId = null;
@@ -808,7 +882,7 @@ class ProfileStore {
     const state = await this.syncCurrent();
     const profile = state.profiles.find((item) => item.id === id);
     if (!profile) throw new Error('Profile not found.');
-    if (profile.id === state.activeId) throw new Error('The active profile cannot be deleted.');
+    const active = profile.id === state.activeId;
     if ((profile.kind || DEFAULT_KIND) === PROVIDER_KIND) {
       const configContents = await this.readTextIfExists(this.configPath);
       await this.backupConfig();
@@ -817,9 +891,12 @@ class ProfileStore {
       await writeAtomic(this.envPath, removeEnvValue(envContents, profile.envKey));
     } else {
       await fs.promises.rm(path.join(this.profilesDirectory, `${profile.id}.json`), { force: true });
+      if (profile.id === state.activeId) await fs.promises.rm(this.authPath, { force: true });
     }
     state.profiles = state.profiles.filter((item) => item.id !== id);
+    if (active) state.activeId = null;
     await this.writeState(state);
+    return { active };
   }
 
 }
@@ -951,14 +1028,17 @@ class UsagePoller {
             await this.notify();
           } catch (error) {
             console.error(`Codex Profiles: usage refresh failed for ${target.id}`, error);
+            const usageError = classifyUsageError(error);
             const lastSuccessfulUpdate = target.usage?.updatedAt
-              || (target.usage?.error ? null : target.usage?.checkedAt)
+              || (target.usage?.error ? null : target.usage?.fetchedAt)
               || null;
             await this.store.commitUsage(target, {
               ...target.usage,
-              checkedAt: new Date().toISOString(),
+              status: 'error',
+              fetchedAt: new Date().toISOString(),
               updatedAt: lastSuccessfulUpdate,
-              error: error.message || String(error),
+              errorCode: usageError.code,
+              error: usageError.message,
             }, null);
             await this.notify();
           } finally {
@@ -1000,13 +1080,13 @@ class ProfilesViewProvider {
     view.webview.options = { enableScripts: true, localResourceRoots: [] };
     view.webview.onDidReceiveMessage((message) => this.handleMessage(message));
     view.webview.html = this.getLoadingHtml();
-    const [html] = await Promise.all([this.getHtml(view.webview), delay(650)]);
+    const [html] = await Promise.all([this.getHtml(view.webview), delay(800)]);
     view.webview.html = html;
   }
 
   getLoadingHtml() {
     const nonce = crypto.randomBytes(16).toString('base64');
-    return `<!doctype html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'nonce-${nonce}';"><style nonce="${nonce}">html,body{margin:0;width:100%;height:100%;overflow:hidden;background:var(--vscode-sideBar-background)}body{display:grid;place-items:center}.loading-logo{display:block;width:44px;height:44px;color:var(--vscode-descriptionForeground)}.loading-base{opacity:.55}.loading-highlight{color:var(--vscode-foreground)}.loading-sweep{transform:translateX(-18px);animation:loading-shimmer 650ms linear 1 forwards}@keyframes loading-shimmer{to{transform:translateX(54px)}}@media(prefers-reduced-motion:reduce){.loading-highlight{display:none}}</style><title>Codex Profiles</title></head><body><svg class="loading-logo" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label="Loading Codex Profiles"><defs><linearGradient id="loading-fade"><stop offset="0" stop-color="black"/><stop offset=".5" stop-color="white"/><stop offset="1" stop-color="black"/></linearGradient><mask id="loading-mask" maskUnits="userSpaceOnUse"><rect class="loading-sweep" x="0" y="0" width="12" height="24" fill="url(#loading-fade)"/></mask></defs><g class="loading-base"><path d="M4 7h14m-3-3 3 3-3 3"/><path d="M20 17H6m3 3-3-3 3-3"/></g><g class="loading-highlight" mask="url(#loading-mask)"><path d="M4 7h14m-3-3 3 3-3 3"/><path d="M20 17H6m3 3-3-3 3-3"/></g></svg></body></html>`;
+    return `<!doctype html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'nonce-${nonce}';"><style nonce="${nonce}">html,body{box-sizing:border-box;margin:0;width:100vw;height:100vh;overflow:hidden;background:var(--vscode-sideBar-background)}body{position:fixed;inset:0}.loading-logo{position:fixed;top:50%;left:50%;display:block;width:44px;height:44px;transform:translate(-50%,-50%);color:var(--vscode-descriptionForeground)}.loading-base{opacity:.55}.loading-highlight{color:var(--vscode-foreground)}.loading-sweep{transform:translateX(-18px);animation:loading-shimmer 650ms linear 1 forwards}@keyframes loading-shimmer{to{transform:translateX(54px)}}@media(prefers-reduced-motion:reduce){.loading-highlight{display:none}}</style><title>Codex Profiles</title></head><body><svg class="loading-logo" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label="Loading Codex Profiles"><defs><linearGradient id="loading-fade"><stop offset="0" stop-color="black"/><stop offset=".5" stop-color="white"/><stop offset="1" stop-color="black"/></linearGradient><mask id="loading-mask" maskUnits="userSpaceOnUse"><rect class="loading-sweep" x="0" y="0" width="12" height="24" fill="url(#loading-fade)"/></mask></defs><g class="loading-base"><path d="M4 7h14m-3-3 3 3-3 3"/><path d="M20 17H6m3 3-3-3 3-3"/></g><g class="loading-highlight" mask="url(#loading-mask)"><path d="M4 7h14m-3-3 3 3-3 3"/><path d="M20 17H6m3 3-3-3 3-3"/></g></svg></body></html>`;
   }
 
   async handleMessage(message) {
@@ -1029,8 +1109,8 @@ class ProfilesViewProvider {
         await vscode.commands.executeCommand('workbench.action.restartExtensionHost');
         return;
       }
-      if (message.type === 'beginAdd') {
-        await this.store.beginAddProfile();
+      if (message.type === 'beginAdd' || message.type === 'reauthenticate') {
+        await this.store.beginAddProfile(message.type === 'reauthenticate' ? String(message.id || '') : null);
         await vscode.commands.executeCommand('workbench.action.restartExtensionHost');
         return;
       }
@@ -1041,6 +1121,21 @@ class ProfilesViewProvider {
           token: message.token,
         });
         await vscode.commands.executeCommand('workbench.action.restartExtensionHost');
+        return;
+      }
+      if (message.type === 'updateProvider') {
+        const result = await this.store.updateProvider({
+          id: String(message.id || ''),
+          name: message.name,
+          baseUrl: message.baseUrl,
+          token: message.token,
+        });
+        if (result.active) {
+          await vscode.commands.executeCommand('workbench.action.restartExtensionHost');
+        } else {
+          await this.sendState();
+          this.post({ type: 'providerUpdated' });
+        }
         return;
       }
       if (message.type === 'cancelAdd') {
@@ -1054,8 +1149,12 @@ class ProfilesViewProvider {
       }
       if (message.type === 'retryAdd') return await this.sendState({ retry: true });
       if (message.type === 'delete') {
-        await this.store.delete(String(message.id || ''));
-        await this.sendState();
+        const result = await this.store.delete(String(message.id || ''));
+        if (result.active) {
+          await vscode.commands.executeCommand('workbench.action.restartExtensionHost');
+        } else {
+          await this.sendState();
+        }
         return;
       }
       await this.sendState();
@@ -1073,6 +1172,7 @@ class ProfilesViewProvider {
       ...state,
       profiles: state.profiles.map((profile) => ({
         ...profile,
+          authExpired: profile.usage?.errorCode === 'AUTH_EXPIRED',
         busy: busyIds.has(profile.id),
       })),
     });

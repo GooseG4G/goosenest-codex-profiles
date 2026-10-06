@@ -29,11 +29,17 @@ function updatePosition() {
   let left: number
 
   if (props.placement === 'horizontal') {
-    const placeRight = anchorRect.left < window.innerWidth - anchorRect.right
+    const rightSpace = window.innerWidth - anchorRect.right
+    const leftSpace = anchorRect.left
+    const placeRight = rightSpace >= tipRect.width + gap || rightSpace >= leftSpace
     top = anchorRect.top + (anchorRect.height - tipRect.height) / 2
     left = placeRight ? anchorRect.right + gap : anchorRect.left - tipRect.width - gap
   } else {
-    top = anchorRect.top - tipRect.height - gap
+    // Prefer the vertical axis for tooltips; flip below only when above is tight.
+    const aboveSpace = anchorRect.top
+    const belowSpace = window.innerHeight - anchorRect.bottom
+    const placeAbove = aboveSpace >= tipRect.height + gap || aboveSpace >= belowSpace
+    top = placeAbove ? anchorRect.top - tipRect.height - gap : anchorRect.bottom + gap
     left = anchorRect.left + (anchorRect.width - tipRect.width) / 2
   }
 
@@ -88,7 +94,7 @@ onUnmounted(() => {
 <style scoped>
 .tooltip {
   position: fixed;
-  z-index: 1000;
+  z-index: 1100;
   box-sizing: border-box;
   max-width: min(240px, calc(100vw - 12px));
   padding: 4px 7px;

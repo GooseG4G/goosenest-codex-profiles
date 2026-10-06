@@ -69,7 +69,7 @@ const buttonClasses = computed(() => [
   >
     <span class="icon" aria-hidden="true"><slot name="icon" /></span>
     <span v-if="$slots.default" class="label"><slot /></span>
-    <UITooltip :id="tooltipId" :anchor="button" :text="tooltipText" :open="isTooltipOpen" placement="horizontal" />
+    <UITooltip :id="tooltipId" :anchor="button" :text="tooltipText" :open="isTooltipOpen" />
   </button>
 </template>
 
@@ -96,7 +96,7 @@ const buttonClasses = computed(() => [
   transform-origin: center;
   backface-visibility: hidden;
   will-change: transform;
-  transition: transform 180ms ease, background-color 160ms ease, border-color 160ms ease;
+  transition: transform 180ms ease, background-color 160ms ease, border-color 160ms ease, color 160ms ease;
 }
 .size-small { width: 28px; height: 28px; padding: 5px; font-size: 11px; }
 .size-medium { min-height: 28px; padding: 5px 9px; font-size: 12px; }
@@ -106,18 +106,19 @@ const buttonClasses = computed(() => [
   --button-pressed-background: var(--vscode-inputValidation-errorBackground, var(--vscode-toolbar-hoverBackground));
 }
 .background-always { background: var(--button-background); }
-.background-always:hover { background: var(--button-hover-background); }
+.background-always:hover, .background-always:focus-visible { background: var(--button-hover-background); }
 .background-hover { color: var(--button-foreground); background: transparent; }
-.background-hover:hover { color: var(--button-foreground); background: var(--button-hover-background); }
+.background-hover:hover, .background-hover:focus-visible { color: var(--button-foreground); background: var(--button-hover-background); }
 .background-never { color: var(--button-foreground); background: transparent; }
-.background-never:hover { color: var(--button-foreground); background: transparent; }
+.background-never:hover, .background-never:focus-visible { color: var(--button-foreground); background: transparent; }
 .icon-button:focus-visible { border-color: var(--vscode-focusBorder); }
 .icon-button.is-selected { color: var(--button-foreground); background: var(--button-hover-background); }
 .icon-button:active { background: var(--button-pressed-background); }
-.surface-lift:hover { transform: translate3d(0, -2px, 0) scale(1); }
+.surface-lift:hover, .surface-lift:focus-visible { transform: translate3d(0, -2px, 0) scale(1); }
 .surface-lift:active { transform: translate3d(0, 1px, 0) scale(.98); }
-.surface-scale:hover { transform: scale(1.04); }
+.surface-scale:hover, .surface-scale:focus-visible { transform: scale(1.04); }
 .surface-scale:active { transform: scale(.98); }
+.surface-none { transform: none; }
 .icon {
   display: inline-flex;
   width: 15px;
@@ -129,18 +130,19 @@ const buttonClasses = computed(() => [
   will-change: transform;
   transition: transform 180ms ease;
 }
-.icon :deep(svg) { display: block; width: 100%; height: 100%; }
-.surface-none.icon-together:hover .icon { transform: scale(1.08); }
-.surface-none.icon-together:active .icon { transform: scale(.94); }
-.icon-spin:hover .icon { transform: rotate(180deg); }
+.icon :deep(svg) { display: block; width: 100%; height: 100%; pointer-events: none; }
+.icon-together:hover .icon, .icon-together:focus-visible .icon { transform: scale(1.12); }
+.icon-together:active .icon { transform: scale(.92); }
+.icon-spin:hover .icon, .icon-spin:focus-visible .icon { transform: rotate(180deg); }
 .icon-spin:active .icon { transform: rotate(320deg) scale(.9); }
-.icon-tilt-clockwise:hover .icon { transform: rotate(12deg); }
+.icon-tilt-clockwise:hover .icon, .icon-tilt-clockwise:focus-visible .icon { transform: rotate(12deg); }
 .icon-tilt-clockwise:active .icon { transform: rotate(-5deg) scale(.9); }
-.icon-tilt-counterclockwise:hover .icon { transform: rotate(-12deg); }
+.icon-tilt-counterclockwise:hover .icon, .icon-tilt-counterclockwise:focus-visible .icon { transform: rotate(-12deg); }
 .icon-tilt-counterclockwise:active .icon { transform: rotate(5deg) scale(.9); }
-.icon-shift-diagonal:hover .icon { transform: translate3d(2px, -2px, 0); }
+.icon-shift-diagonal:hover .icon, .icon-shift-diagonal:focus-visible .icon { transform: translate3d(2px, -2px, 0); }
 .icon-shift-diagonal:active .icon { transform: translate3d(-1px, 1px, 0) scale(.9); }
-.icon-button:disabled { color: var(--vscode-disabledForeground); background: transparent; cursor: default; transform: none; }
+.icon-none .icon { transform: none; }
+.icon-button:disabled { color: var(--vscode-disabledForeground); background: transparent; cursor: default; transform: none; transition: none; }
 .icon-button:disabled .icon { opacity: .65; transform: none; }
 .icon-button:disabled .label { opacity: .65; }
 .label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
