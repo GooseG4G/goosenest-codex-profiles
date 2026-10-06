@@ -10,7 +10,7 @@ Manage multiple Codex accounts and OpenAI-compatible providers from the VS Code 
 - add accounts through the official Codex sign-in flow;
 - view usage limits and reset times reported by Codex;
 - configure OpenAI-compatible providers;
-- keep refreshed credentials and back up replaced configuration.
+- keep account data local.
 
 ## Getting Started
 
@@ -27,9 +27,9 @@ Manage multiple Codex accounts and OpenAI-compatible providers from the VS Code 
 
 You can also use **Add provider** to configure an OpenAI-compatible endpoint instead of another OpenAI account.
 
-## How Switching Works
+## Switching Accounts
 
-Codex Profiles saves the latest credentials for the current account, activates the selected account, and restarts the Extension Host so Codex reads the change. The VS Code window and workspace remain open. A switch waits for any active credential refresh to finish before replacing authentication.
+Select a saved account and confirm the switch. Codex Profiles restarts the Extension Host while the VS Code window and workspace remain open. Your Codex home and conversation history stay in place.
 
 ## Usage Limits
 
@@ -39,13 +39,11 @@ Usage data refreshes at most once per minute for the active account and any expa
 
 ## OpenAI-Compatible Providers
 
-A provider profile contains a display name, base URL, and access token. Activating it updates the local Codex configuration. Custom providers may keep their conversations separately from OpenAI account history.
+A provider profile contains a display name, base URL, and access token. Custom providers may keep their conversations separately from OpenAI account history.
 
 ## Local Data
 
 Profiles, provider tokens, and cached usage data stay on your machine. Codex Profiles has no remote service or telemetry of its own.
-
-Before replacing active authentication or provider settings, the extension creates local backups of `auth.json` and `config.toml`.
 
 VS Code windows using the same `CODEX_HOME` also use the same active Codex authentication. Switching in one of those windows therefore changes the account used by the others.
 
