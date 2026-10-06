@@ -8,7 +8,15 @@ declare function acquireVsCodeApi(): { postMessage(message: unknown): void }
 
 interface Window {
   __CODEX_PROFILES_INITIAL_STATE__?: {
-    profiles: Array<{ id: string; name: string; active: boolean }>
+    profiles: Array<{
+      id: string
+      kind: 'default' | 'provider'
+      name: string
+      active: boolean
+      baseUrl?: string
+      envKey?: string
+      provider?: string
+    }>
     awaitingSignIn?: boolean
     addError?: string | null
   }

@@ -1,17 +1,20 @@
 <script setup lang="ts">
-import { computed, shallowRef } from 'vue'
-import type { Profile } from '../types'
+import { computed, onUnmounted, shallowRef, watch } from 'vue'
+import type { Profile, ProviderDraft } from '../types'
 import TrashIcon from './icons/TrashIcon.vue'
 import PersonAddIcon from './icons/PersonAddIcon.vue'
+import UsersIcon from './icons/UsersIcon.vue'
 import CloseIcon from './icons/CloseIcon.vue'
 import UIConfirmDialog from './ui/UIConfirmDialog.vue'
 import UIIconButton from './ui/UIIconButton.vue'
+import UIButton from './ui/UIButton.vue'
 
 const props = defineProps<{ profiles: readonly Profile[]; awaitingSignIn: boolean; addError: string }>()
 const emit = defineEmits<{
   activate: [id: string]
   delete: [id: string]
   beginAdd: []
+  addProvider: [draft: ProviderDraft]
   cancelAdd: []
   signIn: []
   retryAdd: []
@@ -21,11 +24,21 @@ const query = shallowRef('')
 const pendingSwitchProfile = shallowRef<Profile | null>(null)
 const pendingDeleteProfile = shallowRef<Profile | null>(null)
 const isAddPending = shallowRef(false)
+const isProviderFormOpen = shallowRef(false)
+const providerName = shallowRef('')
+const providerBaseUrl = shallowRef('')
+const providerToken = shallowRef('')
 const visibleProfiles = computed(() => {
   const normalizedQuery = query.value.trim().toLocaleLowerCase()
   if (!normalizedQuery) return props.profiles
-  return props.profiles.filter((profile) => profile.name.toLocaleLowerCase().includes(normalizedQuery))
+  return props.profiles.filter((profile) =>
+    [profile.name, profile.provider, profile.baseUrl, profile.envKey]
+      .some((value) => value?.toLocaleLowerCase().includes(normalizedQuery))
+  )
 })
+const canAddProvider = computed(() =>
+  providerName.value.trim() !== '' && providerBaseUrl.value.trim() !== '' && providerToken.value.trim() !== ''
+)
 
 function requestActivation(profile: Profile) {
   if (profile.active) return
@@ -63,6 +76,56 @@ function confirmAdd() {
   isAddPending.value = false
   emit('beginAdd')
 }
+
+function blurActiveElement() {
+  if (document.activeElement instanceof HTMLElement) document.activeElement.blur()
+}
+
+function openProviderForm(event?: MouseEvent) {
+  if (event?.currentTarget instanceof HTMLElement) event.currentTarget.blur()
+  isProviderFormOpen.value = true
+}
+
+function closeProviderForm() {
+  isProviderFormOpen.value = false
+  providerName.value = ''
+  providerBaseUrl.value = ''
+  providerToken.value = ''
+  window.setTimeout(blurActiveElement, 0)
+}
+
+function submitProvider() {
+  if (!canAddProvider.value) return
+  emit('addProvider', {
+    name: providerName.value.trim(),
+    baseUrl: providerBaseUrl.value.trim(),
+    token: providerToken.value.trim(),
+  })
+  closeProviderForm()
+}
+
+function getProfileMeta(profile: Profile) {
+  if (profile.kind === 'provider') return profile.baseUrl ?? ''
+  return 'OpenAI'
+}
+
+function handleProviderFormKeydown(event: KeyboardEvent) {
+  if (!isProviderFormOpen.value) return
+  if (event.key === 'Escape') {
+    event.preventDefault()
+    closeProviderForm()
+  } else if (event.key === 'Enter') {
+    event.preventDefault()
+    submitProvider()
+  }
+}
+
+watch(isProviderFormOpen, (open) => {
+  if (open) window.addEventListener('keydown', handleProviderFormKeydown)
+  else window.removeEventListener('keydown', handleProviderFormKeydown)
+})
+
+onUnmounted(() => window.removeEventListener('keydown', handleProviderFormKeydown))
 </script>
 
 <template>
@@ -98,12 +161,24 @@ function confirmAdd() {
         title="Add profile"
         class="add-button"
         background="always"
-        surface-motion="scale"
+        surface-motion="none"
         icon-motion="together"
         size="medium"
         @click="isAddPending = true"
       >
         <template #icon><PersonAddIcon /></template>
+      </UIIconButton>
+      <UIIconButton
+        accessible-label="Add provider"
+        title="Add provider"
+        class="add-button"
+        background="always"
+        surface-motion="none"
+        icon-motion="together"
+        size="medium"
+        @click="openProviderForm"
+      >
+        <template #icon><UsersIcon /></template>
       </UIIconButton>
     </div>
 
@@ -128,7 +203,10 @@ function confirmAdd() {
         >
           <td class="identity">
             <span class="dot" aria-hidden="true" />
-            <span class="name" :title="profile.name">{{ profile.name }}</span>
+            <span class="profile-copy">
+              <span class="name">{{ profile.name }}</span>
+              <span class="meta">{{ getProfileMeta(profile) }}</span>
+            </span>
           </td>
           <td class="action">
             <UIIconButton
@@ -155,12 +233,44 @@ function confirmAdd() {
 
     <UIConfirmDialog
       :open="isAddPending"
-      title="Add profile?"
+      title="Add OpenAI profile?"
       message="The current profile will remain saved. VS Code will reload and wait for another Codex sign-in."
       confirm-label="Continue"
       @confirm="confirmAdd"
       @cancel="isAddPending = false"
     />
+    <div
+      v-if="isProviderFormOpen"
+      class="backdrop"
+      @click.self="closeProviderForm"
+    >
+      <form class="provider-dialog" @submit.prevent="submitProvider">
+        <h2 class="dialog-title">Add provider</h2>
+        <label class="field">
+          <span class="field-label">Name</span>
+          <input v-model="providerName" class="field-input" type="text" autocomplete="off" autofocus>
+        </label>
+        <label class="field">
+          <span class="field-label">Base URL</span>
+          <input v-model="providerBaseUrl" class="field-input" type="url" autocomplete="off">
+        </label>
+        <label class="field">
+          <span class="field-label">Token</span>
+          <input v-model="providerToken" class="field-input" type="password" autocomplete="off">
+        </label>
+        <div class="actions">
+          <UIButton @click="closeProviderForm">Cancel</UIButton>
+          <UIButton
+            variant="primary"
+            :disabled="!canAddProvider"
+            :tooltip="canAddProvider ? undefined : 'Action unavailable'"
+            @click="submitProvider"
+          >
+            Add
+          </UIButton>
+        </div>
+      </form>
+    </div>
     <UIConfirmDialog
       :open="props.awaitingSignIn"
       :title="props.addError ? 'Authentication problem' : 'Waiting for sign-in'"
@@ -278,9 +388,50 @@ function confirmAdd() {
 td.identity { display: flex; align-items: center; gap: 7px; }
 .dot { width: 7px; height: 7px; flex: 0 0 auto; border-radius: 50%; background: var(--vscode-descriptionForeground); }
 .active .dot { background: var(--vscode-testing-iconPassed, #73c991); }
+.profile-copy { display: flex; min-width: 0; flex-direction: column; justify-content: center; gap: 2px; }
 .name { overflow: hidden; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.meta { overflow: hidden; color: var(--vscode-descriptionForeground); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
 .action { width: 1%; text-align: right !important; white-space: nowrap; }
 .empty { color: var(--vscode-descriptionForeground); text-align: center; }
+.backdrop {
+  position: fixed;
+  z-index: 100;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgb(0 0 0 / 48%);
+}
+.provider-dialog {
+  box-sizing: border-box;
+  display: flex;
+  width: min(100%, 360px);
+  flex-direction: column;
+  gap: 10px;
+  padding: 18px;
+  color: var(--vscode-foreground);
+  border: 1px solid var(--vscode-widget-border);
+  border-radius: 8px;
+  background: var(--vscode-editorWidget-background);
+  box-shadow: 0 10px 32px rgb(0 0 0 / 32%);
+}
+.dialog-title { margin: 0 0 2px; font-size: 15px; font-weight: 600; }
+.field { display: flex; flex-direction: column; gap: 5px; }
+.field-label { color: var(--vscode-descriptionForeground); font-size: 11px; font-weight: 600; }
+.field-input {
+  box-sizing: border-box;
+  width: 100%;
+  height: 38px;
+  padding: 6px 10px;
+  color: var(--vscode-input-foreground);
+  border: 1px solid var(--vscode-widget-border);
+  border-radius: 7px;
+  outline: none;
+  background: var(--vscode-editor-background);
+  font: inherit;
+}
+.field-input:focus { border-color: var(--vscode-focusBorder); }
+.actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 6px; }
 .visually-hidden {
   position: absolute;
   width: 1px;

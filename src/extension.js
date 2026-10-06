@@ -7,6 +7,8 @@ const vscode = require('vscode');
 const VIEW_ID = 'codexProfiles.profilesView';
 const AUTH_READ_RETRY_COUNT = 5;
 const AUTH_READ_RETRY_DELAY_MS = 250;
+const DEFAULT_KIND = 'default';
+const PROVIDER_KIND = 'provider';
 
 function delay(milliseconds) {
   return new Promise((resolve) => setTimeout(resolve, milliseconds));
@@ -20,6 +22,94 @@ function getCodexHome() {
 function createProfileId(name) {
   const slug = name.trim().toLowerCase().replace(/[^\p{L}\p{N}_-]+/gu, '-').replace(/^-+|-+$/g, '').slice(0, 48);
   return `${slug || 'profile'}-${crypto.randomBytes(4).toString('hex')}`;
+}
+
+function createProviderSlug(name) {
+  return name.trim().toLowerCase().replace(/[^\p{L}\p{N}_-]+/gu, '-').replace(/^-+|-+$/g, '').slice(0, 48) || 'provider';
+}
+
+function createEnvKey(name) {
+  const key = name.trim().toUpperCase().replace(/[^\p{L}\p{N}]+/gu, '_').replace(/^_+|_+$/g, '');
+  return `${key || 'PROVIDER'}_ACCESS_TOKEN`;
+}
+
+function tomlString(value) {
+  return JSON.stringify(String(value));
+}
+
+function normalizeTomlSpacing(contents) {
+  return contents
+    .replace(/^(?:[ \t]*\r?\n)+/, '')
+    .replace(/\n{3,}/g, '\n\n')
+    .trimEnd();
+}
+
+function formatTomlFile(contents) {
+  const normalized = normalizeTomlSpacing(contents);
+  return normalized ? `${normalized}\n` : '';
+}
+
+function stripManagedProviderConfig(contents, providers) {
+  const providerSet = new Set(providers.filter(Boolean));
+  const lines = contents.split(/\r?\n/);
+  const output = [];
+  let skippingProvider = false;
+
+  for (const line of lines) {
+    const tableMatch = line.match(/^\s*\[([^\]]+)]\s*$/);
+    if (tableMatch) {
+      const providerMatch = tableMatch[1].match(/^model_providers\.([^\].]+)$/);
+      skippingProvider = providerMatch ? providerSet.has(providerMatch[1]) : false;
+      if (skippingProvider) continue;
+    }
+    if (skippingProvider) continue;
+    if (/^\s*model_provider\s*=/.test(line)) continue;
+    output.push(line);
+  }
+
+  return normalizeTomlSpacing(output.join('\n'));
+}
+
+function appendProviderConfig(contents, profile) {
+  const base = stripManagedProviderConfig(contents, [profile.provider]);
+  const providerBlock = [
+    `[model_providers.${profile.provider}]`,
+    `name = ${tomlString(profile.name)}`,
+    `base_url = ${tomlString(profile.baseUrl)}`,
+    `env_key = ${tomlString(profile.envKey)}`,
+    'wire_api = "responses"',
+  ].join('\n');
+  const rootProvider = `model_provider = ${tomlString(profile.provider)}`;
+  return formatTomlFile(`${rootProvider}\n\n${base ? `${base}\n\n` : ''}${providerBlock}`);
+}
+
+function readRootModelProvider(contents) {
+  for (const line of contents.split(/\r?\n/)) {
+    if (/^\s*\[/.test(line)) return null;
+    const match = line.match(/^\s*model_provider\s*=\s*(['"])(.*?)\1\s*(?:#.*)?$/);
+    if (match) return match[2];
+  }
+  return null;
+}
+
+function upsertEnvValue(contents, key, value) {
+  const lines = contents.split(/\r?\n/);
+  const escaped = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const pattern = new RegExp(`^\\s*(?:export\\s+)?${escaped}\\s*=`);
+  let replaced = false;
+  const nextLines = lines.map((line) => {
+    if (!pattern.test(line)) return line;
+    replaced = true;
+    return `${key}=${value}`;
+  });
+  if (!replaced) nextLines.push(`${key}=${value}`);
+  return `${nextLines.filter((line, index) => line || index < nextLines.length - 1).join('\n').trimEnd()}\n`;
+}
+
+function removeEnvValue(contents, key) {
+  const escaped = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const pattern = new RegExp(`^\\s*(?:export\\s+)?${escaped}\\s*=`);
+  return `${contents.split(/\r?\n/).filter((line) => !pattern.test(line)).join('\n').trimEnd()}\n`;
 }
 
 function getProfileInfo(contents, fallback) {
@@ -53,20 +143,21 @@ function getProfileInfo(contents, fallback) {
 }
 
 function findProfile(profiles, info, fingerprint) {
+  const authProfiles = profiles.filter((profile) => (profile.kind || DEFAULT_KIND) === DEFAULT_KIND);
   if (info.accountId) {
-    const accountMatch = profiles.find((profile) =>
+    const accountMatch = authProfiles.find((profile) =>
       profile.accountId === info.accountId || profile.identity === `account:${info.accountId}`
     );
     if (accountMatch) return accountMatch;
   }
   if (info.email) {
-    const emailMatch = profiles.find((profile) =>
+    const emailMatch = authProfiles.find((profile) =>
       (!info.accountId || !profile.accountId)
       && (profile.email === info.email || profile.identity === `email:${info.email}`)
     );
     if (emailMatch) return emailMatch;
   }
-  return profiles.find((profile) => profile.fingerprint === fingerprint);
+  return authProfiles.find((profile) => profile.fingerprint === fingerprint);
 }
 
 function getAuthFreshness(contents, modifiedAt) {
@@ -120,18 +211,23 @@ async function writeAtomic(target, contents) {
 class ProfileStore {
   constructor(context) {
     this.profilesDirectory = path.join(context.globalStorageUri.fsPath, 'auth-profiles');
+    this.configSnapshotsDirectory = path.join(context.globalStorageUri.fsPath, 'config-profiles');
     this.statePath = path.join(context.globalStorageUri.fsPath, 'profiles.json');
     this.syncQueue = Promise.resolve();
   }
 
   get authPath() { return path.join(getCodexHome(), 'auth.json'); }
+  get configPath() { return path.join(getCodexHome(), 'config.toml'); }
+  get envPath() { return path.join(getCodexHome(), '.env'); }
 
   async readState() {
     try {
       const parsed = JSON.parse(await fs.promises.readFile(this.statePath, 'utf8'));
       return {
         activeId: typeof parsed.activeId === 'string' ? parsed.activeId : null,
-        profiles: Array.isArray(parsed.profiles) ? parsed.profiles : [],
+        profiles: Array.isArray(parsed.profiles)
+          ? parsed.profiles.map((profile) => ({ ...profile, kind: profile.kind || DEFAULT_KIND }))
+          : [],
         pendingAdd: parsed.pendingAdd && typeof parsed.pendingAdd === 'object'
           ? { restoreProfileId: typeof parsed.pendingAdd.restoreProfileId === 'string' ? parsed.pendingAdd.restoreProfileId : null }
           : null,
@@ -162,8 +258,19 @@ class ProfileStore {
     }
     const profiles = [];
     for (const profile of state.profiles) {
-      if (await exists(path.join(this.profilesDirectory, `${profile.id}.json`))) {
-        profiles.push({ id: profile.id, name: profile.name, active: profile.id === state.activeId });
+      const kind = profile.kind || DEFAULT_KIND;
+      if (kind === PROVIDER_KIND) {
+        profiles.push({
+          id: profile.id,
+          kind,
+          name: profile.name,
+          provider: profile.provider,
+          baseUrl: profile.baseUrl,
+          envKey: profile.envKey,
+          active: profile.id === state.activeId,
+        });
+      } else if (await exists(path.join(this.profilesDirectory, `${profile.id}.json`))) {
+        profiles.push({ id: profile.id, kind, name: profile.name, active: profile.id === state.activeId });
       }
     }
     return { profiles, awaitingSignIn: state.pendingAdd !== null, addError };
@@ -200,6 +307,18 @@ class ProfileStore {
 
   async syncCurrentLocked({ retry = false } = {}) {
     const state = await this.readState();
+    const activeProvider = readRootModelProvider(await this.readTextIfExists(this.configPath));
+    if (activeProvider) {
+      const providerProfile = state.profiles.find((profile) =>
+        (profile.kind || DEFAULT_KIND) === PROVIDER_KIND && profile.provider === activeProvider
+      );
+      if (providerProfile) {
+        state.activeId = providerProfile.id;
+        providerProfile.lastSeenAt = new Date().toISOString();
+        await this.writeState(state);
+        return state;
+      }
+    }
     const snapshot = await this.readAuthSnapshot(retry);
     if (!snapshot) return state;
     const { contents, authStat } = snapshot;
@@ -213,6 +332,7 @@ class ProfileStore {
       const now = new Date().toISOString();
       current = {
         id,
+        kind: DEFAULT_KIND,
         name: info.name,
         identity: info.identity,
         accountId: info.accountId,
@@ -283,12 +403,98 @@ class ProfileStore {
     const state = await this.syncCurrent();
     const profile = state.profiles.find((item) => item.id === id);
     if (!profile) throw new Error('Profile not found.');
+    if ((profile.kind || DEFAULT_KIND) === PROVIDER_KIND) {
+      await this.applyProviderProfile(profile, state);
+      return profile.name;
+    }
     const source = path.join(this.profilesDirectory, `${profile.id}.json`);
     if (!(await exists(source))) throw new Error('The selected profile file was not found.');
     if (await exists(this.authPath)) await copyAtomic(this.authPath, `${this.authPath}.bak`);
     await copyAtomic(source, this.authPath);
+    await this.applyDefaultConfig(state);
     state.activeId = id;
     await this.writeState(state);
+    return profile.name;
+  }
+
+  getManagedProviders(state) {
+    return state.profiles
+      .filter((profile) => (profile.kind || DEFAULT_KIND) === PROVIDER_KIND)
+      .map((profile) => profile.provider)
+      .filter(Boolean);
+  }
+
+  async readTextIfExists(filePath) {
+    try {
+      return await fs.promises.readFile(filePath, 'utf8');
+    } catch (error) {
+      if (error.code === 'ENOENT') return '';
+      throw error;
+    }
+  }
+
+  async backupConfig() {
+    if (await exists(this.configPath)) await copyAtomic(this.configPath, `${this.configPath}.bak`);
+  }
+
+  async applyDefaultConfig(state) {
+    const contents = await this.readTextIfExists(this.configPath);
+    if (state.activeId) await writeAtomic(path.join(this.configSnapshotsDirectory, `${state.activeId}.toml`), contents);
+    await this.backupConfig();
+    await writeAtomic(this.configPath, formatTomlFile(stripManagedProviderConfig(contents, this.getManagedProviders(state))));
+  }
+
+  async applyProviderProfile(profile, state) {
+    if (!profile.provider || !profile.baseUrl || !profile.envKey) throw new Error('Provider profile is incomplete.');
+    const contents = await this.readTextIfExists(this.configPath);
+    if (state.activeId) await writeAtomic(path.join(this.configSnapshotsDirectory, `${state.activeId}.toml`), contents);
+    await this.backupConfig();
+    await writeAtomic(this.configPath, appendProviderConfig(contents, profile));
+    profile.lastSeenAt = new Date().toISOString();
+    state.activeId = profile.id;
+    await this.writeState(state);
+  }
+
+  async addProvider({ name, baseUrl, token }) {
+    const cleanName = String(name || '').trim();
+    const cleanBaseUrl = String(baseUrl || '').trim();
+    const cleanToken = String(token || '').trim();
+    if (!cleanName) throw new Error('Provider name is required.');
+    if (!cleanBaseUrl) throw new Error('Base URL is required.');
+    if (!cleanToken) throw new Error('Access token is required.');
+    let parsedUrl;
+    try {
+      parsedUrl = new URL(cleanBaseUrl);
+    } catch {
+      throw new Error('Base URL must be a valid URL.');
+    }
+    if (!['http:', 'https:'].includes(parsedUrl.protocol)) throw new Error('Base URL must use http or https.');
+
+    const state = await this.syncCurrent();
+    const baseSlug = createProviderSlug(cleanName);
+    let provider = baseSlug;
+    let suffix = 2;
+    while (state.profiles.some((profile) => profile.provider === provider)) {
+      provider = `${baseSlug}-${suffix}`;
+      suffix += 1;
+    }
+    const now = new Date().toISOString();
+    const profile = {
+      id: createProfileId(`provider-${provider}`),
+      kind: PROVIDER_KIND,
+      name: cleanName,
+      provider,
+      baseUrl: cleanBaseUrl,
+      envKey: createEnvKey(cleanName),
+      createdAt: now,
+      updatedAt: now,
+      lastSeenAt: null,
+    };
+
+    const envContents = await this.readTextIfExists(this.envPath);
+    await writeAtomic(this.envPath, upsertEnvValue(envContents, profile.envKey, cleanToken));
+    state.profiles.push(profile);
+    await this.applyProviderProfile(profile, state);
     return profile.name;
   }
 
@@ -296,6 +502,7 @@ class ProfileStore {
     // Save the latest tokens without calling Codex logout, which could revoke the session.
     const state = await this.syncCurrent();
     state.pendingAdd = { restoreProfileId: state.activeId };
+    await this.applyDefaultConfig(state);
     await fs.promises.rm(this.authPath, { force: true });
     state.activeId = null;
     await this.writeState(state);
@@ -305,10 +512,16 @@ class ProfileStore {
     const state = await this.readState();
     const restoreProfileId = state.pendingAdd?.restoreProfileId ?? null;
     if (restoreProfileId) {
-      const source = path.join(this.profilesDirectory, `${restoreProfileId}.json`);
-      if (await exists(source)) {
-        await copyAtomic(source, this.authPath);
-        state.activeId = restoreProfileId;
+      const profile = state.profiles.find((item) => item.id === restoreProfileId);
+      if (profile && (profile.kind || DEFAULT_KIND) === PROVIDER_KIND) {
+        await this.applyProviderProfile(profile, state);
+      } else {
+        const source = path.join(this.profilesDirectory, `${restoreProfileId}.json`);
+        if (await exists(source)) {
+          await this.applyDefaultConfig(state);
+          await copyAtomic(source, this.authPath);
+          state.activeId = restoreProfileId;
+        }
       }
     }
     state.pendingAdd = null;
@@ -320,7 +533,15 @@ class ProfileStore {
     const profile = state.profiles.find((item) => item.id === id);
     if (!profile) throw new Error('Profile not found.');
     if (profile.id === state.activeId) throw new Error('The active profile cannot be deleted.');
-    await fs.promises.rm(path.join(this.profilesDirectory, `${profile.id}.json`), { force: true });
+    if ((profile.kind || DEFAULT_KIND) === PROVIDER_KIND) {
+      const configContents = await this.readTextIfExists(this.configPath);
+      await this.backupConfig();
+      await writeAtomic(this.configPath, formatTomlFile(stripManagedProviderConfig(configContents, [profile.provider])));
+      const envContents = await this.readTextIfExists(this.envPath);
+      await writeAtomic(this.envPath, removeEnvValue(envContents, profile.envKey));
+    } else {
+      await fs.promises.rm(path.join(this.profilesDirectory, `${profile.id}.json`), { force: true });
+    }
     state.profiles = state.profiles.filter((item) => item.id !== id);
     await this.writeState(state);
   }
@@ -347,6 +568,15 @@ class ProfilesViewProvider {
       }
       if (message.type === 'beginAdd') {
         await this.store.beginAddProfile();
+        await vscode.commands.executeCommand('workbench.action.reloadWindow');
+        return;
+      }
+      if (message.type === 'addProvider') {
+        await this.store.addProvider({
+          name: message.name,
+          baseUrl: message.baseUrl,
+          token: message.token,
+        });
         await vscode.commands.executeCommand('workbench.action.reloadWindow');
         return;
       }

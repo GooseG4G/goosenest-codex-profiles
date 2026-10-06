@@ -4,7 +4,7 @@ import { useAuthProfiles } from './composables/useAuthProfiles'
 
 const {
   profiles, error, awaitingSignIn, addError,
-  activate, deleteProfile, beginAdd, cancelAdd, signIn, retryAdd,
+  activate, deleteProfile, beginAdd, addProvider, cancelAdd, signIn, retryAdd,
 } = useAuthProfiles()
 </script>
 
@@ -18,6 +18,7 @@ const {
       @activate="activate"
       @delete="deleteProfile"
       @begin-add="beginAdd"
+      @add-provider="addProvider"
       @cancel-add="cancelAdd"
       @sign-in="signIn"
       @retry-add="retryAdd"

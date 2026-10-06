@@ -82,8 +82,11 @@ const buttonClasses = computed(() => [
   cursor: pointer;
   font: inherit;
   font-weight: 500;
-  transform: translate3d(0, 0, 0) scale(1);
-  transition: transform 130ms cubic-bezier(.2, .8, .2, 1), background-color 130ms ease, border-color 130ms ease;
+  transform: scale(1);
+  transform-origin: center;
+  backface-visibility: hidden;
+  will-change: transform;
+  transition: transform 180ms ease, background-color 160ms ease, border-color 160ms ease;
 }
 .size-small { width: 28px; height: 28px; padding: 5px; font-size: 11px; }
 .size-medium { min-height: 28px; padding: 5px 9px; font-size: 12px; }
@@ -103,17 +106,22 @@ const buttonClasses = computed(() => [
 .icon-button:active { background: var(--button-pressed-background); }
 .surface-lift:hover { transform: translate3d(0, -2px, 0) scale(1); }
 .surface-lift:active { transform: translate3d(0, 1px, 0) scale(.98); }
-.surface-scale:hover { transform: translate3d(0, 0, 0) scale(1.08); }
-.surface-scale:active { transform: translate3d(0, 0, 0) scale(.94); }
+.surface-scale:hover { transform: scale(1.04); }
+.surface-scale:active { transform: scale(.98); }
 .icon {
   display: inline-flex;
   width: 15px;
   height: 15px;
   flex: 0 0 auto;
-  transform: translate3d(0, 0, 0) rotate(0) scale(1);
-  transition: transform 150ms cubic-bezier(.2, .8, .2, 1);
+  transform: rotate(0) scale(1);
+  transform-origin: center;
+  backface-visibility: hidden;
+  will-change: transform;
+  transition: transform 180ms ease;
 }
 .icon :deep(svg) { display: block; width: 100%; height: 100%; }
+.surface-none.icon-together:hover .icon { transform: scale(1.08); }
+.surface-none.icon-together:active .icon { transform: scale(.94); }
 .icon-spin:hover .icon { transform: rotate(180deg); }
 .icon-spin:active .icon { transform: rotate(320deg) scale(.9); }
 .icon-tilt-clockwise:hover .icon { transform: rotate(12deg); }
@@ -135,7 +143,7 @@ const buttonClasses = computed(() => [
   color: var(--vscode-editorHoverWidget-foreground, var(--vscode-foreground));
   border: 1px solid var(--vscode-editorHoverWidget-border, var(--vscode-widget-border));
   border-radius: 3px;
-  background: var(--vscode-editorHoverWidget-background, var(--vscode-editorWidget-background));
+  background: var(--vscode-editorHoverWidget-background, var(--vscode-editorWidget-background, var(--vscode-editor-background)));
   box-shadow: 0 2px 8px var(--vscode-widget-shadow, rgb(0 0 0 / 36%));
   font-size: 12px;
   font-weight: 400;

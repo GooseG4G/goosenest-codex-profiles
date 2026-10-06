@@ -2,14 +2,26 @@
   "name": "codex-profiles",
   "displayName": "Codex Profiles",
   "description": "Manage Codex auth.json profiles from the VS Code secondary sidebar",
-  "version": "0.8.7",
+  "version": "0.8.23",
   "publisher": "goosenest",
-  "engines": { "vscode": "^1.106.0" },
-  "categories": ["Other"],
-  "activationEvents": ["onStartupFinished", "onView:codexProfiles.profilesView"],
+  "engines": {
+    "vscode": "^1.106.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished",
+    "onView:codexProfiles.profilesView"
+  ],
   "main": "./src/extension.js",
   "icon": "media/icon.png",
-  "files": ["src", "build/dist", "media", "README.md"],
+  "files": [
+    "src",
+    "build/dist",
+    "media",
+    "README.md"
+  ],
   "scripts": {
     "build": "vite build",
     "check": "vue-tsc --noEmit",
@@ -17,18 +29,50 @@
   },
   "contributes": {
     "commands": [
-      { "command": "codexProfiles.open", "title": "Codex Profiles: Open", "icon": "$(arrow-swap)" },
-      { "command": "codexProfiles.refresh", "title": "Codex Profiles: Refresh", "icon": "$(refresh)" }
+      {
+        "command": "codexProfiles.open",
+        "title": "Codex Profiles: Open",
+        "icon": "$(arrow-swap)"
+      },
+      {
+        "command": "codexProfiles.refresh",
+        "title": "Codex Profiles: Refresh",
+        "icon": "$(refresh)"
+      }
     ],
     "viewsContainers": {
-      "secondarySidebar": [{ "id": "codexProfiles", "title": "Codex Profiles", "icon": "media/switch.svg" }]
+      "secondarySidebar": [
+        {
+          "id": "codexProfiles",
+          "title": "Codex Profiles",
+          "icon": "media/switch.svg"
+        }
+      ]
     },
     "views": {
-      "codexProfiles": [{ "type": "webview", "id": "codexProfiles.profilesView", "name": "Profiles" }]
+      "codexProfiles": [
+        {
+          "type": "webview",
+          "id": "codexProfiles.profilesView",
+          "name": "Profiles"
+        }
+      ]
     },
     "menus": {
-      "view/title": [{ "command": "codexProfiles.refresh", "when": "view == codexProfiles.profilesView", "group": "navigation" }],
-      "editor/title": [{ "command": "codexProfiles.open", "when": "editorIsOpen", "group": "navigation@50" }]
+      "view/title": [
+        {
+          "command": "codexProfiles.refresh",
+          "when": "view == codexProfiles.profilesView",
+          "group": "navigation"
+        }
+      ],
+      "editor/title": [
+        {
+          "command": "codexProfiles.open",
+          "when": "editorIsOpen",
+          "group": "navigation@50"
+        }
+      ]
     },
     "configuration": {
       "title": "Codex Profiles",
@@ -49,5 +93,7 @@
     "vite": "^7.1.7",
     "vue-tsc": "^3.1.0"
   },
-  "dependencies": { "vue": "^3.5.22" }
+  "dependencies": {
+    "vue": "^3.5.22"
+  }
 }

@@ -1,5 +1,5 @@
 import { computed, onMounted, onUnmounted, readonly, shallowRef } from 'vue'
-import type { Profile } from '../types'
+import type { Profile, ProviderDraft } from '../types'
 
 const vscode = acquireVsCodeApi()
 
@@ -10,7 +10,7 @@ export function useAuthProfiles() {
   const addError = shallowRef(window.__CODEX_PROFILES_INITIAL_STATE__?.addError ?? '')
   const orderedProfiles = computed(() => [...profiles.value].sort((left, right) => Number(right.active) - Number(left.active)))
 
-  function post(type: string, payload: Record<string, unknown> = {}) {
+  function post(type: string, payload: object = {}) {
     error.value = ''
     vscode.postMessage({ type, ...payload })
   }
@@ -39,6 +39,7 @@ export function useAuthProfiles() {
     activate: (id: string) => post('activate', { id }),
     deleteProfile: (id: string) => post('delete', { id }),
     beginAdd: () => post('beginAdd'),
+    addProvider: (draft: ProviderDraft) => post('addProvider', draft),
     cancelAdd: () => post('cancelAdd'),
     signIn: () => post('signIn'),
     retryAdd: () => post('retryAdd'),
