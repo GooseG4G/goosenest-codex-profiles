@@ -289,9 +289,8 @@ function canShowUsage(profile: Profile) {
   return profile.kind !== 'provider' && getUsageWindows(profile).length > 0
 }
 
-function isUsageRefreshing(profile: Profile) {
-  const updatedAt = Date.parse(profile.usage?.updatedAt ?? '')
-  return Boolean(profile.busy) && (!Number.isFinite(updatedAt) || Date.now() - updatedAt >= 180_000)
+function isUsageBusy(profile: Profile) {
+  return Boolean(profile.busy)
 }
 
 function usageStatusLabel(profile: Profile) {
@@ -510,7 +509,7 @@ onUnmounted(() => {
               >
                 <span class="usage-copy">
                   <span class="usage-title">Usage limits</span>
-                  <span class="usage-reset">{{ isUsageRefreshing(profile) ? usageStatusLabel(profile) : profile.usage?.errorCode === 'AUTH_EXPIRED' ? 'Expired' : 'Usage limits unavailable' }}</span>
+                  <span class="usage-reset">{{ isUsageBusy(profile) ? usageStatusLabel(profile) : profile.usage?.errorCode === 'AUTH_EXPIRED' ? 'Expired' : 'Usage limits unavailable' }}</span>
                 </span>
               </section>
             </div>
