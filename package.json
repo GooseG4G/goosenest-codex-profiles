@@ -44,7 +44,6 @@
   "scripts": {
     "build": "vite build",
     "check": "vue-tsc --noEmit",
-    "test": "node --test",
     "package": "vsce package --githubBranch master"
   },
   "contributes": {
