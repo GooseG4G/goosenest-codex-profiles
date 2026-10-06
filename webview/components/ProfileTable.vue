@@ -59,7 +59,7 @@ const expandedUsageIds = shallowRef<Set<string>>(new Set(restoredUiState?.expand
 const usageShimmerIds = shallowRef<Set<string>>(new Set())
 const finishingUsageShimmerIds = new Set<string>()
 const usageShimmerTimers = new Map<string, number>()
-const usageShimmerDurationMs = 1400
+const usageShimmerDurationMs = 1600
 const visibleProfiles = computed(() => {
   const normalizedQuery = query.value.trim().toLocaleLowerCase()
   if (!normalizedQuery) return props.profiles
@@ -111,11 +111,14 @@ function getFieldErrorStyle(input: HTMLInputElement | null, error: HTMLSpanEleme
   const fieldWidth = input.clientWidth
   const edge = 8
   const textAnchor = Math.max(edge, Math.min(fieldWidth - edge, measureText(input, value) * 0.75 + 10))
-  const popoverWidth = Math.min(fieldWidth, measureText(error, error.textContent ?? '') + 16)
+  const naturalWidth = Math.ceil(measureText(error, error.textContent ?? '')) + 20
+  const popoverWidth = Math.min(fieldWidth, naturalWidth)
   const left = Math.max(0, Math.min(fieldWidth - popoverWidth, textAnchor - popoverWidth * 0.25))
   return {
     '--error-left': `${left}px`,
     '--error-width': `${popoverWidth}px`,
+    whiteSpace: naturalWidth <= fieldWidth ? 'nowrap' : 'normal',
+    overflowWrap: naturalWidth <= fieldWidth ? 'normal' : 'anywhere',
   } as CSSProperties
 }
 
@@ -804,12 +807,18 @@ onUnmounted(() => {
 .usage-expand-enter-from, .usage-expand-leave-to { max-height: 0; padding-bottom: 0; opacity: 0; transform: translateY(-4px); }
 .usage-widget { position: relative; box-sizing: border-box; display: grid; width: 100%; min-width: 0; overflow: hidden; grid-template-columns: minmax(0, 1fr) minmax(72px, 120px) max-content; align-items: center; gap: 12px; padding: 12px; border: 1px solid var(--vscode-widget-border); border-radius: 7px; background: var(--vscode-editorWidget-background, var(--vscode-editor-background)); }
 .usage-placeholder { min-height: 66px; grid-template-columns: minmax(0, 1fr); }
-.usage-widget.refreshing::after { position: absolute; inset: -20% -80%; content: ''; pointer-events: none; background: linear-gradient(105deg, transparent 14%, color-mix(in srgb, var(--vscode-foreground) 1.5%, transparent) 32%, color-mix(in srgb, var(--vscode-foreground) 6%, transparent) 50%, color-mix(in srgb, var(--vscode-foreground) 1.5%, transparent) 68%, transparent 86%); transform: translate3d(-38%, 0, 0); will-change: transform; animation: usage-shimmer 1.4s linear infinite; }
-@keyframes usage-shimmer { from { transform: translate3d(-38%, 0, 0); } to { transform: translate3d(38%, 0, 0); } }
+.usage-widget.refreshing::after { position: absolute; top: -35%; bottom: -35%; left: -52%; width: 72%; content: ''; pointer-events: none; background: radial-gradient(ellipse at center, color-mix(in srgb, var(--vscode-foreground) 10%, transparent) 0%, color-mix(in srgb, var(--vscode-foreground) 5%, transparent) 38%, transparent 74%); filter: blur(16px); opacity: 0; transform: translate3d(0, 0, 0) scaleX(1.08); will-change: transform, opacity; animation: usage-shimmer 1.6s cubic-bezier(.45, 0, .55, 1) infinite; }
+@keyframes usage-shimmer {
+  0% { opacity: 0; transform: translate3d(0, 0, 0) scaleX(1.08); }
+  18% { opacity: .65; }
+  50% { opacity: .9; }
+  82% { opacity: .65; }
+  100% { opacity: 0; transform: translate3d(210%, 0, 0) scaleX(1.08); }
+}
 .usage-copy { display: flex; min-width: 0; flex-direction: column; gap: 4px; }
 .usage-title { overflow: hidden; color: var(--vscode-foreground); font-size: var(--vscode-font-size); font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
 .usage-track { display: block; width: 100%; height: 8px; overflow: hidden; border-radius: 4px; background: rgb(127 127 127 / 18%); }
-.usage-fill { display: block; height: 100%; border-radius: inherit; background: var(--vscode-foreground); opacity: .72; transition: width 180ms ease; }
+.usage-fill { display: block; height: 100%; border-radius: inherit; background: var(--vscode-foreground); opacity: .72; transition: width 560ms cubic-bezier(.22, 1, .36, 1); }
 .usage-remaining { min-width: 0; overflow: hidden; color: var(--vscode-descriptionForeground); font-size: 11px; text-align: right; text-overflow: ellipsis; white-space: nowrap; }
 .usage-reset { overflow: hidden; color: var(--vscode-descriptionForeground); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
 @media (max-width: 380px) {
@@ -819,7 +828,7 @@ onUnmounted(() => {
 }
 @media (prefers-reduced-motion: reduce) {
   .usage-expand-enter-active, .usage-expand-leave-active { transition: none; }
-  .usage-widget.refreshing::after { animation: none; background: color-mix(in srgb, var(--vscode-foreground) 4%, transparent); }
+  .usage-widget.refreshing::after { animation: none; background: color-mix(in srgb, var(--vscode-foreground) 4%, transparent); filter: none; opacity: 1; }
 }
 .empty { padding: 14px 10px; color: var(--vscode-descriptionForeground); text-align: center; }
 .backdrop {
@@ -861,7 +870,7 @@ onUnmounted(() => {
 }
 .field-input:focus { border-color: var(--vscode-focusBorder); }
 .field-input[aria-invalid="true"] { border-color: var(--vscode-inputValidation-errorBorder, var(--vscode-errorForeground)); }
-.field-error { position: absolute; z-index: 2; top: calc(100% + 5px); left: var(--error-left, 0); box-sizing: border-box; display: block; width: var(--error-width, 100%); max-width: 100%; padding: 6px 8px; color: var(--vscode-inputValidation-errorForeground, var(--vscode-errorForeground)); border: 1px solid var(--vscode-inputValidation-errorBorder, var(--vscode-errorForeground)); border-radius: 4px; background: var(--vscode-inputValidation-errorBackground, var(--vscode-editorHoverWidget-background, var(--vscode-editorWidget-background))); box-shadow: 0 4px 12px rgb(0 0 0 / 24%); font-size: 11px; line-height: 1.35; white-space: normal; overflow-wrap: anywhere; pointer-events: none; }
+.field-error { position: absolute; z-index: 2; top: calc(100% + 5px); left: var(--error-left, 0); box-sizing: border-box; display: block; width: var(--error-width, 100%); max-width: 100%; padding: 6px 8px; color: var(--vscode-inputValidation-errorForeground, var(--vscode-errorForeground)); border: 1px solid var(--vscode-inputValidation-errorBorder, var(--vscode-errorForeground)); border-radius: 4px; background: var(--vscode-inputValidation-errorBackground, var(--vscode-editorHoverWidget-background, var(--vscode-editorWidget-background))); box-shadow: 0 4px 12px rgb(0 0 0 / 24%); font-size: 11px; line-height: 1.35; pointer-events: none; }
 .field-error::before { position: absolute; top: -5px; left: 25%; width: 8px; height: 8px; content: ''; border-top: 1px solid var(--vscode-inputValidation-errorBorder, var(--vscode-errorForeground)); border-left: 1px solid var(--vscode-inputValidation-errorBorder, var(--vscode-errorForeground)); background: var(--vscode-inputValidation-errorBackground, var(--vscode-editorHoverWidget-background, var(--vscode-editorWidget-background))); transform: rotate(45deg); }
 .field-error-enter-active, .field-error-leave-active { transition: opacity 120ms ease, transform 120ms ease; }
 .field-error-enter-from, .field-error-leave-to { opacity: 0; transform: translateY(-3px); }
