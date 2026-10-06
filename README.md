@@ -77,6 +77,7 @@ Building requires Node.js `^20.19.0` or `>=22.12.0`, npm, and Git.
 git clone https://github.com/GooseG4G/goosenest-codex-profiles.git
 cd goosenest-codex-profiles
 npm ci
+npm test
 npm run check
 npm run build
 npm run package

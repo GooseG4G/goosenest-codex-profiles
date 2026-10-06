@@ -4,6 +4,18 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const vscode = require('vscode');
+const {
+  appendProviderConfig,
+  createProviderSlug,
+  createUniqueEnvKey,
+  formatTomlFile,
+  readEnvValue,
+  readRootModelProvider,
+  removeEnvValue,
+  stripManagedProviderConfig,
+  upsertEnvValue,
+} = require('./provider-config');
+const { resolveReauthenticationProfile } = require('./profile-selection');
 
 const VIEW_ID = 'codexProfiles.profilesView';
 const AUTH_READ_RETRY_COUNT = 5;
@@ -59,102 +71,6 @@ function getCodexHome() {
 function createProfileId(name) {
   const slug = name.trim().toLowerCase().replace(/[^\p{L}\p{N}_-]+/gu, '-').replace(/^-+|-+$/g, '').slice(0, 48);
   return `${slug || 'profile'}-${crypto.randomBytes(4).toString('hex')}`;
-}
-
-function createProviderSlug(name) {
-  return name.trim().toLowerCase().replace(/[^\p{L}\p{N}_-]+/gu, '-').replace(/^-+|-+$/g, '').slice(0, 48) || 'provider';
-}
-
-function createEnvKey(name) {
-  const key = name.trim().toUpperCase().replace(/[^\p{L}\p{N}]+/gu, '_').replace(/^_+|_+$/g, '');
-  return `${key || 'PROVIDER'}_ACCESS_TOKEN`;
-}
-
-function tomlString(value) {
-  return JSON.stringify(String(value));
-}
-
-function normalizeTomlSpacing(contents) {
-  return contents
-    .replace(/^(?:[ \t]*\r?\n)+/, '')
-    .replace(/\n{3,}/g, '\n\n')
-    .trimEnd();
-}
-
-function formatTomlFile(contents) {
-  const normalized = normalizeTomlSpacing(contents);
-  return normalized ? `${normalized}\n` : '';
-}
-
-function stripManagedProviderConfig(contents, providers) {
-  const providerSet = new Set(providers.filter(Boolean));
-  const lines = contents.split(/\r?\n/);
-  const output = [];
-  let skippingProvider = false;
-  let inRootTable = true;
-
-  for (const line of lines) {
-    const tableMatch = line.match(/^\s*\[([^\]]+)]\s*$/);
-    if (tableMatch) {
-      inRootTable = false;
-      const providerMatch = tableMatch[1].match(/^model_providers\.([^\].]+)(?:\.|$)/);
-      skippingProvider = providerMatch ? providerSet.has(providerMatch[1]) : false;
-      if (skippingProvider) continue;
-    }
-    if (skippingProvider) continue;
-    if (inRootTable && /^\s*model_provider\s*=/.test(line)) continue;
-    output.push(line);
-  }
-
-  return normalizeTomlSpacing(output.join('\n'));
-}
-
-function appendProviderConfig(contents, profile) {
-  const base = stripManagedProviderConfig(contents, [profile.provider]);
-  const providerBlock = [
-    `[model_providers.${profile.provider}]`,
-    `name = ${tomlString(profile.name)}`,
-    `base_url = ${tomlString(profile.baseUrl)}`,
-    `env_key = ${tomlString(profile.envKey)}`,
-    'wire_api = "responses"',
-  ].join('\n');
-  const rootProvider = `model_provider = ${tomlString(profile.provider)}`;
-  return formatTomlFile(`${rootProvider}\n\n${base ? `${base}\n\n` : ''}${providerBlock}`);
-}
-
-function readRootModelProvider(contents) {
-  for (const line of contents.split(/\r?\n/)) {
-    if (/^\s*\[/.test(line)) return null;
-    const match = line.match(/^\s*model_provider\s*=\s*(['"])(.*?)\1\s*(?:#.*)?$/);
-    if (match) return match[2];
-  }
-  return null;
-}
-
-function upsertEnvValue(contents, key, value) {
-  const lines = contents.split(/\r?\n/);
-  const escaped = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const pattern = new RegExp(`^\\s*(?:export\\s+)?${escaped}\\s*=`);
-  let replaced = false;
-  const nextLines = lines.map((line) => {
-    if (!pattern.test(line)) return line;
-    replaced = true;
-    return `${key}=${value}`;
-  });
-  if (!replaced) nextLines.push(`${key}=${value}`);
-  return `${nextLines.filter((line, index) => line || index < nextLines.length - 1).join('\n').trimEnd()}\n`;
-}
-
-function readEnvValue(contents, key) {
-  const escaped = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const match = contents.match(new RegExp(`^\\s*(?:export\\s+)?${escaped}\\s*=\\s*(.*)$`, 'm'));
-  return match ? match[1].trim() : '';
-}
-
-function removeEnvValue(contents, key) {
-  const escaped = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const pattern = new RegExp(`^\\s*(?:export\\s+)?${escaped}\\s*=`);
-  return `${contents.split(/\r?\n/).filter((line) => !pattern.test(line)).join('\n').trimEnd()}\n`;
 }
 
 function getProfileInfo(contents, fallback) {
@@ -229,11 +145,14 @@ async function exists(filePath) {
 }
 
 async function copyAtomic(source, target) {
-  const temporary = path.join(path.dirname(target), `.${path.basename(target)}.${process.pid}.tmp`);
+  const temporary = path.join(
+    path.dirname(target),
+    `.${path.basename(target)}.${process.pid}.${crypto.randomBytes(6).toString('hex')}.tmp`,
+  );
   await fs.promises.mkdir(path.dirname(target), { recursive: true });
   try {
     await fs.promises.copyFile(source, temporary);
-    await fs.promises.copyFile(temporary, target);
+    await fs.promises.rename(temporary, target);
   } finally {
     await fs.promises.rm(temporary, { force: true }).catch(() => undefined);
   }
@@ -247,7 +166,7 @@ async function writeAtomic(target, contents) {
   await fs.promises.mkdir(path.dirname(target), { recursive: true });
   try {
     await fs.promises.writeFile(temporary, contents, { mode: 0o600 });
-    await fs.promises.copyFile(temporary, target);
+    await fs.promises.rename(temporary, target);
   } finally {
     await fs.promises.rm(temporary, { force: true }).catch(() => undefined);
   }
@@ -312,7 +231,7 @@ function normalizeUsageResponse(result) {
 
 function classifyUsageError(error) {
   const message = error?.message || String(error);
-  if (error?.code === 'AUTH_EXPIRED' || /401|403|unauthori|forbidden|token expired|authentication expired/i.test(message)) {
+  if (error?.code === 'AUTH_EXPIRED' || /\b(?:401|403)\b|unauthori|forbidden|token expired|authentication expired/i.test(message)) {
     return { code: 'AUTH_EXPIRED', message: 'Authentication expired.' };
   }
   if (/timed out|timeout/i.test(message)) return { code: 'TIMEOUT', message };
@@ -371,7 +290,9 @@ async function readCodexUsage(codexHome) {
           });
         } else if (message.id === 2) {
           if (message.error) {
-            finish(new Error(message.error.message || 'Codex could not read usage limits.'));
+            const error = new Error(message.error.message || 'Codex could not read usage limits.');
+            error.code = message.error.code;
+            finish(error);
           } else {
             response = message.result;
             child.stdin.end();
@@ -427,7 +348,12 @@ class ProfileStore {
           }))
           : [],
         pendingAdd: parsed.pendingAdd && typeof parsed.pendingAdd === 'object'
-          ? { restoreProfileId: typeof parsed.pendingAdd.restoreProfileId === 'string' ? parsed.pendingAdd.restoreProfileId : null }
+          ? {
+            restoreProfileId: typeof parsed.pendingAdd.restoreProfileId === 'string' ? parsed.pendingAdd.restoreProfileId : null,
+            reauthenticateProfileId: typeof parsed.pendingAdd.reauthenticateProfileId === 'string'
+              ? parsed.pendingAdd.reauthenticateProfileId
+              : null,
+          }
           : null,
       };
     } catch (error) {
@@ -437,11 +363,7 @@ class ProfileStore {
   }
 
   async writeState(state) {
-    await fs.promises.mkdir(path.dirname(this.statePath), { recursive: true });
-    const temporary = `${this.statePath}.${process.pid}.${crypto.randomBytes(6).toString('hex')}.tmp`;
-    await fs.promises.writeFile(temporary, JSON.stringify(state, null, 2), { encoding: 'utf8', mode: 0o600 });
-    await fs.promises.copyFile(temporary, this.statePath);
-    await fs.promises.rm(temporary, { force: true });
+    await writeAtomic(this.statePath, JSON.stringify(state, null, 2));
   }
 
   async list(options = {}) {
@@ -452,7 +374,9 @@ class ProfileStore {
     } catch (error) {
       state = await this.readState();
       if (!state.pendingAdd) throw error;
-      addError = 'Could not read the new Codex authentication file.';
+      addError = error.code === 'REAUTH_ACCOUNT_MISMATCH'
+        ? error.message
+        : 'Could not read the new Codex authentication file.';
     }
     const profiles = [];
     for (const profile of state.profiles) {
@@ -625,11 +549,11 @@ class ProfileStore {
     const freshness = getAuthFreshness(contents.toString('utf8'), authStat.mtimeMs);
     const fallback = `Profile ${state.profiles.length + 1}`;
     const info = getProfileInfo(contents.toString('utf8'), fallback);
-    let current = findProfile(state.profiles, info, fingerprint);
-    // Re-authentication may intentionally replace the selected profile when the
-    // newly signed-in account is not already tracked.
-    if (!current && state.pendingAdd?.restoreProfileId) {
-      current = state.profiles.find((profile) => profile.id === state.pendingAdd.restoreProfileId) || null;
+    const matchingProfile = findProfile(state.profiles, info, fingerprint);
+    const reauthenticateProfileId = state.pendingAdd?.reauthenticateProfileId;
+    let current = matchingProfile;
+    if (reauthenticateProfileId) {
+      current = resolveReauthenticationProfile(state.profiles, info, matchingProfile, reauthenticateProfileId);
     }
     if (!current) {
       const id = createProfileId(info.name);
@@ -654,6 +578,7 @@ class ProfileStore {
       const profileExists = await exists(profilePath);
       let shouldStoreCurrent = !profileExists;
       let storedStat = null;
+      const explicitReauthentication = reauthenticateProfileId === current.id;
 
       if (profileExists && current.fingerprint !== fingerprint) {
         const [storedContents, profileStat] = await Promise.all([
@@ -661,15 +586,19 @@ class ProfileStore {
           fs.promises.stat(profilePath),
         ]);
         storedStat = profileStat;
-        const storedFreshness = getAuthFreshness(storedContents.toString('utf8'), storedStat.mtimeMs);
-        shouldStoreCurrent = compareFreshness(freshness, storedFreshness) >= 0;
-        if (!shouldStoreCurrent) {
-          current.fingerprint = crypto.createHash('sha256').update(storedContents).digest('hex');
-          current.lastRefresh = storedFreshness.refreshAt === null
-            ? null
-            : new Date(storedFreshness.refreshAt).toISOString();
-          await copyAtomic(this.authPath, `${this.authPath}.bak`);
-          await copyAtomic(profilePath, this.authPath);
+        if (explicitReauthentication) {
+          shouldStoreCurrent = true;
+        } else {
+          const storedFreshness = getAuthFreshness(storedContents.toString('utf8'), storedStat.mtimeMs);
+          shouldStoreCurrent = compareFreshness(freshness, storedFreshness) >= 0;
+          if (!shouldStoreCurrent) {
+            current.fingerprint = crypto.createHash('sha256').update(storedContents).digest('hex');
+            current.lastRefresh = storedFreshness.refreshAt === null
+              ? null
+              : new Date(storedFreshness.refreshAt).toISOString();
+            await copyAtomic(this.authPath, `${this.authPath}.bak`);
+            await copyAtomic(profilePath, this.authPath);
+          }
         }
       }
 
@@ -693,6 +622,15 @@ class ProfileStore {
       if (shouldStoreCurrent) {
         await writeAtomic(profilePath, contents);
         current.updatedAt = new Date().toISOString();
+      }
+      if (explicitReauthentication && current.usage) {
+        current.usage = {
+          ...current.usage,
+          status: 'stale',
+          fetchedAt: null,
+        };
+        delete current.usage.errorCode;
+        delete current.usage.error;
       }
       current.lastSeenAt = new Date().toISOString();
     }
@@ -778,6 +716,7 @@ class ProfileStore {
     const { cleanName, cleanBaseUrl } = this.validateProviderInput(name, baseUrl);
     const cleanToken = String(token || '').trim();
     if (!cleanToken) throw new Error('Access token is required.');
+    if (/[\r\n]/.test(cleanToken)) throw new Error('Access token must be a single line.');
 
     const state = await this.syncCurrent();
     const normalizedName = cleanName.toLocaleLowerCase();
@@ -800,7 +739,7 @@ class ProfileStore {
       name: cleanName,
       provider,
       baseUrl: cleanBaseUrl,
-      envKey: createEnvKey(cleanName),
+      envKey: createUniqueEnvKey(cleanName, state.profiles),
       createdAt: now,
       updatedAt: now,
       lastSeenAt: null,
@@ -816,6 +755,7 @@ class ProfileStore {
   async updateProvider({ id, name, baseUrl, token }) {
     const { cleanName, cleanBaseUrl } = this.validateProviderInput(name, baseUrl);
     const cleanToken = String(token || '').trim();
+    if (/[\r\n]/.test(cleanToken)) throw new Error('Access token must be a single line.');
     const state = await this.syncCurrent();
     const profile = state.profiles.find((item) => item.id === id && (item.kind || DEFAULT_KIND) === PROVIDER_KIND);
     if (!profile) throw new Error('Provider profile not found.');
@@ -847,11 +787,19 @@ class ProfileStore {
     return { name: profile.name, active };
   }
 
-  async beginAddProfile(restoreProfileId = null) {
+  async beginAddProfile(reauthenticateProfileId = null) {
     // Save the latest tokens without calling Codex logout, which could revoke the session.
     const state = await this.syncCurrent();
-    const restoreId = restoreProfileId || state.activeId;
-    state.pendingAdd = { restoreProfileId: restoreId };
+    if (reauthenticateProfileId) {
+      const profile = state.profiles.find((item) =>
+        item.id === reauthenticateProfileId && (item.kind || DEFAULT_KIND) === DEFAULT_KIND
+      );
+      if (!profile) throw new Error('The profile selected for re-authentication was not found.');
+    }
+    state.pendingAdd = {
+      restoreProfileId: state.activeId,
+      reauthenticateProfileId,
+    };
     await this.applyDefaultConfig(state);
     await fs.promises.rm(this.authPath, { force: true });
     state.activeId = null;
@@ -1073,15 +1021,25 @@ class ProfilesViewProvider {
     this.store = store;
     this.view = undefined;
     this.usagePoller = undefined;
+    this.messageQueue = Promise.resolve();
   }
 
   async resolveWebviewView(view) {
+    let disposed = false;
     this.view = view;
     view.webview.options = { enableScripts: true, localResourceRoots: [] };
-    view.webview.onDidReceiveMessage((message) => this.handleMessage(message));
+    view.webview.onDidReceiveMessage((message) => {
+      const handle = () => this.handleMessage(message);
+      this.messageQueue = this.messageQueue.then(handle, handle);
+    });
+    view.onDidDispose(() => {
+      disposed = true;
+      if (this.view === view) this.view = undefined;
+      this.usagePoller?.setExpanded([]);
+    });
     view.webview.html = this.getLoadingHtml();
     const [html] = await Promise.all([this.getHtml(view.webview), delay(800)]);
-    view.webview.html = html;
+    if (!disposed && this.view === view) view.webview.html = html;
   }
 
   getLoadingHtml() {
@@ -1090,6 +1048,7 @@ class ProfilesViewProvider {
   }
 
   async handleMessage(message) {
+    if (!message || typeof message !== 'object') return;
     try {
       if (message.type === 'ready' || message.type === 'refresh') return await this.sendState();
       if (message.type === 'setExpandedUsage') {
@@ -1110,7 +1069,10 @@ class ProfilesViewProvider {
         return;
       }
       if (message.type === 'beginAdd' || message.type === 'reauthenticate') {
-        await this.store.beginAddProfile(message.type === 'reauthenticate' ? String(message.id || '') : null);
+        const reauthenticateProfileId = message.type === 'reauthenticate' ? String(message.id || '') : null;
+        const activeId = await this.store.getActiveId();
+        await this.usagePoller?.waitForProfiles([activeId, reauthenticateProfileId]);
+        await this.store.beginAddProfile(reauthenticateProfileId);
         await vscode.commands.executeCommand('workbench.action.restartExtensionHost');
         return;
       }
@@ -1149,7 +1111,9 @@ class ProfilesViewProvider {
       }
       if (message.type === 'retryAdd') return await this.sendState({ retry: true });
       if (message.type === 'delete') {
-        const result = await this.store.delete(String(message.id || ''));
+        const id = String(message.id || '');
+        await this.usagePoller?.waitForProfiles([id]);
+        const result = await this.store.delete(id);
         if (result.active) {
           await vscode.commands.executeCommand('workbench.action.restartExtensionHost');
         } else {
@@ -1172,12 +1136,19 @@ class ProfilesViewProvider {
       ...state,
       profiles: state.profiles.map((profile) => ({
         ...profile,
-          authExpired: profile.usage?.errorCode === 'AUTH_EXPIRED',
+        authExpired: profile.usage?.errorCode === 'AUTH_EXPIRED',
         busy: busyIds.has(profile.id),
       })),
     });
   }
-  post(message) { this.view?.webview.postMessage(message); }
+  post(message) {
+    const view = this.view;
+    if (!view) return;
+    void view.webview.postMessage(message).then(
+      undefined,
+      (error) => console.error('Codex Profiles: could not post a webview message', error),
+    );
+  }
 
   async getHtml(webview) {
     const nonce = crypto.randomBytes(16).toString('base64');

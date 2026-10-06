@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, onUnmounted, shallowRef, useTemplateRef, watch } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, shallowRef, useTemplateRef, watch, type CSSProperties } from 'vue'
 import type { Profile, ProviderDraft, ProviderUpdate } from '../types'
 import PersonAddIcon from './icons/PersonAddIcon.vue'
 import UsersIcon from './icons/UsersIcon.vue'
@@ -48,9 +48,12 @@ const initialProviderName = shallowRef('')
 const initialProviderBaseUrl = shallowRef('')
 const providerNameInput = useTemplateRef<HTMLInputElement>('providerNameInput')
 const providerBaseUrlInput = useTemplateRef<HTMLInputElement>('providerBaseUrlInput')
-const providerDialog = useTemplateRef<HTMLFormElement>('providerDialog')
+const providerNameError = useTemplateRef<HTMLSpanElement>('providerNameError')
+const providerBaseUrlError = useTemplateRef<HTMLSpanElement>('providerBaseUrlError')
 const showProviderBaseUrlError = shallowRef(false)
 const showProviderNameError = shallowRef(false)
+const providerNameErrorStyle = shallowRef<CSSProperties>()
+const providerBaseUrlErrorStyle = shallowRef<CSSProperties>()
 const providerSubmitPending = shallowRef(false)
 const expandedUsageIds = shallowRef<Set<string>>(new Set(restoredUiState?.expandedUsageIds ?? []))
 const usageShimmerIds = shallowRef<Set<string>>(new Set())
@@ -94,17 +97,36 @@ const providerNameErrorMessage = computed(() =>
     ? props.error
     : 'A provider with this name already exists.'
 )
-function errorStyle(input: HTMLInputElement | null, value: string, message: string) {
-  if (!input) return undefined
+
+function measureText(element: HTMLElement, value: string) {
   const canvas = document.createElement('canvas')
   const context = canvas.getContext('2d')
-  if (!context) return undefined
-  context.font = getComputedStyle(input).font
-  const textWidth = Math.min(input.clientWidth - 8, context.measureText(value).width + 8)
-  const anchor = Math.max(8, Math.min(input.clientWidth - 8, textWidth * 0.75))
-  const popoverWidth = Math.min(input.clientWidth, context.measureText(message).width + 16)
-  const left = Math.max(0, Math.min(input.clientWidth - popoverWidth, anchor - popoverWidth * 0.25))
-  return { '--error-left': `${left}px`, '--error-width': `${popoverWidth}px` }
+  if (!context) return 0
+  context.font = getComputedStyle(element).font
+  return context.measureText(value).width
+}
+
+function getFieldErrorStyle(input: HTMLInputElement | null, error: HTMLSpanElement | null, value: string) {
+  if (!input || !error) return undefined
+  const fieldWidth = input.clientWidth
+  const edge = 8
+  const textAnchor = Math.max(edge, Math.min(fieldWidth - edge, measureText(input, value) * 0.75 + 10))
+  const popoverWidth = Math.min(fieldWidth, measureText(error, error.textContent ?? '') + 16)
+  const left = Math.max(0, Math.min(fieldWidth - popoverWidth, textAnchor - popoverWidth * 0.25))
+  return {
+    '--error-left': `${left}px`,
+    '--error-width': `${popoverWidth}px`,
+  } as CSSProperties
+}
+
+async function updateProviderErrorPositions() {
+  await nextTick()
+  if (showProviderNameError.value) {
+    providerNameErrorStyle.value = getFieldErrorStyle(providerNameInput.value, providerNameError.value, providerName.value)
+  }
+  if (showProviderBaseUrlError.value) {
+    providerBaseUrlErrorStyle.value = getFieldErrorStyle(providerBaseUrlInput.value, providerBaseUrlError.value, providerBaseUrl.value)
+  }
 }
 const hasOpenOverlay = computed(() =>
   isProviderFormOpen.value
@@ -401,6 +423,10 @@ watch(providerName, (value) => {
   )
   showProviderNameError.value = duplicate
 })
+watch(
+  [showProviderNameError, showProviderBaseUrlError, providerName, providerBaseUrl],
+  updateProviderErrorPositions,
+)
 watch(() => props.error, (value) => {
   showProviderNameError.value = value.toLocaleLowerCase().includes('provider named')
   if (value) providerSubmitPending.value = false
@@ -420,12 +446,14 @@ onMounted(() => {
   window.addEventListener('keydown', handleUsageKeydown)
   document.addEventListener('mousedown', dismissProviderFieldError)
   document.addEventListener('visibilitychange', publishExpandedUsage)
+  window.addEventListener('resize', updateProviderErrorPositions)
   publishExpandedUsage()
 })
 onUnmounted(() => {
   window.removeEventListener('keydown', handleUsageKeydown)
   document.removeEventListener('mousedown', dismissProviderFieldError)
   document.removeEventListener('visibilitychange', publishExpandedUsage)
+  window.removeEventListener('resize', updateProviderErrorPositions)
   for (const timer of usageShimmerTimers.values()) window.clearTimeout(timer)
   emit('expandedUsageChange', [])
 })
@@ -583,7 +611,7 @@ onUnmounted(() => {
         @click.self="closeProviderForm"
         @keydown.esc.stop.prevent="closeProviderForm"
       >
-        <form ref="providerDialog" class="provider-dialog" novalidate @submit.prevent="submitProvider">
+        <form class="provider-dialog" novalidate @submit.prevent="submitProvider">
         <h2 class="dialog-title">{{ editingProviderId ? 'Edit provider' : 'Add provider' }}</h2>
         <label class="field">
           <span class="field-label">Name</span>
@@ -594,10 +622,10 @@ onUnmounted(() => {
             type="text"
             autocomplete="off"
             :aria-invalid="showProviderNameError || undefined"
-            aria-describedby="provider-name-error"
+            :aria-describedby="showProviderNameError ? 'provider-name-error' : undefined"
           >
           <Transition name="field-error">
-            <span v-if="showProviderNameError" id="provider-name-error" class="field-error" role="alert" :style="errorStyle(providerNameInput, providerName, providerNameErrorMessage)">{{ providerNameErrorMessage }}</span>
+            <span v-if="showProviderNameError" id="provider-name-error" ref="providerNameError" class="field-error" role="alert" :style="providerNameErrorStyle">{{ providerNameErrorMessage }}</span>
           </Transition>
         </label>
         <label class="field">
@@ -616,9 +644,10 @@ onUnmounted(() => {
             <span
               v-if="showProviderBaseUrlError"
               id="provider-base-url-error"
+              ref="providerBaseUrlError"
               class="field-error"
               role="alert"
-              :style="errorStyle(providerBaseUrlInput, providerBaseUrl, 'Please enter a URL.')"
+              :style="providerBaseUrlErrorStyle"
             >Please enter a URL.</span>
           </Transition>
         </label>
@@ -832,7 +861,7 @@ onUnmounted(() => {
 }
 .field-input:focus { border-color: var(--vscode-focusBorder); }
 .field-input[aria-invalid="true"] { border-color: var(--vscode-inputValidation-errorBorder, var(--vscode-errorForeground)); }
-.field-error { position: absolute; z-index: 2; top: calc(100% + 5px); left: var(--error-left, 0px); box-sizing: border-box; display: block; width: var(--error-width, max-content); max-width: 100%; padding: 6px 8px; color: var(--vscode-inputValidation-errorForeground, var(--vscode-errorForeground)); border: 1px solid var(--vscode-inputValidation-errorBorder, var(--vscode-errorForeground)); border-radius: 4px; background: var(--vscode-inputValidation-errorBackground, var(--vscode-editorHoverWidget-background, var(--vscode-editorWidget-background))); box-shadow: 0 4px 12px rgb(0 0 0 / 24%); font-size: 11px; line-height: 1.35; white-space: normal; overflow-wrap: anywhere; pointer-events: none; }
+.field-error { position: absolute; z-index: 2; top: calc(100% + 5px); left: var(--error-left, 0); box-sizing: border-box; display: block; width: var(--error-width, 100%); max-width: 100%; padding: 6px 8px; color: var(--vscode-inputValidation-errorForeground, var(--vscode-errorForeground)); border: 1px solid var(--vscode-inputValidation-errorBorder, var(--vscode-errorForeground)); border-radius: 4px; background: var(--vscode-inputValidation-errorBackground, var(--vscode-editorHoverWidget-background, var(--vscode-editorWidget-background))); box-shadow: 0 4px 12px rgb(0 0 0 / 24%); font-size: 11px; line-height: 1.35; white-space: normal; overflow-wrap: anywhere; pointer-events: none; }
 .field-error::before { position: absolute; top: -5px; left: 25%; width: 8px; height: 8px; content: ''; border-top: 1px solid var(--vscode-inputValidation-errorBorder, var(--vscode-errorForeground)); border-left: 1px solid var(--vscode-inputValidation-errorBorder, var(--vscode-errorForeground)); background: var(--vscode-inputValidation-errorBackground, var(--vscode-editorHoverWidget-background, var(--vscode-editorWidget-background))); transform: rotate(45deg); }
 .field-error-enter-active, .field-error-leave-active { transition: opacity 120ms ease, transform 120ms ease; }
 .field-error-enter-from, .field-error-leave-to { opacity: 0; transform: translateY(-3px); }

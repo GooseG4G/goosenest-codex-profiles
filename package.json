@@ -2,7 +2,7 @@
   "name": "codex-profiles",
   "displayName": "Codex Profiles",
   "description": "Switch Codex accounts, view usage limits, and manage compatible providers from VS Code",
-  "version": "0.10.10",
+  "version": "0.10.11",
   "publisher": "goosenest",
   "repository": {
     "type": "git",
@@ -40,6 +40,7 @@
   "scripts": {
     "build": "vite build",
     "check": "vue-tsc --noEmit",
+    "test": "node --test",
     "package": "vsce package --githubBranch master"
   },
   "contributes": {
