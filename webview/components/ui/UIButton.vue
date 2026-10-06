@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, shallowRef, useId, useTemplateRef } from 'vue'
+import UITooltip from './UITooltip.vue'
 
 interface Props {
   type?: 'button' | 'submit'
@@ -24,15 +25,9 @@ defineEmits<{ click: [event: MouseEvent] }>()
 const tooltipId = useId()
 const hasTooltip = computed(() => Boolean(props.tooltip))
 const button = useTemplateRef<HTMLButtonElement>('button')
-const tooltipAlignment = shallowRef<'start' | 'center' | 'end'>('center')
-
-function updateTooltipAlignment() {
-  const rect = button.value?.getBoundingClientRect()
-  if (!rect) return
-  if (rect.left < 100) tooltipAlignment.value = 'start'
-  else if (window.innerWidth - rect.right < 100) tooltipAlignment.value = 'end'
-  else tooltipAlignment.value = 'center'
-}
+const isTooltipHovered = shallowRef(false)
+const isTooltipFocused = shallowRef(false)
+const isTooltipOpen = computed(() => hasTooltip.value && (isTooltipHovered.value || isTooltipFocused.value))
 </script>
 
 <template>
@@ -46,12 +41,14 @@ function updateTooltipAlignment() {
     :aria-busy="pending || undefined"
     :aria-describedby="hasTooltip ? tooltipId : undefined"
     @click="$emit('click', $event)"
-    @mouseenter="updateTooltipAlignment"
-    @focus="updateTooltipAlignment"
+    @mouseenter="isTooltipHovered = true"
+    @mouseleave="isTooltipHovered = false"
+    @focus="isTooltipFocused = true"
+    @blur="isTooltipFocused = false"
   >
     <slot />
-    <span v-if="hasTooltip" :id="tooltipId" class="tooltip" :class="`tooltip-${tooltipAlignment}`" role="tooltip">{{ tooltip }}</span>
   </button>
+  <UITooltip v-if="hasTooltip" :id="tooltipId" :anchor="button" :text="tooltip ?? ''" :open="isTooltipOpen" />
 </template>
 
 <style scoped>
@@ -92,37 +89,8 @@ function updateTooltipAlignment() {
 }
 .button:disabled:hover, .button:disabled:active { background: var(--vscode-input-background); transform: scale(1); }
 .button.is-pending:disabled { cursor: wait; }
-.tooltip {
-  position: absolute;
-  bottom: calc(100% + 7px);
-  z-index: 20;
-  max-width: 240px;
-  padding: 4px 7px;
-  color: var(--vscode-editorHoverWidget-foreground, var(--vscode-foreground));
-  border: 1px solid var(--vscode-editorHoverWidget-border, var(--vscode-widget-border));
-  border-radius: 3px;
-  background: var(--vscode-editorHoverWidget-background, var(--vscode-editorWidget-background, var(--vscode-editor-background)));
-  box-shadow: 0 2px 8px var(--vscode-widget-shadow, rgb(0 0 0 / 36%));
-  font-size: 12px;
-  font-weight: 400;
-  line-height: 1.35;
-  white-space: nowrap;
-  pointer-events: none;
-  opacity: 0;
-  visibility: hidden;
-  transition: opacity 80ms ease, visibility 0s linear 80ms;
-}
-.tooltip-start { left: 0; transform: none; }
-.tooltip-center { left: 50%; transform: translateX(-50%); }
-.tooltip-end { right: 0; transform: none; }
-.button:hover .tooltip,
-.button:focus-visible .tooltip {
-  opacity: 1;
-  visibility: visible;
-  transition-delay: 450ms;
-}
 @media (prefers-reduced-motion: reduce) {
-  .button, .tooltip { transition: none; }
+  .button { transition: none; }
   .button:hover, .button:active { transform: none; }
 }
 </style>

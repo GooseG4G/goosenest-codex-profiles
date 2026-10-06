@@ -1,56 +1,85 @@
 # Codex Profiles
 
-Codex Profiles is a local Codex account switcher for VS Code. Manage multiple `auth.json` profiles, inspect usage limits, and configure OpenAI-compatible providers from one sidebar.
+Manage multiple Codex accounts and OpenAI-compatible providers directly from VS Code. Switch the active account, compare usage limits, and keep one shared Codex history.
 
-OpenAI account switches keep the shared Codex home and chat history intact. Authentication snapshots stay local, refreshed tokens are preserved, and account limits come from the official Codex app-server.
+Codex Profiles stores account snapshots locally and switches the authentication used by the official Codex extension. It preserves refreshed credentials and restarts only the Extension Host, so the VS Code window stays open.
 
 ![Codex Profiles sidebar](images/preview.png)
 
-## Highlights
+## Why Codex Profiles
 
-- Switch OpenAI accounts while keeping one shared Codex home and chat history.
-- Add accounts through the official Codex sign-in flow without logging out saved sessions.
-- Add custom OpenAI-compatible providers with a base URL and token.
-- See remaining 5-hour, weekly, and other usage windows for OpenAI accounts.
-- Keep refreshed access and refresh tokens instead of restoring stale snapshots.
-- Search profiles and remove inactive entries from the sidebar.
-- Use colors and controls from the active VS Code theme.
+Codex normally reads one active sign-in from `CODEX_HOME`. Using a separate home for every account also separates conversation history and other Codex state.
 
-## Quick Start
+Codex Profiles keeps one shared home and stores authentication separately for each account. Switching changes the active credentials without moving the rest of the Codex data.
 
-1. Install the official OpenAI Codex extension and sign in to an account.
-2. Install Codex Profiles.
+## Features
+
+- switch between saved Codex accounts from the VS Code secondary sidebar;
+- add another account through the official Codex sign-in flow;
+- preserve refreshed access and refresh tokens when leaving or checking an account;
+- view remaining 5-hour, weekly, and other usage windows reported by Codex;
+- configure OpenAI-compatible providers with a name, base URL, and token;
+- search profiles and clearly identify the active account;
+- create backups before replacing active authentication or provider configuration;
+- follow the colors and interaction states of the active VS Code theme.
+
+## Getting Started
+
+1. Install the official OpenAI Codex extension and sign in.
+2. Install **Codex Profiles** from the [Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=goosenest.codex-profiles), or run:
+
+   ```shell
+   code --install-extension goosenest.codex-profiles
+   ```
+
 3. Open **Codex Profiles** in the VS Code secondary sidebar.
-4. Use **Add profile** to sign in to another OpenAI account, or **Add provider** to configure an OpenAI-compatible endpoint.
-5. Select an inactive profile and confirm **Switch**.
+4. Select **Add profile** and confirm the Extension Host restart.
+5. Open Codex, complete the normal sign-in, and return to the profile list.
+6. Select any saved account to switch to it.
 
-Codex Profiles restarts the Extension Host after authentication changes; the VS Code window stays open.
+You can also use **Add provider** to configure an OpenAI-compatible endpoint instead of another OpenAI account.
+
+## Switching Accounts
+
+Before a switch, Codex Profiles synchronizes the latest credentials for the account you are leaving. It then replaces the active authentication with the selected snapshot and restarts the Extension Host so Codex reads the change.
+
+The VS Code window, editors, and workspace remain open. Codex continues to use the same home and conversation history.
+
+If a usage check is currently refreshing credentials for either account, the switch waits for that check to finish instead of overwriting newer authentication data.
 
 ## Usage Limits
 
-Expand an OpenAI profile to view every rate-limit window returned by Codex. Common windows are displayed as **5-hour usage limit** and **Weekly usage limit**.
+Expand an OpenAI account to see every usage window returned by Codex, including the common **5-hour usage limit** and **Weekly usage limit**.
 
-- The active OpenAI profile is refreshed at most once per minute.
-- An expanded inactive OpenAI profile is also refreshed at most once per minute.
-- Closed inactive profiles are not polled.
-- Routine refreshes are quiet. A subtle shimmer appears only while genuinely stale data is being refreshed.
-- Custom providers are not queried for OpenAI account limits.
+- the active account refreshes at most once per minute;
+- an expanded inactive account also refreshes at most once per minute;
+- closed inactive accounts are not polled;
+- inactive checks run one at a time through a temporary isolated Codex home;
+- a shimmer appears only when displayed data is stale and a refresh is actually running;
+- provider profiles do not request OpenAI account limits.
 
-Inactive checks run sequentially through one isolated temporary Codex home. This avoids parallel token refreshes and unnecessary temporary homes.
+## OpenAI-Compatible Providers
 
-## Install
+A provider profile contains a display name, base URL, and access token. Activating it updates the Codex provider configuration and restarts the Extension Host, just like an account switch.
 
-### Visual Studio Marketplace
+Provider tokens are written to the local Codex environment file rather than exposed to the webview. Managed provider entries are removed when their profile is deleted.
 
-Search for **Codex Profiles** in the Extensions view, or install it by extension ID:
+Codex may group custom-provider conversations differently. The shared-history behavior described above applies to OpenAI accounts using the same OpenAI provider.
 
-```shell
-code --install-extension goosenest.codex-profiles
-```
+## Local Storage And Safety
 
-[Open Codex Profiles in the Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=goosenest.codex-profiles)
+Codex Profiles has no remote service or telemetry of its own. Usage checks are performed through the locally installed Codex app-server.
 
-### GitHub Release
+- profile metadata is stored in VS Code global extension storage;
+- account credentials are stored as private local snapshots and are never sent to the sidebar webview;
+- the current `auth.json` is backed up as `auth.json.bak` before a switch;
+- provider changes back up `config.toml` as `config.toml.bak`;
+- temporary account checks remove their copied `auth.json` after use;
+- temporary homes are cleaned on shutdown and again on startup when their owning process no longer exists.
+
+VS Code windows using the same `CODEX_HOME` also use the same active Codex authentication. Switching in one of those windows therefore changes the account used by the others.
+
+## Install From A VSIX
 
 Download `codex-profiles-<version>.vsix` from the [latest GitHub release](https://github.com/GooseG4G/goosenest-codex-profiles/releases/latest), then run:
 
@@ -58,38 +87,13 @@ Download `codex-profiles-<version>.vsix` from the [latest GitHub release](https:
 code --install-extension ./codex-profiles-<version>.vsix --force
 ```
 
-VSIX installations do not receive Marketplace updates automatically.
-
-## Profiles And Providers
-
-### OpenAI Accounts
-
-The extension identifies an account by its Codex account ID or email and stores a local snapshot of its `auth.json`. It synchronizes current credentials before switching away and creates `auth.json.bak` before replacing authentication.
-
-### OpenAI-Compatible Providers
-
-Provider profiles store a display name, base URL, and environment-variable key. Tokens entered in the provider form are written to the managed local Codex environment file. Provider changes are applied to `config.toml`, with `config.toml.bak` created before replacement.
-
-Codex may keep custom-provider conversations in a provider-specific history group. The shared-history guarantee applies to OpenAI account profiles using the same OpenAI provider.
-
-## Storage And Privacy
-
-All profile data stays on the local machine.
-
-- Profile metadata is stored in VS Code global extension storage.
-- OpenAI authentication snapshots are stored as private local files and are never sent to the webview.
-- Provider tokens are stored locally in the managed Codex environment file.
-- Temporary inactive-profile checks use `%TEMP%/goosenest-codex-profiles` on Windows or the platform-equivalent temporary directory.
-- Temporary `auth.json` files are removed after each check.
-- Scratch homes are removed on a clean shutdown; a startup cleaner removes homes whose owning process no longer exists.
-
-The active Codex authentication is shared by VS Code windows that use the same `CODEX_HOME`. Switching in one window therefore changes the account used by other windows on the same Codex home.
+VSIX installations do not receive automatic Marketplace updates.
 
 ## Requirements
 
-- VS Code 1.106 or newer.
-- The official OpenAI Codex extension installed locally.
-- A working Codex sign-in for OpenAI account profiles.
+- VS Code 1.106 or newer;
+- the official OpenAI Codex extension installed in the same VS Code environment;
+- an existing Codex sign-in for the first OpenAI account.
 
 ## Configuration
 
@@ -97,7 +101,7 @@ The active Codex authentication is shared by VS Code windows that use the same `
 
 Overrides the Codex home directory. When empty, Codex Profiles uses `~/.codex`.
 
-## Build From Source
+## Development
 
 Building requires Node.js `^20.19.0` or `>=22.12.0`, npm, and Git.
 
@@ -110,17 +114,7 @@ npm run build
 npm run package
 ```
 
-The platform scripts `build.ps1` and `build.sh` run the same checked build and place their output under `build/`.
-
-## Development
-
-Open the repository in VS Code and press `F5` to launch an Extension Development Host. Individual checks are available through:
-
-```shell
-npm run check
-npm run build
-npm run package
-```
+Open the repository in VS Code and press `F5` to launch an Extension Development Host. The platform scripts `build.ps1` and `build.sh` run the same checked build and place their output under `build/`.
 
 ## Disclaimer
 

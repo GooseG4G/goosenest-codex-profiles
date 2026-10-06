@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, shallowRef, useId, useTemplateRef } from 'vue'
+import UITooltip from './UITooltip.vue'
 
 export type IconButtonBackground = 'always' | 'hover' | 'never'
 export type IconButtonSurfaceMotion = 'lift' | 'scale' | 'none'
@@ -36,13 +37,9 @@ defineSlots<{
 const tooltipId = useId()
 const tooltipText = computed(() => props.title ?? props.accessibleLabel)
 const button = useTemplateRef<HTMLButtonElement>('button')
-const tooltipSide = shallowRef<'left' | 'right'>('left')
-
-function updateTooltipSide() {
-  const rect = button.value?.getBoundingClientRect()
-  if (!rect) return
-  tooltipSide.value = rect.left < window.innerWidth - rect.right ? 'right' : 'left'
-}
+const isTooltipHovered = shallowRef(false)
+const isTooltipFocused = shallowRef(false)
+const isTooltipOpen = computed(() => isTooltipHovered.value || isTooltipFocused.value)
 
 const buttonClasses = computed(() => [
   `background-${props.background}`,
@@ -65,13 +62,15 @@ const buttonClasses = computed(() => [
     :disabled="disabled"
     :aria-pressed="selected === undefined ? undefined : selected"
     @click="$emit('click', $event)"
-    @mouseenter="updateTooltipSide"
-    @focus="updateTooltipSide"
+    @mouseenter="isTooltipHovered = true"
+    @mouseleave="isTooltipHovered = false"
+    @focus="isTooltipFocused = true"
+    @blur="isTooltipFocused = false"
   >
     <span class="icon" aria-hidden="true"><slot name="icon" /></span>
     <span v-if="$slots.default" class="label"><slot /></span>
-    <span :id="tooltipId" class="tooltip" :class="`tooltip-${tooltipSide}`" role="tooltip">{{ tooltipText }}</span>
   </button>
+  <UITooltip :id="tooltipId" :anchor="button" :text="tooltipText" :open="isTooltipOpen" placement="horizontal" />
 </template>
 
 <style scoped>
@@ -145,37 +144,8 @@ const buttonClasses = computed(() => [
 .icon-button:disabled .icon { opacity: .65; transform: none; }
 .icon-button:disabled .label { opacity: .65; }
 .label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.tooltip {
-  position: absolute;
-  top: 50%;
-  z-index: 20;
-  max-width: 240px;
-  padding: 4px 7px;
-  color: var(--vscode-editorHoverWidget-foreground, var(--vscode-foreground));
-  border: 1px solid var(--vscode-editorHoverWidget-border, var(--vscode-widget-border));
-  border-radius: 3px;
-  background: var(--vscode-editorHoverWidget-background, var(--vscode-editorWidget-background, var(--vscode-editor-background)));
-  box-shadow: 0 2px 8px var(--vscode-widget-shadow, rgb(0 0 0 / 36%));
-  font-size: 12px;
-  font-weight: 400;
-  line-height: 1.35;
-  white-space: nowrap;
-  pointer-events: none;
-  opacity: 0;
-  visibility: hidden;
-  transform: translateY(-50%);
-  transition: opacity 80ms ease, visibility 0s linear 80ms;
-}
-.tooltip-left { right: calc(100% + 7px); }
-.tooltip-right { left: calc(100% + 7px); }
-.icon-button:hover .tooltip,
-.icon-button:focus-visible .tooltip {
-  opacity: 1;
-  visibility: visible;
-  transition-delay: 450ms;
-}
 @media (prefers-reduced-motion: reduce) {
-  .icon-button, .icon, .tooltip { transition: none; }
+  .icon-button, .icon { transition: none; }
   .icon-button:hover, .icon-button:active, .icon-button:hover .icon, .icon-button:active .icon { transform: none; }
 }
 </style>
