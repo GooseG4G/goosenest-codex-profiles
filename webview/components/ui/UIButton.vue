@@ -1,6 +1,8 @@
 <script setup lang="ts">
-import { computed, shallowRef, useId, useTemplateRef } from 'vue'
+import { computed, shallowRef, useAttrs, useId, useTemplateRef } from 'vue'
 import UITooltip from './UITooltip.vue'
+
+defineOptions({ inheritAttrs: false })
 
 interface Props {
   type?: 'button' | 'submit'
@@ -23,6 +25,7 @@ const props = withDefaults(defineProps<Props>(), {
 defineEmits<{ click: [event: MouseEvent] }>()
 
 const tooltipId = useId()
+const attrs = useAttrs()
 const hasTooltip = computed(() => Boolean(props.tooltip))
 const button = useTemplateRef<HTMLButtonElement>('button')
 const isTooltipHovered = shallowRef(false)
@@ -33,6 +36,7 @@ const isTooltipOpen = computed(() => hasTooltip.value && (isTooltipHovered.value
 <template>
   <button
     ref="button"
+    v-bind="attrs"
     class="button"
     :class="[`variant-${variant}`, { 'is-pending': pending }]"
     :type="type"

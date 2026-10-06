@@ -1,6 +1,8 @@
 <script setup lang="ts">
-import { computed, shallowRef, useId, useTemplateRef } from 'vue'
+import { computed, shallowRef, useAttrs, useId, useTemplateRef } from 'vue'
 import UITooltip from './UITooltip.vue'
+
+defineOptions({ inheritAttrs: false })
 
 export type IconButtonBackground = 'always' | 'hover' | 'never'
 export type IconButtonSurfaceMotion = 'lift' | 'scale' | 'none'
@@ -35,6 +37,7 @@ defineSlots<{
 }>()
 
 const tooltipId = useId()
+const attrs = useAttrs()
 const tooltipText = computed(() => props.title ?? props.accessibleLabel)
 const button = useTemplateRef<HTMLButtonElement>('button')
 const isTooltipHovered = shallowRef(false)
@@ -54,6 +57,7 @@ const buttonClasses = computed(() => [
 <template>
   <button
     ref="button"
+    v-bind="attrs"
     class="icon-button"
     :class="buttonClasses"
     type="button"
