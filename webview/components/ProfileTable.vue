@@ -43,6 +43,10 @@ const providerNameInput = useTemplateRef<HTMLInputElement>('providerNameInput')
 const providerBaseUrlInput = useTemplateRef<HTMLInputElement>('providerBaseUrlInput')
 const showProviderBaseUrlError = shallowRef(false)
 const expandedUsageIds = shallowRef<Set<string>>(new Set(restoredUiState?.expandedUsageIds ?? []))
+const usageShimmerIds = shallowRef<Set<string>>(new Set())
+const usageShimmerStartedAt = new Map<string, number>()
+const usageShimmerTimers = new Map<string, number>()
+const usageShimmerDurationMs = 1400
 const visibleProfiles = computed(() => {
   const normalizedQuery = query.value.trim().toLocaleLowerCase()
   if (!normalizedQuery) return props.profiles
@@ -176,6 +180,53 @@ function isUsageRefreshing(profile: Profile) {
   return Boolean(profile.busy) && (!Number.isFinite(updatedAt) || Date.now() - updatedAt >= 180_000)
 }
 
+function isUsageShimmering(profile: Profile) {
+  return usageShimmerIds.value.has(profile.id)
+}
+
+function setUsageShimmer(profileId: string, visible: boolean) {
+  const next = new Set(usageShimmerIds.value)
+  if (visible) next.add(profileId)
+  else next.delete(profileId)
+  usageShimmerIds.value = next
+}
+
+function syncUsageShimmers(profiles: readonly Profile[]) {
+  const profileIds = new Set(profiles.map((profile) => profile.id))
+  for (const profile of profiles) {
+    if (isUsageRefreshing(profile)) {
+      const timer = usageShimmerTimers.get(profile.id)
+      if (timer !== undefined) window.clearTimeout(timer)
+      usageShimmerTimers.delete(profile.id)
+      if (!usageShimmerIds.value.has(profile.id)) {
+        usageShimmerStartedAt.set(profile.id, performance.now())
+        setUsageShimmer(profile.id, true)
+      }
+      continue
+    }
+
+    if (!usageShimmerIds.value.has(profile.id) || usageShimmerTimers.has(profile.id)) continue
+    const startedAt = usageShimmerStartedAt.get(profile.id) ?? performance.now()
+    const elapsed = performance.now() - startedAt
+    const remaining = usageShimmerDurationMs - (elapsed % usageShimmerDurationMs)
+    const timer = window.setTimeout(() => {
+      usageShimmerTimers.delete(profile.id)
+      usageShimmerStartedAt.delete(profile.id)
+      setUsageShimmer(profile.id, false)
+    }, remaining)
+    usageShimmerTimers.set(profile.id, timer)
+  }
+
+  for (const profileId of usageShimmerIds.value) {
+    if (profileIds.has(profileId)) continue
+    const timer = usageShimmerTimers.get(profileId)
+    if (timer !== undefined) window.clearTimeout(timer)
+    usageShimmerTimers.delete(profileId)
+    usageShimmerStartedAt.delete(profileId)
+    setUsageShimmer(profileId, false)
+  }
+}
+
 function toggleUsage(profile: Profile, event: MouseEvent) {
   if (event.detail > 0 && event.currentTarget instanceof HTMLElement) event.currentTarget.blur()
   const opening = !expandedUsageIds.value.has(profile.id)
@@ -228,6 +279,7 @@ watch(providerBaseUrl, (value) => {
     showProviderBaseUrlError.value = false
   }
 })
+watch(() => props.profiles, syncUsageShimmers, { immediate: true })
 
 watch(query, persistUiState)
 watch(expandedUsageIds, () => {
@@ -243,6 +295,7 @@ onMounted(() => {
 onUnmounted(() => {
   window.removeEventListener('keydown', handleUsageKeydown)
   document.removeEventListener('visibilitychange', publishExpandedUsage)
+  for (const timer of usageShimmerTimers.values()) window.clearTimeout(timer)
   emit('expandedUsageChange', [])
 })
 </script>
@@ -366,7 +419,7 @@ onUnmounted(() => {
                 v-for="window in getUsageWindows(profile)"
                 :key="window.label"
                 class="usage-widget"
-                :class="{ refreshing: isUsageRefreshing(profile) }"
+                :class="{ refreshing: isUsageShimmering(profile) }"
               >
                 <span class="usage-copy">
                   <span class="usage-title">{{ window.label }}</span>
@@ -383,7 +436,7 @@ onUnmounted(() => {
               <section
                 v-if="getUsageWindows(profile).length === 0"
                 class="usage-widget usage-placeholder"
-                :class="{ refreshing: isUsageRefreshing(profile) }"
+                :class="{ refreshing: isUsageShimmering(profile) }"
               >
                 <span class="usage-copy">
                   <span class="usage-title">Usage limits</span>

@@ -2,7 +2,7 @@
   "name": "codex-profiles",
   "displayName": "Codex Profiles",
   "description": "Switch Codex accounts, view usage limits, and manage compatible providers from VS Code",
-  "version": "0.10.3",
+  "version": "0.10.4",
   "publisher": "goosenest",
   "repository": {
     "type": "git",
