@@ -36,6 +36,7 @@ const {
 </template>
 
 <style scoped>
+:global(html), :global(body), :global(#app) { box-sizing: border-box; width: 100%; height: 100%; margin: 0; }
 .app { --app-row-hover-background: color-mix(in srgb, var(--vscode-list-hoverBackground) 55%, transparent); min-width: 320px; height: 100vh; overflow-x: auto; color: var(--vscode-foreground); background: var(--vscode-sideBar-background); font-family: var(--vscode-font-family); font-size: var(--vscode-font-size); }
 .message { margin: 0; padding: 12px; color: var(--vscode-descriptionForeground); line-height: 1.45; }
 .error { color: var(--vscode-errorForeground); }
