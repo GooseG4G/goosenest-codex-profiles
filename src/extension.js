@@ -54,16 +54,18 @@ function stripManagedProviderConfig(contents, providers) {
   const lines = contents.split(/\r?\n/);
   const output = [];
   let skippingProvider = false;
+  let inRootTable = true;
 
   for (const line of lines) {
     const tableMatch = line.match(/^\s*\[([^\]]+)]\s*$/);
     if (tableMatch) {
-      const providerMatch = tableMatch[1].match(/^model_providers\.([^\].]+)$/);
+      inRootTable = false;
+      const providerMatch = tableMatch[1].match(/^model_providers\.([^\].]+)(?:\.|$)/);
       skippingProvider = providerMatch ? providerSet.has(providerMatch[1]) : false;
       if (skippingProvider) continue;
     }
     if (skippingProvider) continue;
-    if (/^\s*model_provider\s*=/.test(line)) continue;
+    if (inRootTable && /^\s*model_provider\s*=/.test(line)) continue;
     output.push(line);
   }
 
