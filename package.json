@@ -2,8 +2,23 @@
   "name": "codex-profiles",
   "displayName": "Codex Profiles",
   "description": "Manage Codex auth.json profiles from the VS Code secondary sidebar",
-  "version": "0.9.12",
+  "version": "0.10.1",
   "publisher": "goosenest",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/GooseG4G/goosenest-codex-profiles.git"
+  },
+  "homepage": "https://github.com/GooseG4G/goosenest-codex-profiles#readme",
+  "bugs": {
+    "url": "https://github.com/GooseG4G/goosenest-codex-profiles/issues"
+  },
+  "keywords": [
+    "codex",
+    "profiles",
+    "accounts",
+    "authentication",
+    "usage limits"
+  ],
   "engines": {
     "vscode": "^1.106.0"
   },
@@ -15,17 +30,17 @@
     "onView:codexProfiles.profilesView"
   ],
   "main": "./src/extension.js",
-  "icon": "media/icon.png",
+  "icon": "images/icon.png",
   "files": [
     "src",
     "build/dist",
-    "media",
+    "images",
     "README.md"
   ],
   "scripts": {
     "build": "vite build",
     "check": "vue-tsc --noEmit",
-    "package": "vsce package --allow-missing-repository"
+    "package": "vsce package"
   },
   "contributes": {
     "commands": [
@@ -45,7 +60,7 @@
         {
           "id": "codexProfiles",
           "title": "Codex Profiles",
-          "icon": "media/switch.svg"
+          "icon": "images/switch.svg"
         }
       ]
     },

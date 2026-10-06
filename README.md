@@ -4,6 +4,8 @@ Codex Profiles is a local Codex account switcher for VS Code. Manage multiple `a
 
 OpenAI account switches keep the shared Codex home and chat history intact. Authentication snapshots stay local, refreshed tokens are preserved, and account limits come from the official Codex app-server.
 
+![Codex Profiles sidebar](images/preview.png)
+
 ## Highlights
 
 - Switch OpenAI accounts while keeping one shared Codex home and chat history.
@@ -11,7 +13,7 @@ OpenAI account switches keep the shared Codex home and chat history intact. Auth
 - Add custom OpenAI-compatible providers with a base URL and token.
 - See remaining 5-hour, weekly, and other usage windows for OpenAI accounts.
 - Keep refreshed access and refresh tokens instead of restoring stale snapshots.
-- Search profiles and remove inactive entries from a compact sidebar view.
+- Search profiles and remove inactive entries from the sidebar.
 - Use colors and controls from the active VS Code theme.
 
 ## Quick Start
@@ -22,7 +24,7 @@ OpenAI account switches keep the shared Codex home and chat history intact. Auth
 4. Use **Add profile** to sign in to another OpenAI account, or **Add provider** to configure an OpenAI-compatible endpoint.
 5. Select an inactive profile and confirm **Switch**.
 
-Codex Profiles restarts the Extension Host after authentication changes. The VS Code window itself stays open.
+Codex Profiles restarts the Extension Host after authentication changes; the VS Code window stays open.
 
 ## Usage Limits
 
@@ -34,7 +36,7 @@ Expand an OpenAI profile to view every rate-limit window returned by Codex. Comm
 - Routine refreshes are quiet. A subtle shimmer appears only while genuinely stale data is being refreshed.
 - Custom providers are not queried for OpenAI account limits.
 
-Inactive checks run sequentially through one isolated temporary Codex home. This avoids parallel token refreshes and keeps polling cost independent of the total number of saved profiles.
+Inactive checks run sequentially through one isolated temporary Codex home. This avoids parallel token refreshes and unnecessary temporary homes.
 
 ## Install
 
@@ -62,7 +64,7 @@ VSIX installations do not receive Marketplace updates automatically.
 
 ### OpenAI Accounts
 
-The extension identifies an account by its Codex account ID or email and stores a local snapshot of its `auth.json`. Before switching away, it synchronizes the latest active credentials. Before replacing authentication, it creates `auth.json.bak`.
+The extension identifies an account by its Codex account ID or email and stores a local snapshot of its `auth.json`. It synchronizes current credentials before switching away and creates `auth.json.bak` before replacing authentication.
 
 ### OpenAI-Compatible Providers
 
