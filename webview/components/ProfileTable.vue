@@ -58,8 +58,12 @@ const providerSubmitPending = shallowRef(false)
 const expandedUsageIds = shallowRef<Set<string>>(new Set(restoredUiState?.expandedUsageIds ?? []))
 const usageShimmerIds = shallowRef<Set<string>>(new Set())
 const finishingUsageShimmerIds = new Set<string>()
+const fadingUsageShimmerIds = shallowRef<Set<string>>(new Set())
 const usageShimmerTimers = new Map<string, number>()
-const usageShimmerDurationMs = 1600
+const usageShimmerStartedAt = new Map<string, number>()
+const usageShimmerStructure = new Map<string, string>()
+const usageShimmerDurationMs = 2200
+const usageShimmerFadeMs = 320
 const visibleProfiles = computed(() => {
   const normalizedQuery = query.value.trim().toLocaleLowerCase()
   if (!normalizedQuery) return props.profiles
@@ -306,10 +310,20 @@ function isUsageShimmering(profile: Profile) {
   return usageShimmerIds.value.has(profile.id)
 }
 
+function isUsageShimmerFading(profile: Profile) {
+  return fadingUsageShimmerIds.value.has(profile.id)
+}
+
 function setUsageShimmer(profileId: string, visible: boolean) {
   const next = new Set(usageShimmerIds.value)
-  if (visible) next.add(profileId)
-  else next.delete(profileId)
+  if (visible) {
+    if (!next.has(profileId)) usageShimmerStartedAt.set(profileId, performance.now())
+    next.add(profileId)
+  } else {
+    next.delete(profileId)
+    usageShimmerStartedAt.delete(profileId)
+    usageShimmerStructure.delete(profileId)
+  }
   usageShimmerIds.value = next
 }
 
@@ -318,12 +332,21 @@ function finishUsageShimmer(profileId: string) {
   if (timer !== undefined) window.clearTimeout(timer)
   usageShimmerTimers.delete(profileId)
   finishingUsageShimmerIds.delete(profileId)
+  const fading = new Set(fadingUsageShimmerIds.value)
+  fading.delete(profileId)
+  fadingUsageShimmerIds.value = fading
   setUsageShimmer(profileId, false)
 }
 
-function handleUsageShimmerIteration(profileId: string, event: AnimationEvent) {
-  if (event.animationName !== 'usage-shimmer' || !finishingUsageShimmerIds.has(profileId)) return
-  finishUsageShimmer(profileId)
+function beginUsageShimmerFade(profileId: string) {
+  if (!usageShimmerIds.value.has(profileId) || fadingUsageShimmerIds.value.has(profileId)) return
+  finishingUsageShimmerIds.delete(profileId)
+  fadingUsageShimmerIds.value = new Set(fadingUsageShimmerIds.value).add(profileId)
+  const timer = usageShimmerTimers.get(profileId)
+  if (timer !== undefined) window.clearTimeout(timer)
+  usageShimmerTimers.set(profileId, window.setTimeout(() => {
+    finishUsageShimmer(profileId)
+  }, usageShimmerFadeMs))
 }
 
 function syncUsageShimmers(profiles: readonly Profile[]) {
@@ -334,7 +357,11 @@ function syncUsageShimmers(profiles: readonly Profile[]) {
       if (timer !== undefined) window.clearTimeout(timer)
       usageShimmerTimers.delete(profile.id)
       finishingUsageShimmerIds.delete(profile.id)
+      const fading = new Set(fadingUsageShimmerIds.value)
+      fading.delete(profile.id)
+      fadingUsageShimmerIds.value = fading
       if (!usageShimmerIds.value.has(profile.id)) {
+        usageShimmerStructure.set(profile.id, getUsageWindows(profile).map((window) => window.label).join('|'))
         setUsageShimmer(profile.id, true)
       }
       continue
@@ -347,9 +374,18 @@ function syncUsageShimmers(profiles: readonly Profile[]) {
     }
 
     finishingUsageShimmerIds.add(profile.id)
+    const structure = getUsageWindows(profile).map((window) => window.label).join('|')
+    const structureChanged = structure !== usageShimmerStructure.get(profile.id)
+    if (structureChanged) {
+      usageShimmerStructure.set(profile.id, structure)
+      usageShimmerStartedAt.set(profile.id, performance.now())
+    }
+    const startedAt = usageShimmerStartedAt.get(profile.id) ?? performance.now()
+    const elapsedInCycle = (performance.now() - startedAt) % usageShimmerDurationMs
+    const remainingInCycle = structureChanged ? usageShimmerDurationMs : usageShimmerDurationMs - elapsedInCycle
     const timer = window.setTimeout(() => {
-      finishUsageShimmer(profile.id)
-    }, usageShimmerDurationMs + 100)
+      beginUsageShimmerFade(profile.id)
+    }, remainingInCycle + 32)
     usageShimmerTimers.set(profile.id, timer)
   }
 
@@ -555,8 +591,7 @@ onUnmounted(() => {
                 v-for="window in getUsageWindows(profile)"
                 :key="window.label"
                 class="usage-widget"
-                :class="{ refreshing: isUsageShimmering(profile) }"
-                @animationiteration="handleUsageShimmerIteration(profile.id, $event)"
+                :class="{ refreshing: isUsageShimmering(profile), 'shimmer-fading': isUsageShimmerFading(profile) }"
               >
                 <span class="usage-copy">
                   <span class="usage-title">{{ window.label }}</span>
@@ -573,8 +608,7 @@ onUnmounted(() => {
               <section
                 v-if="getUsageWindows(profile).length === 0"
                 class="usage-widget usage-placeholder"
-                :class="{ refreshing: isUsageShimmering(profile) }"
-                @animationiteration="handleUsageShimmerIteration(profile.id, $event)"
+                :class="{ refreshing: isUsageShimmering(profile), 'shimmer-fading': isUsageShimmerFading(profile) }"
               >
                 <span class="usage-copy">
                   <span class="usage-title">Usage limits</span>
@@ -807,13 +841,17 @@ onUnmounted(() => {
 .usage-expand-enter-from, .usage-expand-leave-to { max-height: 0; padding-bottom: 0; opacity: 0; transform: translateY(-4px); }
 .usage-widget { position: relative; box-sizing: border-box; display: grid; width: 100%; min-width: 0; overflow: hidden; grid-template-columns: minmax(0, 1fr) minmax(72px, 120px) max-content; align-items: center; gap: 12px; padding: 12px; border: 1px solid var(--vscode-widget-border); border-radius: 7px; background: var(--vscode-editorWidget-background, var(--vscode-editor-background)); }
 .usage-placeholder { min-height: 66px; grid-template-columns: minmax(0, 1fr); }
-.usage-widget.refreshing::after { position: absolute; top: -35%; bottom: -35%; left: -52%; width: 72%; content: ''; pointer-events: none; background: radial-gradient(ellipse at center, color-mix(in srgb, var(--vscode-foreground) 10%, transparent) 0%, color-mix(in srgb, var(--vscode-foreground) 5%, transparent) 38%, transparent 74%); filter: blur(16px); opacity: 0; transform: translate3d(0, 0, 0) scaleX(1.08); will-change: transform, opacity; animation: usage-shimmer 1.6s cubic-bezier(.45, 0, .55, 1) infinite; }
+.usage-widget.refreshing::before { position: absolute; z-index: 1; inset: 0; content: ''; pointer-events: none; background: var(--vscode-list-hoverBackground, var(--vscode-toolbar-hoverBackground)); opacity: .6; transition: opacity 320ms ease; will-change: opacity; }
+@starting-style { .usage-widget.refreshing::before { opacity: 0; } }
+.usage-widget.refreshing::after { position: absolute; z-index: 2; top: 0; bottom: 0; left: -96%; width: 88%; content: ''; pointer-events: none; background: var(--vscode-list-hoverBackground, var(--vscode-toolbar-hoverBackground)); opacity: 0; mask-image: linear-gradient(90deg, transparent 0%, black 28%, black 72%, transparent 100%); transform: translate3d(0, 0, 0); will-change: transform, opacity; animation: usage-shimmer 2.2s linear infinite; }
+.usage-widget.refreshing.shimmer-fading::before { opacity: 0; }
+.usage-widget.refreshing.shimmer-fading::after { animation: none; opacity: 0; }
 @keyframes usage-shimmer {
-  0% { opacity: 0; transform: translate3d(0, 0, 0) scaleX(1.08); }
-  18% { opacity: .65; }
-  50% { opacity: .9; }
-  82% { opacity: .65; }
-  100% { opacity: 0; transform: translate3d(210%, 0, 0) scaleX(1.08); }
+  0% { opacity: 0; transform: translate3d(0, 0, 0); }
+  10% { opacity: .45; }
+  50% { opacity: 1; }
+  90% { opacity: .45; }
+  100% { opacity: 0; transform: translate3d(220%, 0, 0); }
 }
 .usage-copy { display: flex; min-width: 0; flex-direction: column; gap: 4px; }
 .usage-title { overflow: hidden; color: var(--vscode-foreground); font-size: var(--vscode-font-size); font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
@@ -828,7 +866,8 @@ onUnmounted(() => {
 }
 @media (prefers-reduced-motion: reduce) {
   .usage-expand-enter-active, .usage-expand-leave-active { transition: none; }
-  .usage-widget.refreshing::after { animation: none; background: color-mix(in srgb, var(--vscode-foreground) 4%, transparent); filter: none; opacity: 1; }
+  .usage-widget.refreshing::before { animation: none; opacity: 1; }
+  .usage-widget.refreshing::after { display: none; }
 }
 .empty { padding: 14px 10px; color: var(--vscode-descriptionForeground); text-align: center; }
 .backdrop {
