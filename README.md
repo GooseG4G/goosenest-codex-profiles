@@ -35,22 +35,17 @@ Codex Profiles saves the latest credentials for the current account, activates t
 
 Expand an OpenAI account to see the usage windows and reset times returned by Codex.
 
-- active and expanded accounts refresh at most once per minute;
-- closed inactive accounts are not polled;
-- provider profiles do not request OpenAI account limits.
+Usage data refreshes at most once per minute for the active account and any expanded account. Closed inactive accounts are not checked, and provider profiles do not request OpenAI account limits.
 
 ## OpenAI-Compatible Providers
 
-A provider profile contains a display name, base URL, and access token. Activating it updates the local Codex provider configuration. Codex may keep custom-provider conversations separately; shared OpenAI history applies to OpenAI account profiles.
+A provider profile contains a display name, base URL, and access token. Activating it updates the local Codex configuration. Custom providers may keep their conversations separately from OpenAI account history.
 
-## Local Storage And Safety
+## Local Data
 
-Codex Profiles has no remote service or telemetry of its own. Usage checks use the locally installed Codex app-server.
+Profiles, provider tokens, and cached usage data stay on your machine. Codex Profiles has no remote service or telemetry of its own.
 
-- profile metadata is stored in VS Code global extension storage;
-- account credentials are stored as private local snapshots and are never sent to the sidebar webview;
-- `auth.json` and `config.toml` are backed up before replacement;
-- temporary account-check files are removed after use.
+Before replacing active authentication or provider settings, the extension creates local backups of `auth.json` and `config.toml`.
 
 VS Code windows using the same `CODEX_HOME` also use the same active Codex authentication. Switching in one of those windows therefore changes the account used by the others.
 
