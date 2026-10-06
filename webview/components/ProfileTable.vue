@@ -639,10 +639,10 @@ onUnmounted(() => {
   box-sizing: border-box;
   display: flex;
   height: 100%;
-  min-width: 320px;
+  min-width: 240px;
   min-height: 0;
   flex-direction: column;
-  padding: 6px;
+  padding: 6px 12px;
   overflow: hidden;
 }
 .search-toolbar {
@@ -745,7 +745,7 @@ onUnmounted(() => {
 .usage-remaining { min-width: 0; overflow: hidden; color: var(--vscode-descriptionForeground); font-size: 11px; font-variant-numeric: tabular-nums; text-align: right; text-overflow: ellipsis; white-space: nowrap; }
 .usage-reset { overflow: hidden; color: var(--vscode-descriptionForeground); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
 @media (max-width: 380px) {
-  .usage-widget { grid-template-columns: minmax(0, 1fr) 58px; gap: 10px; }
+  .usage-widget { grid-template-columns: minmax(0, 1fr) 52px; gap: 10px; }
   .usage-track { grid-row: 2; grid-column: 1 / -1; }
   .usage-remaining { grid-row: 1; grid-column: 2; }
 }
