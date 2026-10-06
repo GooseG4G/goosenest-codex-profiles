@@ -998,8 +998,14 @@ class ProfilesViewProvider {
   async resolveWebviewView(view) {
     this.view = view;
     view.webview.options = { enableScripts: true, localResourceRoots: [] };
-    view.webview.html = await this.getHtml(view.webview);
     view.webview.onDidReceiveMessage((message) => this.handleMessage(message));
+    view.webview.html = this.getLoadingHtml();
+    view.webview.html = await this.getHtml(view.webview);
+  }
+
+  getLoadingHtml() {
+    const nonce = crypto.randomBytes(16).toString('base64');
+    return `<!doctype html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'nonce-${nonce}';"><style nonce="${nonce}">html,body{margin:0;width:100%;height:100%;overflow:hidden;background:var(--vscode-sideBar-background)}body{display:grid;place-items:center}.loading-logo{width:44px;height:44px;color:var(--vscode-descriptionForeground);animation:loading-pulse 1.2s ease-in-out infinite}@keyframes loading-pulse{0%,100%{opacity:.45;transform:scale(.96)}50%{opacity:.85;transform:scale(1)}}@media(prefers-reduced-motion:reduce){.loading-logo{animation:none;opacity:.7}}</style><title>Codex Profiles</title></head><body><svg class="loading-logo" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label="Loading Codex Profiles"><path d="M4 7h14m-3-3 3 3-3 3"/><path d="M20 17H6m3 3-3-3 3-3"/></svg></body></html>`;
   }
 
   async handleMessage(message) {
