@@ -1,104 +1,125 @@
 # Codex Profiles
 
-Codex Profiles is a VS Code extension for tracking and switching local Codex `auth.json` profiles from the secondary sidebar.
+Codex Profiles is a local Codex account switcher for VS Code. Manage multiple `auth.json` profiles, inspect usage limits, and configure OpenAI-compatible providers from one sidebar.
 
-## Features
+OpenAI account switches keep the shared Codex home and chat history intact. Authentication snapshots stay local, refreshed tokens are preserved, and account limits come from the official Codex app-server.
 
-- Automatically saves the current `~/.codex/auth.json` as a profile.
-- Keeps the active profile at the top and identifies it by email or `account_id`.
-- Preserves the freshest saved credentials using `last_refresh` and file modification time.
-- Watches `auth.json` for account sign-ins and token refreshes.
-- Adds another account without revoking the saved session.
-- Restores the previous account when adding a profile is cancelled.
-- Supports profile search and deletion of inactive profiles.
-- Creates `auth.json.bak` before switching profiles.
-- Reloads the VS Code window immediately after a profile switch.
+## Highlights
 
-Profile files are stored in the extension's private storage. Authentication contents are never sent to the webview.
+- Switch OpenAI accounts while keeping one shared Codex home and chat history.
+- Add accounts through the official Codex sign-in flow without logging out saved sessions.
+- Add custom OpenAI-compatible providers with a base URL and token.
+- See remaining 5-hour, weekly, and other usage windows for OpenAI accounts.
+- Keep refreshed access and refresh tokens instead of restoring stale snapshots.
+- Search profiles and remove inactive entries from a compact sidebar view.
+- Use colors and controls from the active VS Code theme.
 
-## Requirements
+## Quick Start
 
-To use the extension:
+1. Install the official OpenAI Codex extension and sign in to an account.
+2. Install Codex Profiles.
+3. Open **Codex Profiles** in the VS Code secondary sidebar.
+4. Use **Add profile** to sign in to another OpenAI account, or **Add provider** to configure an OpenAI-compatible endpoint.
+5. Select an inactive profile and confirm **Switch**.
 
-- VS Code 1.106 or newer;
-- the official Codex extension for the add-profile sign-in flow.
+Codex Profiles restarts the Extension Host after authentication changes. The VS Code window itself stays open.
 
-To build from source:
+## Usage Limits
 
-- Node.js `^20.19.0` or `>=22.12.0`;
-- npm;
-- Git when cloning the repository.
+Expand an OpenAI profile to view every rate-limit window returned by Codex. Common windows are displayed as **5-hour usage limit** and **Weekly usage limit**.
 
-The build scripts use the repository's locked dependencies, including the local `@vscode/vsce` package. A global `vsce` installation is not required.
+- The active OpenAI profile is refreshed at most once per minute.
+- An expanded inactive OpenAI profile is also refreshed at most once per minute.
+- Closed inactive profiles are not polled.
+- Routine refreshes are quiet. A subtle shimmer appears only while genuinely stale data is being refreshed.
+- Custom providers are not queried for OpenAI account limits.
 
-## Install a VSIX
+Inactive checks run sequentially through one isolated temporary Codex home. This avoids parallel token refreshes and keeps polling cost independent of the total number of saved profiles.
 
-### From VS Code
+## Install
 
-1. Open the Command Palette.
-2. Run `Extensions: Install from VSIX...`.
-3. Select `codex-profiles-<version>.vsix`.
-4. Run `Developer: Reload Window` if VS Code does not reload automatically.
+### Visual Studio Marketplace
 
-### From the command line
+Search for **Codex Profiles** in the Extensions view, or install it by extension ID:
+
+```shell
+code --install-extension goosenest.codex-profiles
+```
+
+[Open Codex Profiles in the Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=goosenest.codex-profiles)
+
+### GitHub Release
+
+Download `codex-profiles-<version>.vsix` from the [latest GitHub release](https://github.com/GooseG4G/goosenest-codex-profiles/releases/latest), then run:
 
 ```shell
 code --install-extension ./codex-profiles-<version>.vsix --force
 ```
 
-Reload the VS Code window after installation. Extensions installed from a VSIX do not receive Marketplace updates automatically.
+VSIX installations do not receive Marketplace updates automatically.
 
-## Build from source
+## Profiles And Providers
 
-Clone the repository and enter its directory:
+### OpenAI Accounts
+
+The extension identifies an account by its Codex account ID or email and stores a local snapshot of its `auth.json`. Before switching away, it synchronizes the latest active credentials. Before replacing authentication, it creates `auth.json.bak`.
+
+### OpenAI-Compatible Providers
+
+Provider profiles store a display name, base URL, and environment-variable key. Tokens entered in the provider form are written to the managed local Codex environment file. Provider changes are applied to `config.toml`, with `config.toml.bak` created before replacement.
+
+Codex may keep custom-provider conversations in a provider-specific history group. The shared-history guarantee applies to OpenAI account profiles using the same OpenAI provider.
+
+## Storage And Privacy
+
+All profile data stays on the local machine.
+
+- Profile metadata is stored in VS Code global extension storage.
+- OpenAI authentication snapshots are stored as private local files and are never sent to the webview.
+- Provider tokens are stored locally in the managed Codex environment file.
+- Temporary inactive-profile checks use `%TEMP%/goosenest-codex-profiles` on Windows or the platform-equivalent temporary directory.
+- Temporary `auth.json` files are removed after each check.
+- Scratch homes are removed on a clean shutdown; a startup cleaner removes homes whose owning process no longer exists.
+
+The active Codex authentication is shared by VS Code windows that use the same `CODEX_HOME`. Switching in one window therefore changes the account used by other windows on the same Codex home.
+
+## Requirements
+
+- VS Code 1.106 or newer.
+- The official OpenAI Codex extension installed locally.
+- A working Codex sign-in for OpenAI account profiles.
+
+## Configuration
+
+### `codexProfiles.codexHome`
+
+Overrides the Codex home directory. When empty, Codex Profiles uses `~/.codex`.
+
+## Build From Source
+
+Building requires Node.js `^20.19.0` or `>=22.12.0`, npm, and Git.
 
 ```shell
 git clone https://github.com/GooseG4G/goosenest-codex-profiles.git
 cd goosenest-codex-profiles
+npm ci
+npm run check
+npm run build
+npm run package
 ```
 
-### Windows
-
-Run from PowerShell:
-
-```powershell
-./build.ps1
-```
-
-### macOS and Linux
-
-```shell
-./build.sh
-```
-
-Each script performs the complete reproducible build:
-
-1. installs dependencies with `npm ci`;
-2. validates Vue and TypeScript with `vue-tsc`;
-3. builds the webview with Vite;
-4. packages the extension with `vsce`.
-
-Generated files are kept under the ignored `build/` directory:
-
-```text
-build/
-├── dist/
-│   ├── codex-profiles.css
-│   └── webview.js
-└── codex-profiles-<version>.vsix
-```
-
-Install the resulting package directly:
-
-```shell
-code --install-extension ./build/codex-profiles-<version>.vsix --force
-```
+The platform scripts `build.ps1` and `build.sh` run the same checked build and place their output under `build/`.
 
 ## Development
 
-Open the repository in VS Code and press `F5` to launch an Extension Development Host. For individual checks, use:
+Open the repository in VS Code and press `F5` to launch an Extension Development Host. Individual checks are available through:
 
 ```shell
 npm run check
 npm run build
+npm run package
 ```
+
+## Disclaimer
+
+Codex Profiles is an independent community extension. It is not affiliated with or endorsed by OpenAI or Microsoft.
