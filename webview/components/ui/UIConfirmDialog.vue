@@ -9,16 +9,26 @@ interface Props {
   confirmLabel?: string
   cancelLabel?: string
   secondaryLabel?: string
+  confirmPending?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
   confirmLabel: 'Confirm',
   cancelLabel: 'Cancel',
   secondaryLabel: undefined,
+  confirmPending: false,
 })
 
 const emit = defineEmits<{ confirm: []; cancel: []; secondary: [] }>()
 const panel = useTemplateRef<HTMLDivElement>('panel')
+
+function confirm() {
+  if (!props.confirmPending) emit('confirm')
+}
+
+function cancel() {
+  if (!props.confirmPending) emit('cancel')
+}
 
 watch(
   () => props.open,
@@ -34,9 +44,9 @@ watch(
   <div
     v-if="open"
     class="backdrop"
-    @click.self="emit('cancel')"
-    @keydown.esc.stop.prevent="emit('cancel')"
-    @keydown.enter.stop.prevent="emit('confirm')"
+    @click.self="cancel"
+    @keydown.esc.stop.prevent="cancel"
+    @keydown.enter.stop.prevent="confirm"
   >
     <div
       ref="panel"
@@ -50,9 +60,17 @@ watch(
       <h2 id="confirm-dialog-title" class="title">{{ title }}</h2>
       <p id="confirm-dialog-message" class="message">{{ message }}</p>
       <div class="actions">
-        <UIButton @click="emit('cancel')">{{ cancelLabel }}</UIButton>
+        <UIButton :disabled="confirmPending" @click="cancel">{{ cancelLabel }}</UIButton>
         <UIButton v-if="secondaryLabel" @click="emit('secondary')">{{ secondaryLabel }}</UIButton>
-        <UIButton variant="primary" autofocus @click="emit('confirm')">{{ confirmLabel }}</UIButton>
+        <UIButton
+          variant="primary"
+          autofocus
+          :disabled="confirmPending"
+          :pending="confirmPending"
+          @click="confirm"
+        >
+          {{ confirmLabel }}
+        </UIButton>
       </div>
     </div>
   </div>

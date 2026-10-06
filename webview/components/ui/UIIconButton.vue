@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, useId } from 'vue'
+import { computed, shallowRef, useId, useTemplateRef } from 'vue'
 
 export type IconButtonBackground = 'always' | 'hover' | 'never'
 export type IconButtonSurfaceMotion = 'lift' | 'scale' | 'none'
@@ -35,6 +35,14 @@ defineSlots<{
 
 const tooltipId = useId()
 const tooltipText = computed(() => props.title ?? props.accessibleLabel)
+const button = useTemplateRef<HTMLButtonElement>('button')
+const tooltipSide = shallowRef<'left' | 'right'>('left')
+
+function updateTooltipSide() {
+  const rect = button.value?.getBoundingClientRect()
+  if (!rect) return
+  tooltipSide.value = rect.left < window.innerWidth - rect.right ? 'right' : 'left'
+}
 
 const buttonClasses = computed(() => [
   `background-${props.background}`,
@@ -48,6 +56,7 @@ const buttonClasses = computed(() => [
 
 <template>
   <button
+    ref="button"
     class="icon-button"
     :class="buttonClasses"
     type="button"
@@ -56,10 +65,12 @@ const buttonClasses = computed(() => [
     :disabled="disabled"
     :aria-pressed="selected === undefined ? undefined : selected"
     @click="$emit('click', $event)"
+    @mouseenter="updateTooltipSide"
+    @focus="updateTooltipSide"
   >
     <span class="icon" aria-hidden="true"><slot name="icon" /></span>
     <span v-if="$slots.default" class="label"><slot /></span>
-    <span :id="tooltipId" class="tooltip" role="tooltip">{{ tooltipText }}</span>
+    <span :id="tooltipId" class="tooltip" :class="`tooltip-${tooltipSide}`" role="tooltip">{{ tooltipText }}</span>
   </button>
 </template>
 
@@ -136,7 +147,6 @@ const buttonClasses = computed(() => [
 .tooltip {
   position: absolute;
   top: 50%;
-  right: calc(100% + 7px);
   z-index: 20;
   max-width: 240px;
   padding: 4px 7px;
@@ -155,6 +165,8 @@ const buttonClasses = computed(() => [
   transform: translateY(-50%);
   transition: opacity 80ms ease, visibility 0s linear 80ms;
 }
+.tooltip-left { right: calc(100% + 7px); }
+.tooltip-right { left: calc(100% + 7px); }
 .icon-button:hover .tooltip,
 .icon-button:focus-visible .tooltip {
   opacity: 1;

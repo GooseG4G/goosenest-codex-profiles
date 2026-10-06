@@ -8,6 +8,8 @@ export function useAuthProfiles() {
   const error = shallowRef('')
   const awaitingSignIn = shallowRef(window.__CODEX_PROFILES_INITIAL_STATE__?.awaitingSignIn ?? false)
   const addError = shallowRef(window.__CODEX_PROFILES_INITIAL_STATE__?.addError ?? '')
+  const activationFailureCount = shallowRef(0)
+  const activationWaitingProfileId = shallowRef<string | null>(null)
   const orderedProfiles = computed(() => [...profiles.value].sort((left, right) => Number(right.active) - Number(left.active)))
 
   function post(type: string, payload: object = {}) {
@@ -23,6 +25,11 @@ export function useAuthProfiles() {
       addError.value = String(message.addError || '')
     } else if (message.type === 'error') {
       error.value = String(message.message || 'Unknown error')
+    } else if (message.type === 'activationFailed') {
+      activationWaitingProfileId.value = null
+      activationFailureCount.value += 1
+    } else if (message.type === 'activationWaiting') {
+      activationWaitingProfileId.value = String(message.id || '') || null
     }
   }
 
@@ -35,7 +42,8 @@ export function useAuthProfiles() {
 
   return {
     profiles: readonly(orderedProfiles), error: readonly(error), awaitingSignIn: readonly(awaitingSignIn),
-    addError: readonly(addError),
+    addError: readonly(addError), activationFailureCount: readonly(activationFailureCount),
+    activationWaitingProfileId: readonly(activationWaitingProfileId),
     activate: (id: string) => post('activate', { id }),
     deleteProfile: (id: string) => post('delete', { id }),
     beginAdd: () => post('beginAdd'),

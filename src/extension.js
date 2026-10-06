@@ -1,4 +1,5 @@
 const crypto = require('crypto');
+const { spawn } = require('child_process');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -9,6 +10,9 @@ const AUTH_READ_RETRY_COUNT = 5;
 const AUTH_READ_RETRY_DELAY_MS = 250;
 const DEFAULT_KIND = 'default';
 const PROVIDER_KIND = 'provider';
+const ACTIVE_USAGE_INTERVAL_MS = 60 * 1000;
+const INACTIVE_USAGE_INTERVAL_MS = 60 * 60 * 1000;
+const USAGE_REQUEST_TIMEOUT_MS = 20 * 1000;
 
 function delay(milliseconds) {
   return new Promise((resolve) => setTimeout(resolve, milliseconds));
@@ -210,6 +214,140 @@ async function writeAtomic(target, contents) {
   }
 }
 
+let codexExecutablePromise;
+
+async function findCodexExecutable() {
+  if (!codexExecutablePromise) {
+    codexExecutablePromise = (async () => {
+      const extensionPath = vscode.extensions.getExtension('openai.chatgpt')?.extensionPath;
+      if (extensionPath) {
+        const binPath = path.join(extensionPath, 'bin');
+        try {
+          for (const entry of await fs.promises.readdir(binPath, { withFileTypes: true })) {
+            if (!entry.isDirectory()) continue;
+            const executable = path.join(binPath, entry.name, process.platform === 'win32' ? 'codex.exe' : 'codex');
+            if (await exists(executable)) return executable;
+          }
+        } catch {
+          // Fall back to PATH when the OpenAI extension layout changes.
+        }
+      }
+
+      const executableName = process.platform === 'win32' ? 'codex.exe' : 'codex';
+      for (const directory of String(process.env.PATH || '').split(path.delimiter).filter(Boolean)) {
+        const executable = path.join(directory.replace(/^"|"$/g, ''), executableName);
+        if (await exists(executable)) return executable;
+      }
+      throw new Error('Codex executable was not found.');
+    })();
+  }
+  return codexExecutablePromise;
+}
+
+function normalizeRateLimitWindow(window) {
+  if (!window || !Number.isFinite(window.usedPercent)) return null;
+  return {
+    usedPercent: Math.max(0, Math.min(100, Math.round(window.usedPercent))),
+    windowDurationMins: Number.isFinite(window.windowDurationMins) ? window.windowDurationMins : null,
+    resetsAt: Number.isFinite(window.resetsAt) ? window.resetsAt : null,
+  };
+}
+
+function normalizeUsageResponse(result) {
+  const snapshot = result?.rateLimitsByLimitId?.codex || result?.rateLimits;
+  if (!snapshot) throw new Error('Codex did not return usage limits.');
+  const primary = normalizeRateLimitWindow(snapshot.primary);
+  const secondary = normalizeRateLimitWindow(snapshot.secondary);
+  if (!primary && !secondary) throw new Error('Codex returned no usage windows.');
+  return {
+    checkedAt: new Date().toISOString(),
+    planType: typeof snapshot.planType === 'string' ? snapshot.planType : null,
+    ordinaryUsageAllowed: typeof result.ordinaryUsageAllowed === 'boolean' ? result.ordinaryUsageAllowed : null,
+    primary,
+    secondary,
+  };
+}
+
+async function readCodexUsage(codexHome) {
+  const executable = await findCodexExecutable();
+  return new Promise((resolve, reject) => {
+    const child = spawn(executable, ['app-server', '--stdio'], {
+      env: { ...process.env, CODEX_HOME: codexHome },
+      stdio: ['pipe', 'pipe', 'pipe'],
+      windowsHide: true,
+    });
+    let stdout = '';
+    let stderr = '';
+    let response;
+    let initialized = false;
+    let settled = false;
+
+    const timeout = setTimeout(() => {
+      child.kill();
+      finish(new Error('Timed out while reading Codex usage limits.'));
+    }, USAGE_REQUEST_TIMEOUT_MS);
+
+    function finish(error) {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timeout);
+      if (error) reject(error);
+      else resolve(normalizeUsageResponse(response));
+    }
+
+    function send(message) {
+      child.stdin.write(`${JSON.stringify(message)}\n`);
+    }
+
+    child.stdout.on('data', (chunk) => {
+      stdout += chunk.toString();
+      for (;;) {
+        const newline = stdout.indexOf('\n');
+        if (newline < 0) break;
+        const line = stdout.slice(0, newline).trim();
+        stdout = stdout.slice(newline + 1);
+        if (!line) continue;
+        let message;
+        try { message = JSON.parse(line); } catch { continue; }
+        if (message.id === 1 && !initialized) {
+          initialized = true;
+          send({ method: 'initialized' });
+          send({
+            id: 2,
+            method: 'account/rateLimits/read',
+            params: { excludeResetCreditDetails: true },
+          });
+        } else if (message.id === 2) {
+          if (message.error) {
+            finish(new Error(message.error.message || 'Codex could not read usage limits.'));
+          } else {
+            response = message.result;
+            child.stdin.end();
+          }
+        }
+      }
+    });
+    child.stderr.on('data', (chunk) => { stderr = `${stderr}${chunk.toString()}`.slice(-2000); });
+    child.on('error', finish);
+    child.on('close', (code) => {
+      if (response) finish();
+      else finish(new Error(stderr.trim() || `Codex app-server exited with code ${code}.`));
+    });
+
+    send({
+      id: 1,
+      method: 'initialize',
+      params: {
+        clientInfo: {
+          name: 'goosenest-codex-profiles',
+          version: vscode.extensions.getExtension('goosenest.codex-profiles')?.packageJSON.version || '0.0.0',
+        },
+        capabilities: { experimentalApi: true },
+      },
+    });
+  });
+}
+
 class ProfileStore {
   constructor(context) {
     this.profilesDirectory = path.join(context.globalStorageUri.fsPath, 'auth-profiles');
@@ -272,7 +410,13 @@ class ProfileStore {
           active: profile.id === state.activeId,
         });
       } else if (await exists(path.join(this.profilesDirectory, `${profile.id}.json`))) {
-        profiles.push({ id: profile.id, kind, name: profile.name, active: profile.id === state.activeId });
+        profiles.push({
+          id: profile.id,
+          kind,
+          name: profile.name,
+          active: profile.id === state.activeId,
+          usage: profile.usage || null,
+        });
       }
     }
     return { profiles, awaitingSignIn: state.pendingAdd !== null, addError };
@@ -281,6 +425,85 @@ class ProfileStore {
   syncCurrent(options = {}) {
     const synchronize = () => this.syncCurrentLocked(options);
     this.syncQueue = this.syncQueue.then(synchronize, synchronize);
+    return this.syncQueue;
+  }
+
+  async getDueUsageTargets(now = Date.now()) {
+    const state = await this.syncCurrent();
+    const targets = [];
+    for (const profile of state.profiles) {
+      if ((profile.kind || DEFAULT_KIND) !== DEFAULT_KIND) continue;
+      const profilePath = path.join(this.profilesDirectory, `${profile.id}.json`);
+      if (!(await exists(profilePath))) continue;
+      const active = profile.id === state.activeId;
+      const interval = active ? ACTIVE_USAGE_INTERVAL_MS : INACTIVE_USAGE_INTERVAL_MS;
+      const checkedAt = Date.parse(profile.usage?.checkedAt || '');
+      if (Number.isFinite(checkedAt) && now - checkedAt < interval) continue;
+      const contents = await fs.promises.readFile(profilePath);
+      targets.push({
+        id: profile.id,
+        active,
+        profilePath,
+        contents,
+        fingerprint: crypto.createHash('sha256').update(contents).digest('hex'),
+        usage: profile.usage || null,
+      });
+    }
+    return targets.sort((left, right) => Number(right.active) - Number(left.active));
+  }
+
+  async getActiveId() {
+    return (await this.readState()).activeId;
+  }
+
+  async commitUsage(target, usage, refreshedAuth) {
+    const commit = async () => {
+      const state = await this.readState();
+      const profile = state.profiles.find((item) => item.id === target.id);
+      if (!profile || (profile.kind || DEFAULT_KIND) !== DEFAULT_KIND) return;
+
+      if (refreshedAuth) {
+        try {
+          const [currentContents, currentStat] = await Promise.all([
+            fs.promises.readFile(target.profilePath),
+            fs.promises.stat(target.profilePath),
+          ]);
+          const currentFingerprint = crypto.createHash('sha256').update(currentContents).digest('hex');
+          const refreshedFingerprint = crypto.createHash('sha256').update(refreshedAuth).digest('hex');
+          const info = getProfileInfo(refreshedAuth.toString('utf8'), profile.name);
+          const sameAccount = profile.accountId
+            ? info.accountId === profile.accountId
+            : profile.email
+              ? info.email === profile.email
+              : true;
+          const currentFreshness = getAuthFreshness(currentContents.toString('utf8'), currentStat.mtimeMs);
+          const refreshedFreshness = getAuthFreshness(refreshedAuth.toString('utf8'), Date.now());
+          const snapshotUnchanged = currentFingerprint === target.fingerprint;
+          const refreshClearlyNewer = refreshedFreshness.refreshAt !== null
+            && (currentFreshness.refreshAt === null || refreshedFreshness.refreshAt > currentFreshness.refreshAt);
+          if (
+            sameAccount
+            && refreshedFingerprint !== currentFingerprint
+            && (snapshotUnchanged || refreshClearlyNewer)
+          ) {
+            JSON.parse(refreshedAuth.toString('utf8'));
+            await copyAtomic(target.profilePath, `${target.profilePath}.bak`);
+            await writeAtomic(target.profilePath, refreshedAuth);
+            profile.fingerprint = refreshedFingerprint;
+            profile.lastRefresh = refreshedFreshness.refreshAt === null
+              ? null
+              : new Date(refreshedFreshness.refreshAt).toISOString();
+            profile.updatedAt = new Date().toISOString();
+          }
+        } catch (error) {
+          console.error(`Codex Profiles: refreshed auth for ${target.id} was not stored`, error);
+        }
+      }
+
+      profile.usage = usage;
+      await this.writeState(state);
+    };
+    this.syncQueue = this.syncQueue.then(commit, commit);
     return this.syncQueue;
   }
 
@@ -550,8 +773,100 @@ class ProfileStore {
 
 }
 
+class UsagePoller {
+  constructor(store, onUpdate) {
+    this.store = store;
+    this.onUpdate = onUpdate;
+    this.running = false;
+    this.timer = undefined;
+    this.inFlight = new Map();
+  }
+
+  start() {
+    this.tick();
+    this.timer = setInterval(() => this.tick(), ACTIVE_USAGE_INTERVAL_MS);
+  }
+
+  dispose() {
+    clearInterval(this.timer);
+  }
+
+  getBusyIds() {
+    return new Set(this.inFlight.keys());
+  }
+
+  async waitForProfiles(ids) {
+    const waits = [...new Set(ids.filter(Boolean))]
+      .map((id) => this.inFlight.get(id)?.completed)
+      .filter(Boolean);
+    await Promise.all(waits);
+  }
+
+  async notify() {
+    try {
+      await this.onUpdate();
+    } catch (error) {
+      console.error('Codex Profiles: could not publish usage state', error);
+    }
+  }
+
+  async tick() {
+    if (this.running) return;
+    this.running = true;
+    try {
+      const targets = await this.store.getDueUsageTargets();
+      for (const target of targets) {
+        let release;
+        const completed = new Promise((resolve) => { release = resolve; });
+        this.inFlight.set(target.id, { completed, release });
+      }
+      if (targets.length) await this.notify();
+      for (const target of targets) {
+        let temporaryHome;
+        try {
+          const codexHome = target.active
+            ? getCodexHome()
+            : temporaryHome = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'codex-profiles-usage-'));
+          if (!target.active) await writeAtomic(path.join(codexHome, 'auth.json'), target.contents);
+          const usage = await readCodexUsage(codexHome);
+          const refreshedAuth = target.active
+            ? null
+            : await fs.promises.readFile(path.join(codexHome, 'auth.json')).catch(() => null);
+          await this.store.commitUsage(target, usage, refreshedAuth);
+          await this.notify();
+        } catch (error) {
+          console.error(`Codex Profiles: usage refresh failed for ${target.id}`, error);
+          await this.store.commitUsage(target, {
+            ...target.usage,
+            checkedAt: new Date().toISOString(),
+            error: error.message || String(error),
+          }, null);
+          await this.notify();
+        } finally {
+          if (temporaryHome) {
+            await fs.promises.rm(temporaryHome, { recursive: true, force: true }).catch(() => undefined);
+          }
+          const operation = this.inFlight.get(target.id);
+          this.inFlight.delete(target.id);
+          operation?.release();
+          await this.notify();
+        }
+      }
+    } catch (error) {
+      console.error('Codex Profiles: usage polling failed', error);
+    } finally {
+      this.running = false;
+    }
+  }
+}
+
 class ProfilesViewProvider {
-  constructor(context, store) { this.context = context; this.store = store; this.view = undefined; }
+  constructor(context, store) {
+    this.context = context;
+    this.store = store;
+    this.view = undefined;
+    this.usagePoller = undefined;
+  }
 
   async resolveWebviewView(view) {
     this.view = view;
@@ -564,7 +879,14 @@ class ProfilesViewProvider {
     try {
       if (message.type === 'ready' || message.type === 'refresh') return await this.sendState();
       if (message.type === 'activate') {
-        await this.store.activate(String(message.id || ''));
+        const id = String(message.id || '');
+        const activeId = await this.store.getActiveId();
+        const busyIds = this.usagePoller?.getBusyIds() || new Set();
+        if ([activeId, id].some((profileId) => profileId && busyIds.has(profileId))) {
+          this.post({ type: 'activationWaiting', id });
+        }
+        await this.usagePoller?.waitForProfiles([activeId, id]);
+        await this.store.activate(id);
         await vscode.commands.executeCommand('workbench.action.reloadWindow');
         return;
       }
@@ -600,10 +922,19 @@ class ProfilesViewProvider {
       await this.sendState();
     } catch (error) {
       this.post({ type: 'error', message: error.message || String(error) });
+      if (message.type === 'activate') this.post({ type: 'activationFailed' });
     }
   }
 
-  async sendState(options = {}) { this.post({ type: 'state', ...(await this.store.list(options)) }); }
+  async sendState(options = {}) {
+    const state = await this.store.list(options);
+    const busyIds = this.usagePoller?.getBusyIds() || new Set();
+    this.post({
+      type: 'state',
+      ...state,
+      profiles: state.profiles.map((profile) => ({ ...profile, busy: busyIds.has(profile.id) })),
+    });
+  }
   post(message) { this.view?.webview.postMessage(message); }
 
   async getHtml(webview) {
@@ -627,6 +958,9 @@ async function activate(context) {
     console.error('Codex Profiles: automatic profile sync failed', error);
   }
   const provider = new ProfilesViewProvider(context, store);
+  const usagePoller = new UsagePoller(store, () => provider.sendState());
+  provider.usagePoller = usagePoller;
+  usagePoller.start();
   let syncTimer;
   const authWatcher = vscode.workspace.createFileSystemWatcher(
     new vscode.RelativePattern(getCodexHome(), 'auth.json'),
@@ -643,6 +977,7 @@ async function activate(context) {
   context.subscriptions.push(
     authWatcher,
     { dispose: () => clearTimeout(syncTimer) },
+    usagePoller,
     vscode.window.registerWebviewViewProvider(VIEW_ID, provider),
     vscode.commands.registerCommand('codexProfiles.open', () => vscode.commands.executeCommand(`${VIEW_ID}.focus`)),
     vscode.commands.registerCommand('codexProfiles.refresh', () => provider.sendState()),

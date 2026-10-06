@@ -1,17 +1,21 @@
 <script setup lang="ts">
-import { computed, useId } from 'vue'
+import { computed, shallowRef, useId, useTemplateRef } from 'vue'
 
 interface Props {
+  type?: 'button' | 'submit'
   variant?: 'primary' | 'secondary'
   autofocus?: boolean
   disabled?: boolean
+  pending?: boolean
   tooltip?: string
 }
 
 const props = withDefaults(defineProps<Props>(), {
+  type: 'button',
   variant: 'secondary',
   autofocus: false,
   disabled: false,
+  pending: false,
   tooltip: undefined,
 })
 
@@ -19,20 +23,34 @@ defineEmits<{ click: [event: MouseEvent] }>()
 
 const tooltipId = useId()
 const hasTooltip = computed(() => Boolean(props.tooltip))
+const button = useTemplateRef<HTMLButtonElement>('button')
+const tooltipAlignment = shallowRef<'start' | 'center' | 'end'>('center')
+
+function updateTooltipAlignment() {
+  const rect = button.value?.getBoundingClientRect()
+  if (!rect) return
+  if (rect.left < 100) tooltipAlignment.value = 'start'
+  else if (window.innerWidth - rect.right < 100) tooltipAlignment.value = 'end'
+  else tooltipAlignment.value = 'center'
+}
 </script>
 
 <template>
   <button
+    ref="button"
     class="button"
-    :class="`variant-${variant}`"
-    type="button"
+    :class="[`variant-${variant}`, { 'is-pending': pending }]"
+    :type="type"
     :autofocus="autofocus"
     :disabled="disabled"
+    :aria-busy="pending || undefined"
     :aria-describedby="hasTooltip ? tooltipId : undefined"
     @click="$emit('click', $event)"
+    @mouseenter="updateTooltipAlignment"
+    @focus="updateTooltipAlignment"
   >
     <slot />
-    <span v-if="hasTooltip" :id="tooltipId" class="tooltip" role="tooltip">{{ tooltip }}</span>
+    <span v-if="hasTooltip" :id="tooltipId" class="tooltip" :class="`tooltip-${tooltipAlignment}`" role="tooltip">{{ tooltip }}</span>
   </button>
 </template>
 
@@ -62,6 +80,7 @@ const hasTooltip = computed(() => Boolean(props.tooltip))
 .button:focus-visible { border-color: var(--vscode-focusBorder); }
 .variant-primary { color: var(--vscode-button-foreground); background: var(--vscode-button-background); }
 .variant-primary:hover { background: var(--vscode-button-hoverBackground); }
+.variant-primary:active { background: color-mix(in srgb, var(--vscode-button-hoverBackground) 88%, var(--vscode-button-foreground) 12%); }
 .variant-secondary { color: var(--vscode-foreground); background: transparent; }
 .variant-secondary:hover { background: var(--vscode-toolbar-hoverBackground); }
 .variant-secondary:active { background: var(--vscode-toolbar-activeBackground, var(--vscode-list-activeSelectionBackground)); }
@@ -72,10 +91,10 @@ const hasTooltip = computed(() => Boolean(props.tooltip))
   cursor: not-allowed;
 }
 .button:disabled:hover, .button:disabled:active { background: var(--vscode-input-background); transform: scale(1); }
+.button.is-pending:disabled { cursor: wait; }
 .tooltip {
   position: absolute;
   bottom: calc(100% + 7px);
-  left: 50%;
   z-index: 20;
   max-width: 240px;
   padding: 4px 7px;
@@ -91,9 +110,11 @@ const hasTooltip = computed(() => Boolean(props.tooltip))
   pointer-events: none;
   opacity: 0;
   visibility: hidden;
-  transform: translateX(-50%);
   transition: opacity 80ms ease, visibility 0s linear 80ms;
 }
+.tooltip-start { left: 0; transform: none; }
+.tooltip-center { left: 50%; transform: translateX(-50%); }
+.tooltip-end { right: 0; transform: none; }
 .button:hover .tooltip,
 .button:focus-visible .tooltip {
   opacity: 1;
