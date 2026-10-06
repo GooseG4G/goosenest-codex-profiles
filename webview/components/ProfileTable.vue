@@ -774,8 +774,8 @@ onUnmounted(() => {
   z-index: 5;
   top: 0;
   box-sizing: border-box;
-  min-height: 30px;
-  padding: 5px 12px;
+  min-height: 38px;
+  padding: 9px 12px;
   color: var(--vscode-descriptionForeground);
   border-bottom: 1px solid color-mix(in srgb, var(--vscode-widget-border) 70%, transparent);
   background-color: var(--vscode-sideBar-background, var(--vscode-editor-background));
