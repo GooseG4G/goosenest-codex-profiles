@@ -843,15 +843,14 @@ onUnmounted(() => {
 .usage-placeholder { min-height: 66px; grid-template-columns: minmax(0, 1fr); }
 .usage-widget.refreshing::before { position: absolute; z-index: 1; inset: 0; content: ''; pointer-events: none; background: var(--vscode-list-hoverBackground, var(--vscode-toolbar-hoverBackground)); opacity: .6; transition: opacity 320ms ease; will-change: opacity; }
 @starting-style { .usage-widget.refreshing::before { opacity: 0; } }
-.usage-widget.refreshing::after { position: absolute; z-index: 2; top: 0; bottom: 0; left: -82%; width: 72%; content: ''; pointer-events: none; background: var(--vscode-list-hoverBackground, var(--vscode-toolbar-hoverBackground)); opacity: 0; mask-image: linear-gradient(90deg, transparent 0%, rgb(0 0 0 / 18%) 34%, rgb(0 0 0 / 72%) 68%, black 100%); transform: translate3d(0, 0, 0); will-change: transform, opacity; animation: usage-shimmer 2.2s linear infinite; }
+.usage-widget.refreshing::after { position: absolute; z-index: 2; top: 0; bottom: 0; left: -112%; width: 112%; content: ''; pointer-events: none; background: var(--vscode-list-hoverBackground, var(--vscode-toolbar-hoverBackground)); opacity: 0; mask-image: linear-gradient(90deg, black 0%, black 54%, rgb(0 0 0 / 72%) 70%, rgb(0 0 0 / 28%) 88%, transparent 100%); transform: translate3d(0, 0, 0); will-change: transform, opacity; animation: usage-shimmer 2.2s cubic-bezier(.4, 0, .2, 1) infinite; }
 .usage-widget.refreshing.shimmer-fading::before { opacity: 0; }
 .usage-widget.refreshing.shimmer-fading::after { animation: none; opacity: 0; }
 @keyframes usage-shimmer {
   0% { opacity: 0; transform: translate3d(0, 0, 0); }
-  10% { opacity: .45; }
-  50% { opacity: 1; }
-  90% { opacity: .45; }
-  100% { opacity: 0; transform: translate3d(254%, 0, 0); }
+  6% { opacity: .42; }
+  76% { opacity: .42; transform: translate3d(100%, 0, 0); }
+  92%, 100% { opacity: 0; transform: translate3d(100%, 0, 0); }
 }
 .usage-copy { display: flex; min-width: 0; flex-direction: column; gap: 4px; }
 .usage-title { overflow: hidden; color: var(--vscode-foreground); font-size: var(--vscode-font-size); font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
