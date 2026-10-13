@@ -9,3 +9,15 @@ build/
 
 # Dependencies
 node_modules/
+server/api/.venv/
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Local data
+server/**/data/
+server/api/postgres/data/
