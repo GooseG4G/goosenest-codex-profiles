@@ -1,0 +1,75 @@
+name: goosenest-codex-profiles-api
+
+x-environment: &x-environment
+  # PostgreSQL
+  POSTGRES_HOST: "${POSTGRES_HOST:-postgres}"
+  POSTGRES_PORT: "${POSTGRES_PORT:-5432}"
+  POSTGRES_DATABASE: "${POSTGRES_DATABASE:-codex-profiles}"
+  POSTGRES_USERNAME: "${POSTGRES_USERNAME:-codex-profiles}"
+  POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:-codex-profiles}"
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: .dockerfile
+
+    image: goosenest/codex-profiles-api:latest
+    container_name: goosenest-codex-profiles-api
+
+    restart: unless-stopped
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+    volumes:
+      - .:/app
+
+    environment: *x-environment
+
+    command: [
+      "uvicorn", "app.main:app", 
+      "--host", "0.0.0.0", 
+      "--port", "8000", 
+      "--reload"
+    ]
+
+    healthcheck:
+      test: [ 
+        "CMD", "curl",
+        "--fail", "--silent", "--show-error",
+        "http://localhost:8000/health"
+      ]
+
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 5s
+
+  postgres:
+    image: postgres:17-alpine
+    container_name: goosenest-codex-profiles-postgres
+
+    restart: unless-stopped
+
+    environment:
+      POSTGRES_DB: "${POSTGRES_DATABASE:-codex-profiles}"
+      POSTGRES_USER: "${POSTGRES_USERNAME:-codex-profiles}"
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?Error}"
+
+    healthcheck:
+      test: [
+        "CMD", "pg_isready", 
+        "-U", "${POSTGRES_USERNAME:-codex-profiles}", 
+        "-d", "${POSTGRES_DATABASE:-codex-profiles}"
+      ]
+
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 5s
+
+    volumes:
+      - ./postgres/data:/var/lib/postgresql/data
+      - ./postgres/scheme:/docker-entrypoint-initdb.d:ro
