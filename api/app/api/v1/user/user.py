@@ -100,34 +100,27 @@ async def update_user(
 ) -> UserEntity:
     current = await _read_user(session, user_id)
     values = body.model_dump(exclude_unset=True)
-    username = values.get("username", current.username)
     nickname = values.get("nickname", current.nickname)
     role = values.get("role", current.role)
     password = values.get("password")
-    try:
-        user = await session.fetchrow(
-            UserEntity,
-            """
-            UPDATE users
-            SET username = $2, nickname = $3, role = $4,
-                password = COALESCE($5, password), updated_at = now()
-            WHERE user_id = $1
-            RETURNING jsonb_build_object(
-                          'type', 'user',
-                          'href', '/api/v1/users/' || user_id
-                      ) AS meta,
-                      user_id, username, nickname, role, created_at, updated_at
-            """,
-            user_id,
-            username,
-            nickname,
-            role,
-            hash_secret(password) if password is not None else None,
-        )
-    except UniqueViolationError as error:
-        raise HTTPException(
-            status_code=409, detail="Username already exists"
-        ) from error
+    user = await session.fetchrow(
+        UserEntity,
+        """
+        UPDATE users
+        SET nickname = $2, role = $3,
+            password = COALESCE($4, password), updated_at = now()
+        WHERE user_id = $1
+        RETURNING jsonb_build_object(
+                      'type', 'user',
+                      'href', '/api/v1/users/' || user_id
+                  ) AS meta,
+                  user_id, username, nickname, role, created_at, updated_at
+        """,
+        user_id,
+        nickname,
+        role,
+        hash_secret(password) if password is not None else None,
+    )
     assert user is not None
     return user
 

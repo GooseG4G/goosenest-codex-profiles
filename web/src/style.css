@@ -6,24 +6,71 @@
     BlinkMacSystemFont,
     "Segoe UI",
     sans-serif;
-  color: var(--text);
-  background: #101112;
+  color: var(--color-text-primary);
+  background: var(--color-bg-canvas);
   color-scheme: dark;
-  --text: #ededed;
-  --muted: #9a9a9a;
-  --subtle: #737373;
-  --surface: #18191a;
-  --surface-raised: #1e1f20;
-  --overlay: #222324;
-  --line: #303132;
-  --line-strong: #414243;
-  --hover: #ffffff0a;
-  --pressed: #ffffff12;
-  --focus: #7aa2f7;
-  --icon: #c4c4c4;
-  --danger: #f2766d;
-  --danger-bright: #ff8c84;
-  --success: #58d68d;
+  --color-text-primary: #ededed;
+  --color-text-secondary: #9a9a9a;
+  --color-text-tertiary: #737373;
+  --color-text-usage: #aaa;
+  --color-text-badge: #c5c5c5;
+  --color-text-info: #9eb7e9;
+  --color-text-accent: #b9d2ff;
+  --color-text-success: #8de1b0;
+  --color-text-inverse: #171717;
+  --color-text-on-emphasis: #fff;
+  --color-bg-canvas: #101112;
+  --color-bg-sunken: #141516;
+  --color-bg-sidebar: #151617;
+  --color-bg-surface: #18191a;
+  --color-bg-raised: #1e1f20;
+  --color-bg-widget: #242526;
+  --color-bg-overlay: #1a1b1c;
+  --color-bg-dialog: #191a1b;
+  --color-bg-backdrop: #050607c7;
+  --color-bg-code: #111212;
+  --color-bg-badge: #292a2b;
+  --color-bg-accent-subtle: #162033;
+  --color-bg-success-subtle: #14241b;
+  --color-bg-table-header: #1c1d1e;
+  --color-bg-row-hover: #1c1d1e;
+  --color-bg-control-hover: #ffffff0a;
+  --color-bg-control-pressed: #ffffff12;
+  --color-bg-button-hover: #292a2b;
+  --color-bg-button-pressed: #303132;
+  --color-bg-accent: #ededed;
+  --color-bg-accent-hover: #fff;
+  --color-bg-danger: #7b332f;
+  --color-bg-danger-hover: #913b36;
+  --color-bg-progress-track: #3b3b3b;
+  --color-bg-progress-fill: #aaa;
+  --color-bg-skeleton: #383939;
+  --color-border-default: #303132;
+  --color-border-strong: #414243;
+  --color-border-overlay: #343638;
+  --color-border-accent: #527bbd;
+  --color-border-success: #3d8c63;
+  --color-border-button-hover: #4b4c4d;
+  --color-border-danger: #8a3f3a;
+  --color-border-danger-hover: #a64a44;
+  --color-focus: #7aa2f7;
+  --color-icon: #c4c4c4;
+  --color-danger: #f2766d;
+  --color-danger-emphasis: #ff8c84;
+  --color-success: #58d68d;
+  --color-status-inactive: #888;
+  --color-selection: #496a9d;
+  --color-shimmer-light: rgb(255 255 255 / 13%);
+  --color-shimmer-strong: rgb(255 255 255 / 16%);
+  --color-shimmer-subtle: rgb(255 255 255 / 10%);
+  --color-shimmer-dark: rgb(0 0 0 / 11%);
+  --shadow-overlay: 0 12px 30px #0008;
+  --shadow-dialog: 0 18px 48px #0008;
+  --duration-fast: 120ms;
+  --duration-normal: 160ms;
+  --duration-slow: 220ms;
+  --ease-standard: ease;
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
 }
 * {
   box-sizing: border-box;
@@ -36,7 +83,7 @@ body,
   margin: 0;
 }
 body {
-  background: #101112;
+  background: var(--color-bg-canvas);
   user-select: none;
 }
 input,
@@ -64,23 +111,23 @@ input,
 select {
   min-width: 0;
   padding: 10px 12px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--color-border-default);
   border-radius: 6px;
   outline: none;
-  background: #1c1d1e;
+  background: var(--color-bg-raised);
 }
 input:hover,
 select:hover {
-  border-color: var(--line-strong);
+  border-color: var(--color-border-strong);
 }
 input:focus,
 select:focus {
-  border-color: var(--focus);
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--focus) 18%, transparent);
+  border-color: var(--color-focus);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-focus) 18%, transparent);
 }
 ::selection {
-  background: #496a9d;
-  color: #fff;
+  background: var(--color-selection);
+  color: var(--color-text-on-emphasis);
 }
 .app-shell {
   min-height: 100vh;

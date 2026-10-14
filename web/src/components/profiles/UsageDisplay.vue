@@ -82,10 +82,9 @@ function resetLabel(timestamp: number): string {
           aria-hidden="true"
         />
       </span>
-      <span class="track">
+      <span class="track" :class="{ 'is-stale': isStale }">
         <i
-          :class="{ skeleton: isStale }"
-          :style="{ width: isStale ? '58%' : `${100 - window.used}%` }"
+          :style="{ width: `${100 - window.used}%` }"
         />
       </span>
       <span v-if="!isStale" class="remaining">
@@ -116,9 +115,9 @@ function resetLabel(timestamp: number): string {
   align-items: center;
   gap: 12px;
   padding: 12px 14px;
-  border: 1px solid #333;
+  border: 1px solid var(--color-border-default);
   border-radius: 7px;
-  background: #202020;
+  background: var(--color-bg-widget);
 }
 .copy {
   display: grid;
@@ -127,45 +126,83 @@ function resetLabel(timestamp: number): string {
 .copy strong {
   font-size: 13px;
   font-weight: 600;
+  line-height: 16px;
 }
 .copy small,
 .remaining {
-  color: #aaa;
+  min-height: 14px;
+  color: var(--color-text-usage);
   font-size: 11px;
+  line-height: 14px;
 }
 .track {
+  position: relative;
   height: 7px;
   overflow: hidden;
   border-radius: 4px;
-  background: #3b3b3b;
+  background: var(--color-bg-progress-track);
 }
 .track i {
   display: block;
   height: 100%;
   border-radius: inherit;
-  background: #aaa;
+  background: var(--color-bg-progress-fill);
+  transition: width 560ms var(--ease-out);
 }
-.skeleton {
-  color: transparent;
+.track.is-stale i {
+  opacity: 0.45;
+}
+.track.is-stale::after {
+  position: absolute;
+  inset: 0;
   background: linear-gradient(
     100deg,
-    #383939 20%,
-    #4a4b4b 38%,
-    #383939 56%
+    transparent 12%,
+    var(--color-shimmer-strong) 50%,
+    transparent 88%
   );
-  background-size: 220% 100%;
-  animation: shimmer 1.35s ease-in-out infinite;
+  content: "";
+  pointer-events: none;
+  transform: translateX(-100%);
+  animation: shimmer 1.35s linear infinite;
+  will-change: transform;
+}
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  color: transparent;
+  background: transparent;
+}
+.skeleton::before {
+  position: absolute;
+  inset: 1.5px 0;
+  border-radius: 4px;
+  background: var(--color-bg-skeleton);
+  content: "";
+}
+.skeleton::after {
+  position: absolute;
+  inset: 1.5px 0;
+  border-radius: 4px;
+  background: linear-gradient(
+    100deg,
+    transparent 20%,
+    var(--color-shimmer-subtle) 50%,
+    transparent 80%
+  );
+  content: "";
+  transform: translateX(-100%);
+  animation: shimmer 1.35s linear infinite;
+  will-change: transform;
 }
 .skeleton-reset {
   width: 76px;
-  height: 11px;
-  border-radius: 4px;
+  height: 14px;
 }
 .skeleton-percent {
   justify-self: end;
   width: 44px;
-  height: 11px;
-  border-radius: 4px;
+  height: 14px;
 }
 .remaining {
   text-align: right;
@@ -176,7 +213,7 @@ function resetLabel(timestamp: number): string {
 }
 @keyframes shimmer {
   to {
-    background-position-x: -220%;
+    transform: translateX(100%);
   }
 }
 @media (max-width: 540px) {
@@ -193,8 +230,13 @@ function resetLabel(timestamp: number): string {
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .skeleton {
+  .track i {
+    transition: none;
+  }
+  .track.is-stale::after,
+  .skeleton::after {
     animation: none;
+    transform: none;
   }
 }
 </style>

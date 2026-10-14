@@ -3,7 +3,7 @@ from typing import Literal, Optional, TypeAlias
 from uuid import UUID
 
 from api.v1.models import Entities, Entity, Meta
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
 USER_TYPE = "user"
 
@@ -37,9 +37,7 @@ class UserCreate(BaseModel):
 
 
 class UserUpdate(BaseModel):
-    username: Optional[EmailStr] = Field(
-        default=None,
-    )
+    model_config = ConfigDict(extra="forbid")
 
     nickname: Optional[str] = Field(
         default=None,

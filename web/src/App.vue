@@ -59,11 +59,13 @@ async function login(username: string, password: string) {
   loginPending.value = true;
   try {
     await session.login(username, password);
-    if (
-      route.meta.administrator &&
-      session.principal.value?.role !== "administrator"
-    )
-      await router.replace("/me/devices");
+    const redirect =
+      typeof route.query.redirect === "string" &&
+      route.query.redirect.startsWith("/") &&
+      !route.query.redirect.startsWith("//")
+        ? route.query.redirect
+        : "/me/devices";
+    await router.replace(redirect);
     await loadDashboard();
   } catch (reason) {
     notifications.error(reason, "Sign in failed");
@@ -78,7 +80,7 @@ async function logout() {
     dashboardReady.value = false;
     profiles.closeFlow();
     devices.reset();
-    await router.replace("/me/devices");
+    await router.replace({ name: "sign-in" });
   } catch (reason) {
     notifications.error(reason, "Could not sign out");
   }
@@ -166,7 +168,16 @@ async function deleteDevice() {
 
 onMounted(async () => {
   await session.restore();
-  if (!session.principal.value) return;
+  if (!session.principal.value) {
+    if (route.name !== "sign-in") {
+      await router.replace({
+        name: "sign-in",
+        query: { redirect: route.fullPath },
+      });
+    }
+    return;
+  }
+  if (route.name === "sign-in") await router.replace("/me/devices");
   try {
     await loadDashboard();
   } catch (reason) {
@@ -174,8 +185,23 @@ onMounted(async () => {
   }
 });
 watch(
-  [() => route.meta.administrator, () => session.principal.value?.role],
-  ([administrator, role]) => {
+  [
+    () => route.meta.administrator,
+    () => route.name,
+    () => session.principal.value?.role,
+  ],
+  ([administrator, routeName, role]) => {
+    if (!role && routeName !== "sign-in" && !session.loading.value) {
+      void router.replace({
+        name: "sign-in",
+        query: { redirect: route.fullPath },
+      });
+      return;
+    }
+    if (role && routeName === "sign-in") {
+      void router.replace("/me/devices");
+      return;
+    }
     if (administrator && role && role !== "administrator")
       void router.replace("/me/devices");
   },
@@ -278,7 +304,7 @@ watch(
   align-items: center;
   justify-content: center;
   gap: 10px;
-  color: var(--muted);
+  color: var(--color-text-secondary);
 }
 .loading-spinner {
   width: 14px;
@@ -294,7 +320,7 @@ watch(
   align-items: center;
   justify-content: center;
   gap: 10px;
-  color: var(--muted);
+  color: var(--color-text-secondary);
 }
 @keyframes spin {
   to {

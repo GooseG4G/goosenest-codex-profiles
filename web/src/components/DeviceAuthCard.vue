@@ -70,7 +70,7 @@ defineEmits<{ close: []; start: [] }>();
 }
 .auth-content p {
   margin: 0;
-  color: var(--muted);
+  color: var(--color-text-secondary);
   font-size: 12px;
 }
 </style>

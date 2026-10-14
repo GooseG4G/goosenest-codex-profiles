@@ -63,3 +63,12 @@ def test_no_content_responses_have_no_body_schema() -> None:
             response = operation.get("responses", {}).get("204")
             if response is not None:
                 assert "content" not in response
+
+
+def test_username_is_immutable() -> None:
+    schema = app.openapi()
+
+    user_update = schema["components"]["schemas"]["UserUpdate"]
+
+    assert "username" not in user_update["properties"]
+    assert user_update["additionalProperties"] is False

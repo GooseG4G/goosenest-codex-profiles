@@ -139,9 +139,9 @@ watch(
 }
 .table {
   overflow: hidden;
-  border: 1px solid var(--line);
+  border: 1px solid var(--color-border-default);
   border-radius: 7px;
-  background: #151616;
+  background: var(--color-bg-sunken);
 }
 .table-head {
   display: flex;
@@ -149,9 +149,10 @@ watch(
   justify-content: space-between;
   height: 40px;
   padding: 0 14px;
-  color: var(--muted);
+  color: var(--color-text-secondary);
   font-size: 12px;
-  border-bottom: 1px solid var(--line);
+  border-bottom: 1px solid var(--color-border-default);
+  background: var(--color-bg-table-header);
 }
 .table article {
   display: grid;
@@ -162,16 +163,16 @@ watch(
   padding: 11px 15px;
 }
 .table article:hover {
-  background: var(--hover);
+  background: var(--color-bg-row-hover);
 }
 .table article + article {
-  border-top: 1px solid var(--line);
+  border-top: 1px solid var(--color-border-default);
 }
 .table article > i {
   width: 9px;
   height: 9px;
   border-radius: 50%;
-  background: var(--success);
+  background: var(--color-success);
 }
 .user-copy {
   display: grid;
@@ -189,15 +190,15 @@ watch(
   line-height: 18px;
 }
 .user-copy small {
-  color: var(--muted);
+  color: var(--color-text-secondary);
   font-size: 12px;
   line-height: 16px;
 }
 .role {
   padding: 3px 8px;
   border-radius: 99px;
-  background: #292a2b;
-  color: #c5c5c5;
+  background: var(--color-bg-badge);
+  color: var(--color-text-badge);
   font-size: 12px;
 }
 .row-actions {
@@ -208,7 +209,7 @@ watch(
 }
 .empty {
   padding: 50px;
-  color: var(--muted);
+  color: var(--color-text-secondary);
   text-align: center;
 }
 </style>

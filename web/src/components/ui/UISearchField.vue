@@ -38,22 +38,22 @@ const model = defineModel<string>({ required: true });
   gap: 9px;
   height: 46px;
   padding: 0 14px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--color-border-default);
   border-radius: 6px;
-  background: var(--surface);
-  color: var(--muted);
+  background: var(--color-bg-surface);
+  color: var(--color-text-secondary);
   transition:
     border-color 140ms ease,
     box-shadow 140ms ease,
     color 140ms ease;
 }
-.search-field:hover:not(.disabled) {
-  border-color: var(--line-strong);
+.search-field:hover:not(.disabled):not(:focus-within) {
+  border-color: var(--color-border-strong);
 }
 .search-field:focus-within {
-  border-color: var(--focus);
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--focus) 18%, transparent);
-  color: var(--text);
+  border-color: var(--color-focus);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-focus) 18%, transparent);
+  color: var(--color-text-primary);
 }
 .search-field svg {
   width: 16px;

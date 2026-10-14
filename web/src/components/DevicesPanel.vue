@@ -173,9 +173,9 @@ function close() {
 }
 .table-card {
   overflow: hidden;
-  border: 1px solid var(--line);
+  border: 1px solid var(--color-border-default);
   border-radius: 7px;
-  background: #151616;
+  background: var(--color-bg-sunken);
 }
 .list-header {
   display: flex;
@@ -183,9 +183,10 @@ function close() {
   justify-content: space-between;
   height: 40px;
   padding: 0 14px;
-  color: var(--muted);
+  color: var(--color-text-secondary);
   font-size: 12px;
-  border-bottom: 1px solid var(--line);
+  border-bottom: 1px solid var(--color-border-default);
+  background: var(--color-bg-table-header);
 }
 .device-row {
   display: grid;
@@ -196,22 +197,22 @@ function close() {
   padding: 11px 15px;
 }
 .device-row:hover {
-  background: var(--hover);
+  background: var(--color-bg-row-hover);
 }
 .device-row:has(.row-actions:hover) {
   background: transparent;
 }
 .device-row + .device-row {
-  border-top: 1px solid var(--line);
+  border-top: 1px solid var(--color-border-default);
 }
 .device-row i {
   width: 9px;
   height: 9px;
   border-radius: 50%;
-  background: var(--success);
+  background: var(--color-success);
 }
 .device-row i.off {
-  background: #858585;
+  background: var(--color-status-inactive);
 }
 .device-copy {
   display: grid;
@@ -226,7 +227,7 @@ function close() {
 }
 .device-copy small,
 .device-row code {
-  color: var(--muted);
+  color: var(--color-text-secondary);
   font-size: 12px;
   line-height: 16px;
 }
@@ -237,16 +238,16 @@ function close() {
   display: grid;
   gap: 6px;
   padding: 54px;
-  color: var(--muted);
+  color: var(--color-text-secondary);
   text-align: center;
 }
 .empty strong {
-  color: var(--text);
+  color: var(--color-text-primary);
 }
 .device-form label {
   display: grid;
   gap: 7px;
-  color: var(--muted);
+  color: var(--color-text-secondary);
   font-size: 12px;
 }
 .device-form input {

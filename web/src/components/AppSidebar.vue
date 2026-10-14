@@ -70,8 +70,8 @@ defineEmits<{ logout: [] }>();
   padding: 20px 13px 16px;
   display: flex;
   flex-direction: column;
-  background: #151617;
-  border-right: 1px solid var(--line);
+  background: var(--color-bg-sidebar);
+  border-right: 1px solid var(--color-border-default);
 }
 .brand {
   display: flex;
@@ -86,8 +86,8 @@ defineEmits<{ logout: [] }>();
   width: 31px;
   height: 31px;
   border-radius: 8px;
-  background: #ededed;
-  color: #171819;
+  background: var(--color-bg-accent);
+  color: var(--color-text-inverse);
   font-size: 14px;
 }
 .sidebar nav {
@@ -104,7 +104,7 @@ defineEmits<{ logout: [] }>();
   border-radius: 6px;
   outline: none;
   background: transparent;
-  color: var(--muted);
+  color: var(--color-text-secondary);
   font-weight: 500;
   line-height: 20px;
   text-align: left;
@@ -126,34 +126,34 @@ defineEmits<{ logout: [] }>();
   transition: transform 150ms ease;
 }
 .sidebar nav a:hover {
-  color: var(--text);
-  background: var(--hover);
+  color: var(--color-text-primary);
+  background: var(--color-bg-control-hover);
 }
 .sidebar nav a:hover svg {
   transform: scale(1.08);
 }
 .sidebar nav a:active {
-  background: var(--pressed);
+  background: var(--color-bg-control-pressed);
   transform: scale(0.985);
 }
 .sidebar nav a:focus-visible {
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--focus) 52%, transparent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-focus) 52%, transparent);
 }
 .sidebar nav a.router-link-active {
-  color: var(--text);
-  background: #262728;
+  color: var(--color-text-primary);
+  background: var(--color-bg-button-hover);
 }
 .sidebar nav hr {
   width: 100%;
   height: 1px;
   margin: 7px 0;
   border: 0;
-  background: var(--line);
+  background: var(--color-border-default);
 }
 .account {
   margin-top: auto;
   padding: 10px 0 0;
-  border-top: 1px solid var(--line);
+  border-top: 1px solid var(--color-border-default);
 }
 .account-trigger {
   width: 100%;
@@ -167,7 +167,7 @@ defineEmits<{ logout: [] }>();
   border-radius: 6px;
   outline: none;
   background: transparent;
-  color: var(--muted);
+  color: var(--color-text-secondary);
   text-align: left;
   transition: background-color 120ms ease, color 120ms ease, border-color 120ms ease;
 }
@@ -179,11 +179,11 @@ defineEmits<{ logout: [] }>();
 }
 .account-trigger:hover,
 .account-trigger[aria-expanded="true"] {
-  color: var(--text);
-  background: var(--hover);
+  color: var(--color-text-primary);
+  background: var(--color-bg-control-hover);
 }
 .account-trigger:focus-visible {
-  border-color: var(--focus);
+  border-color: var(--color-focus);
 }
 .account-trigger[data-focus-restored]:focus-visible {
   border-color: transparent;
@@ -204,19 +204,19 @@ defineEmits<{ logout: [] }>();
   display: grid;
   gap: 3px;
   padding: 8px 9px 9px;
-  border-bottom: 1px solid var(--line);
+  border-bottom: 1px solid var(--color-border-default);
 }
 .account-identity strong {
   font-size: 11px;
   font-weight: 500;
-  color: var(--subtle);
+  color: var(--color-text-tertiary);
 }
 .account-identity span {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   font-size: 12px;
-  color: var(--text);
+  color: var(--color-text-primary);
 }
 .account-action {
   width: 100%;
@@ -230,18 +230,18 @@ defineEmits<{ logout: [] }>();
   border-radius: 5px;
   outline: none;
   background: transparent;
-  color: var(--muted);
+  color: var(--color-text-secondary);
   font-size: 12px;
   text-align: left;
   transition: background-color 120ms ease, color 120ms ease;
 }
 .account-action:hover,
 .account-action:focus-visible {
-  color: var(--text);
-  background: var(--hover);
+  color: var(--color-text-primary);
+  background: var(--color-bg-control-hover);
 }
 .account-action:active {
-  background: var(--pressed);
+  background: var(--color-bg-control-pressed);
 }
 @media (prefers-reduced-motion: reduce) {
   .sidebar nav a,
