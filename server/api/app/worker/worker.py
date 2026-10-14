@@ -1,9 +1,7 @@
 from celery import Celery
 from integrations.redis.providers import get_redis_settings
 from kombu import Queue
-from settings import get_settings
 
-settings = get_settings()
 redis_settings = get_redis_settings()
 app = Celery(
     "goosenest-codex-profiles",

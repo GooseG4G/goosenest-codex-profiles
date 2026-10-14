@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from uuid import UUID, uuid4
 
-from settings import get_settings
+from .providers import get_codex_settings
 
 ANSI = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]")
 CODE = re.compile(r"\b[A-Z0-9]{4,6}-[A-Z0-9]{4,6}\b")
@@ -33,14 +33,14 @@ class CodexDeviceAuth:
         self._flows: dict[UUID, DeviceFlow] = {}
 
     async def start(self) -> DeviceFlow:
-        settings = get_settings()
+        settings = get_codex_settings()
         uid, profile_id = uuid4(), uuid4()
-        home = Path(settings.codex_profiles_root).resolve() / str(profile_id)
+        home = Path(settings.profiles_root).resolve() / str(profile_id)
         home.mkdir(parents=True, exist_ok=False)
         env = os.environ.copy()
         env["CODEX_HOME"] = str(home)
         process = await asyncio.create_subprocess_exec(
-            settings.codex_executable,
+            settings.executable,
             "login",
             "--device-auth",
             stdout=asyncio.subprocess.PIPE,

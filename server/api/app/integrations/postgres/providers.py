@@ -1,8 +1,6 @@
 from functools import lru_cache
 from typing import AsyncGenerator
 
-from settings import get_settings
-
 from .postgres import PostgresContext, PostgresSession
 from .settings import PostgresSettings
 
@@ -15,15 +13,7 @@ __all__ = [
 
 @lru_cache(maxsize=1)
 def get_postgres_settings() -> PostgresSettings:
-    settings = get_settings()
-
-    postgres_settings = PostgresSettings(
-        host=settings.postgres_host,
-        port=settings.postgres_port,
-        database=settings.postgres_database,
-        username=settings.postgres_username,
-        password=settings.postgres_password,
-    )
+    postgres_settings = PostgresSettings()
 
     return postgres_settings
 

@@ -3,6 +3,7 @@ from typing import Annotated, Any, AsyncGenerator
 from uuid import UUID
 
 import httpx
+from api.v1.settings import get_api_settings
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import StreamingResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -11,7 +12,6 @@ from integrations.postgres import PostgresSession
 from integrations.postgres.providers import get_postgres_session
 from pydantic import BaseModel
 from security import hash_device_secret
-from settings import get_settings
 
 from .scheduler import release_profile, reserve_profile
 
@@ -127,8 +127,8 @@ async def create_response(
 ) -> StreamingResponse:
     await _authorize_device(credentials, session)
     body = await request.body()
-    settings = get_settings()
-    client = httpx.AsyncClient(timeout=settings.openai_request_timeout)
+    settings = get_api_settings()
+    client = httpx.AsyncClient(timeout=settings.request_timeout)
     last_error = "All Codex profiles failed"
     excluded: set[UUID] = set()
 
@@ -154,14 +154,14 @@ async def create_response(
             continue
         try:
             upstream = await _send(
-                client, settings.openai_responses_url, body, request, token, account_id
+                client, settings.responses_url, body, request, token, account_id
             )
             if upstream.status_code == 401:
                 await upstream.aclose()
                 token, account_id = await ensure_fresh(profile.codex_home, force=True)
                 upstream = await _send(
                     client,
-                    settings.openai_responses_url,
+                    settings.responses_url,
                     body,
                     request,
                     token,

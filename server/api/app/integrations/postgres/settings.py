@@ -1,13 +1,20 @@
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import Field
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
-class PostgresSettings(BaseModel):
-    model_config = ConfigDict(
-        extra="forbid",
+class PostgresSettings(BaseSettings):
+    model_config = SettingsConfigDict(
         frozen=True,
+        populate_by_name=True,
+        env_file=".env",
+        env_ignore_empty=True,
+        env_file_encoding="utf-8",
+        extra="ignore",
     )
 
     host: str = Field(
+        default="postgres",
+        alias="POSTGRES_HOST",
         min_length=1,
         max_length=253,
         description="Database server host",
@@ -15,24 +22,28 @@ class PostgresSettings(BaseModel):
 
     port: int = Field(
         default=5432,
+        alias="POSTGRES_PORT",
         ge=1,
         le=65535,
         description="Database server port",
     )
 
     database: str = Field(
+        alias="POSTGRES_DATABASE",
         min_length=1,
         max_length=63,
         description="Database name",
     )
 
     username: str = Field(
+        alias="POSTGRES_USERNAME",
         min_length=1,
         max_length=63,
         description="Database username",
     )
 
     password: str = Field(
+        alias="POSTGRES_PASSWORD",
         min_length=1,
         max_length=1024,
         description="Database password",

@@ -10,8 +10,9 @@ from integrations.events import publish_event
 from integrations.postgres import PostgresContext
 from integrations.postgres.providers import get_postgres_settings
 from integrations.redis.providers import get_redis_context
-from settings import get_settings
 from worker import app
+
+from .settings import get_usage_task_settings
 
 logger = logging.getLogger(__name__)
 FIELDS = """jsonb_build_object(
@@ -90,7 +91,7 @@ async def _refresh(profile_id: UUID) -> None:
 
 @app.task(name="profiles.usage.refresh", bind=True)
 def refresh_profile_usage(self, profile_id: str) -> None:
-    settings = get_settings()
+    settings = get_usage_task_settings()
     try:
         asyncio.run(_refresh(UUID(profile_id)))
     except Exception as error:
@@ -100,15 +101,15 @@ def refresh_profile_usage(self, profile_id: str) -> None:
             self.request.retries + 1,
             error,
         )
-        if self.request.retries >= settings.usage_task_max_retries:
+        if self.request.retries >= settings.max_retries:
             raise
         delay = min(
-            settings.usage_task_min_retry_delay * 2**self.request.retries,
-            settings.usage_task_max_retry_delay,
+            settings.min_retry_delay * 2**self.request.retries,
+            settings.max_retry_delay,
         )
         raise self.retry(
             exc=error,
-            max_retries=settings.usage_task_max_retries,
+            max_retries=settings.max_retries,
             countdown=delay,
         )
 
@@ -168,7 +169,7 @@ def consume_profile_usage_reset(
     credit_id: str,
     idempotency_key: str,
 ) -> str:
-    settings = get_settings()
+    settings = get_usage_task_settings()
     try:
         return asyncio.run(
             _consume_reset(UUID(profile_id), credit_id, idempotency_key),
@@ -180,14 +181,14 @@ def consume_profile_usage_reset(
             self.request.retries + 1,
             error,
         )
-        if self.request.retries >= settings.usage_task_max_retries:
+        if self.request.retries >= settings.max_retries:
             raise
         delay = min(
-            settings.usage_task_min_retry_delay * 2**self.request.retries,
-            settings.usage_task_max_retry_delay,
+            settings.min_retry_delay * 2**self.request.retries,
+            settings.max_retry_delay,
         )
         raise self.retry(
             exc=error,
-            max_retries=settings.usage_task_max_retries,
+            max_retries=settings.max_retries,
             countdown=delay,
         )

@@ -4,7 +4,7 @@ import os
 from pathlib import Path
 from typing import Any
 
-from settings import get_settings
+from .providers import get_codex_settings
 
 
 class CodexUsageError(RuntimeError):
@@ -61,7 +61,7 @@ async def _call_codex(
     method: str,
     params: dict[str, Any],
 ) -> object:
-    settings = get_settings()
+    settings = get_codex_settings()
     home = Path(codex_home).resolve()
     if not (home / "auth.json").is_file():
         raise CodexUsageError("Codex profile is not authenticated")
@@ -69,7 +69,7 @@ async def _call_codex(
     environment = os.environ.copy()
     environment["CODEX_HOME"] = str(home)
     process = await asyncio.create_subprocess_exec(
-        settings.codex_executable,
+        settings.executable,
         "app-server",
         "--stdio",
         stdin=asyncio.subprocess.PIPE,
