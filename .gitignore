@@ -1,6 +1,12 @@
 # Build
 build/
 *.vsix
+server/web/dist/
+*.tsbuildinfo
+
+# Local browser test artifacts
+.playwright-cli/
+output/
 
 # Environment
 .env
@@ -17,6 +23,7 @@ __pycache__/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+celerybeat-schedule*
 
 # Local data
 server/**/data/

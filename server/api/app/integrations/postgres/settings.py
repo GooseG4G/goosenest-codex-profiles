@@ -40,9 +40,9 @@ class PostgresSettings(BaseModel):
 
     @property
     def dsn(self) -> str:
-        dsn =  (
+        dsn = (
             f"postgresql://{self.username}:{self.password}"
             f"@{self.host}:{self.port}/{self.database}"
         )
-        
+
         return dsn

@@ -1,0 +1,89 @@
+name: goosenest-codex-profiles-api
+
+x-logging: &server-logging
+  driver: json-file
+  options:
+    max-size: 10m
+    max-file: "2"
+
+services:
+  web:
+    cpus: 0.20
+    mem_limit: 64m
+    logging: *server-logging
+
+  api:
+    command:
+      - uvicorn
+      - app.main:app
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8000"
+      - --workers
+      - "1"
+    cpus: 0.50
+    mem_limit: 256m
+    volumes: !override
+      - codex-profiles:/data/codex-profiles
+    logging: *server-logging
+
+  worker:
+    command:
+      - celery
+      - -A
+      - app.worker.worker:app
+      - worker
+      - --loglevel=info
+      - --prefetch-multiplier=1
+      - --queues=default,codex
+      - --concurrency=1
+      - --max-tasks-per-child=25
+    cpus: 0.60
+    mem_limit: 320m
+    volumes: !override
+      - codex-profiles:/data/codex-profiles
+    logging: *server-logging
+
+  beat:
+    cpus: 0.10
+    mem_limit: 96m
+    volumes: !override
+      - codex-profiles:/data/codex-profiles
+    logging: *server-logging
+
+  redis:
+    command:
+      - redis-server
+      - --appendonly
+      - "yes"
+      - --appendfsync
+      - everysec
+      - --maxmemory
+      - 96mb
+      - --maxmemory-policy
+      - noeviction
+    cpus: 0.15
+    mem_limit: 112m
+    logging: *server-logging
+
+  postgres:
+    command:
+      - postgres
+      - -c
+      - shared_buffers=64MB
+      - -c
+      - work_mem=1MB
+      - -c
+      - maintenance_work_mem=32MB
+      - -c
+      - max_connections=30
+    cpus: 0.35
+    mem_limit: 256m
+    volumes: !override
+      - postgres-data:/var/lib/postgresql/data
+      - ./postgres/scheme.sql:/docker-entrypoint-initdb.d/001-scheme.sql:ro
+    logging: *server-logging
+
+volumes:
+  postgres-data:
