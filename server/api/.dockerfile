@@ -6,9 +6,12 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
-COPY --from=codex /usr/local/bin/node /usr/local/bin/node
-COPY --from=codex /usr/local/lib/node_modules/@openai/codex /usr/local/lib/node_modules/@openai/codex
-RUN ln -s /usr/local/lib/node_modules/@openai/codex/bin/codex.js /usr/local/bin/codex
+COPY --from=codex \
+    /usr/local/lib/node_modules/@openai/codex/node_modules/@openai/codex-linux-x64 \
+    /opt/codex
+RUN ln -s \
+    /opt/codex/vendor/x86_64-unknown-linux-musl/bin/codex \
+    /usr/local/bin/codex
 
 COPY requirements.txt requirements.txt
 
