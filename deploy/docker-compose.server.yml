@@ -10,6 +10,8 @@ services:
   web:
     cpus: 0.20
     mem_limit: 64m
+    ports: !override
+      - "127.0.0.1:${WEB_PORT:-8080}:80"
     logging: *server-logging
 
   api:
