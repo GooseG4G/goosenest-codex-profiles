@@ -6,7 +6,7 @@ export function useSession() {
   const loading = shallowRef(true);
   async function restore() {
     try {
-      principal.value = await api<Principal>("/sessions/me");
+      principal.value = await api<Principal>("/sessions/current");
     } catch {
       principal.value = undefined;
     } finally {
@@ -14,7 +14,7 @@ export function useSession() {
     }
   }
   async function login(username: string, password: string) {
-    principal.value = await api<Principal>("/sessions/", {
+    principal.value = await api<Principal>("/sessions", {
       method: "POST",
       body: JSON.stringify({ username, password }),
     });

@@ -1,10 +1,9 @@
 from celery import Celery
+from integrations.redis.providers import get_redis_settings
 from kombu import Queue
+from settings import get_settings
 
-from app.api.v1.providers import get_api_settings
-from app.integrations.redis.providers import get_redis_settings
-
-settings = get_api_settings()
+settings = get_settings()
 redis_settings = get_redis_settings()
 app = Celery(
     "goosenest-codex-profiles",
@@ -19,7 +18,7 @@ app.conf.update(
     task_track_started=True,
     task_reject_on_worker_lost=True,
     worker_prefetch_multiplier=1,
-    imports=("app.worker.tasks.usage",),
+    imports=("api.v1.profile.usage.tasks",),
     task_default_queue="default",
     task_queues=(Queue("default"), Queue("codex")),
     task_routes={

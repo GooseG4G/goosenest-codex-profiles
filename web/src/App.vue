@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, shallowRef, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import { api, type User } from "./api";
+import { api, type User, type UserEntities } from "./api";
 import { useDevices } from "./composables/useDevices";
 import { useDelayedVisibility } from "./composables/useDelayedVisibility";
 import { useNotifications } from "./composables/useNotifications";
@@ -19,7 +19,7 @@ import UIConfirmDialog from "./components/ui/UIConfirmDialog.vue";
 const session = useSession();
 const showSessionLoading = useDelayedVisibility(session.loading);
 const profiles = useProfiles();
-const devices = useDevices();
+const devices = useDevices(() => session.principal.value?.user_id);
 const notifications = useNotifications();
 const users = shallowRef<User[]>([]);
 const route = useRoute();
@@ -40,7 +40,7 @@ const deviceDeletePending = shallowRef(false);
 const profileDialogOpen = shallowRef(false);
 
 async function loadUsers() {
-  users.value = await api<User[]>("/users");
+  users.value = (await api<UserEntities>("/users")).items;
 }
 async function loadDashboard() {
   dashboardLoading.value = true;

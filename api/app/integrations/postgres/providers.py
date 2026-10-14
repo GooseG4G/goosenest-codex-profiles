@@ -1,7 +1,7 @@
 from functools import lru_cache
 from typing import AsyncGenerator
 
-from app.api.v1.providers import get_api_settings
+from settings import get_settings
 
 from .postgres import PostgresContext, PostgresSession
 from .settings import PostgresSettings
@@ -15,7 +15,7 @@ __all__ = [
 
 @lru_cache(maxsize=1)
 def get_postgres_settings() -> PostgresSettings:
-    settings = get_api_settings()
+    settings = get_settings()
 
     postgres_settings = PostgresSettings(
         host=settings.postgres_host,

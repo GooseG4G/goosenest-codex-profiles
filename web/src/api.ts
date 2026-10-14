@@ -1,13 +1,24 @@
 export type Role = "user" | "administrator";
+export interface Meta {
+  type: string;
+  href: string;
+  total?: number | null;
+}
 export interface Principal {
   user_id: string;
   username: string;
   role: Role;
 }
 export interface User extends Principal {
+  meta: Meta;
   nickname: string;
 }
+export interface UserEntities {
+  meta: Meta;
+  items: User[];
+}
 export interface Profile {
+  meta: Meta;
   profile_id: string;
   name: string;
   enabled: boolean;
@@ -16,6 +27,10 @@ export interface Profile {
   usage_updated_at: string | null;
   usage_resets?: UsageResets;
   last_used_at: string | null;
+}
+export interface ProfileEntities {
+  meta: Meta;
+  items: Profile[];
 }
 export interface UsageWindow {
   used_percent: number;
@@ -64,12 +79,17 @@ export interface StreamEvent {
   event: ServerEvent;
 }
 export interface Device {
+  meta: Meta;
   device_id: string;
   user_id: string;
   name: string;
   enabled: boolean;
   created_at: string;
   last_used_at: string | null;
+}
+export interface DeviceEntities {
+  meta: Meta;
+  items: Device[];
 }
 export interface DeviceIssued extends Device {
   secret: string;
