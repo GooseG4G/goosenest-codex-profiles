@@ -4,9 +4,9 @@ from uuid import UUID
 
 from api.v1.session.auth import Principal, require_admin
 from fastapi import APIRouter, Depends, HTTPException, Response, status
+from integrations.codex.providers import get_codex_settings
 from integrations.postgres import PostgresSession
 from integrations.postgres.providers import get_postgres_session
-from settings import get_settings
 
 from .models import (
     ProfileEntities,
@@ -89,7 +89,7 @@ async def delete_profile(
         raise HTTPException(status_code=404, detail="Profile not found")
     # Credentials are removed only after the exact DB-owned profile path is resolved.
     home = Path(profile.codex_home).resolve()
-    root = Path(get_settings().codex_profiles_root).resolve()
+    root = Path(get_codex_settings().profiles_root).resolve()
     try:
         home.relative_to(root)
     except ValueError as error:

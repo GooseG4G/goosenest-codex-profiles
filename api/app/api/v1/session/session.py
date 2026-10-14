@@ -1,12 +1,12 @@
 from datetime import datetime, timedelta, timezone
 from typing import Annotated
 
+from api.v1.settings import get_api_settings
 from fastapi import APIRouter, Cookie, Depends, HTTPException, Request, Response, status
 from integrations.postgres import PostgresSession
 from integrations.postgres.providers import get_postgres_session
 from pydantic import BaseModel, EmailStr
 from security import hash_session_token, issue_session_token, verify_secret
-from settings import get_settings
 
 from .auth import Principal, PrincipalWithPassword, get_principal
 
@@ -31,7 +31,7 @@ async def login(
     if user is None or not verify_secret(body.password, user.password):
         raise HTTPException(status_code=401, detail="Invalid username or password")
 
-    settings = get_settings()
+    settings = get_api_settings()
     token = issue_session_token()
     expires_at = datetime.now(timezone.utc) + timedelta(days=settings.session_ttl_days)
     await session.execute(
