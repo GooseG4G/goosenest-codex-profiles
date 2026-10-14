@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { ChevronDown, Trash2, UserRoundPlus } from "@lucide/vue";
-import { computed, onBeforeUnmount, shallowRef } from "vue";
+import { computed, onBeforeUnmount, onMounted, shallowRef } from "vue";
 import type { Profile } from "../api";
 import { useRouteQuery } from "../composables/useRouteQuery";
+import { formatDateTime } from "../utils/date";
 import UsageDisplay from "./profiles/UsageDisplay.vue";
 import UIIconButton from "./ui/UIIconButton.vue";
 import UISearchField from "./ui/UISearchField.vue";
@@ -22,13 +23,55 @@ const emit = defineEmits<{
   hotProfileChange: [profileId?: string];
 }>();
 const expanded = shallowRef<string>();
-const hovered = shallowRef<string>();
+const now = shallowRef(Date.now());
+let clock: ReturnType<typeof setInterval> | undefined;
+
+function planLabel(profile: Profile): string {
+  const value = profile.usage?.planType ?? profile.usage?.plan_type;
+  if (typeof value !== "string" || !value.trim()) return "Codex";
+  return value
+    .trim()
+    .split(/[-_\s]+/)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+    .join(" ");
+}
+function expiryLabel(profile: Profile): string {
+  const plan = planLabel(profile);
+  if (!profile.subscription_expires_at) {
+    if (!profile.last_used_at) return plan;
+    const lastUsedAt = new Date(profile.last_used_at).getTime();
+    return Number.isFinite(lastUsedAt)
+      ? `${plan}, last used ${formatDateTime(lastUsedAt)}`
+      : plan;
+  }
+  const expiresAt = new Date(profile.subscription_expires_at).getTime();
+  if (!Number.isFinite(expiresAt)) return plan;
+  const remainingMinutes = Math.ceil((expiresAt - now.value) / 60_000);
+  if (remainingMinutes <= 0) return `${plan}, expired`;
+  const days = Math.floor(remainingMinutes / 1_440);
+  const hours = Math.floor((remainingMinutes % 1_440) / 60);
+  const minutes = remainingMinutes % 60;
+  const duration = days
+    ? `${days}d${hours ? ` ${hours}h` : ""}`
+    : hours
+      ? `${hours}h${minutes ? ` ${minutes}m` : ""}`
+      : `${minutes}m`;
+  return `${plan}, expires in ${duration}`;
+}
 function toggle(profile: Profile) {
   expanded.value =
     expanded.value === profile.profile_id ? undefined : profile.profile_id;
   emit("hotProfileChange", expanded.value);
 }
-onBeforeUnmount(() => emit("hotProfileChange", undefined));
+onMounted(() => {
+  clock = setInterval(() => {
+    now.value = Date.now();
+  }, 60_000);
+});
+onBeforeUnmount(() => {
+  clearInterval(clock);
+  emit("hotProfileChange", undefined);
+});
 </script>
 <template>
   <section class="profiles-panel">
@@ -54,8 +97,6 @@ onBeforeUnmount(() => emit("hotProfileChange", undefined));
         v-for="profile in visible"
         :key="profile.profile_id"
         class="profile-item"
-        :class="{ 'identity-hovered': hovered === profile.profile_id }"
-        @pointerleave="hovered = undefined"
       >
         <div class="profile-row">
           <button
@@ -63,15 +104,13 @@ onBeforeUnmount(() => emit("hotProfileChange", undefined));
             :aria-label="`${expanded === profile.profile_id ? 'Hide' : 'Show'} usage for ${profile.name}`"
             :aria-expanded="expanded === profile.profile_id"
             :aria-controls="`usage-${profile.profile_id}`"
-            @pointerenter="hovered = profile.profile_id"
-            @pointerleave="hovered = undefined"
             @click="toggle(profile)"
           /><span :class="['dot', { off: !profile.enabled }]" /><span
             class="copy"
             ><strong>{{ profile.name }}</strong
-            ><small>OpenAI</small></span
+            ><small>{{ expiryLabel(profile) }}</small></span
           >
-          <div class="actions" @pointerenter="hovered = undefined">
+          <div class="actions">
             <UIIconButton
               :accessible-label="
                 expanded === profile.profile_id
@@ -90,7 +129,8 @@ onBeforeUnmount(() => emit("hotProfileChange", undefined));
                     expanded: expanded === profile.profile_id,
                   }" /></template></UIIconButton
             ><i /><UIIconButton
-              accessible-label="Delete profile"
+              :accessible-label="`Delete ${profile.name}`"
+              title="Delete"
               tone="danger"
               size="small"
               surface-motion="none"
@@ -105,14 +145,14 @@ onBeforeUnmount(() => emit("hotProfileChange", undefined));
             v-if="expanded === profile.profile_id"
             :id="`usage-${profile.profile_id}`"
             class="usage-collapse"
-            @pointerenter="hovered = profile.profile_id"
-            @pointerleave="hovered = undefined"
           >
             <div class="usage-wrap">
-              <UsageDisplay
-                :usage="profile.usage"
-                :updated-at="profile.usage_updated_at"
-              />
+              <div class="usage-content">
+                <UsageDisplay
+                  :usage="profile.usage"
+                  :updated-at="profile.usage_updated_at"
+                />
+              </div>
             </div></div
         ></Transition>
       </article>
@@ -133,9 +173,9 @@ onBeforeUnmount(() => emit("hotProfileChange", undefined));
 }
 .table-card {
   overflow: hidden;
-  border: 1px solid var(--line);
+  border: 1px solid var(--color-border-default);
   border-radius: 7px;
-  background: #151616;
+  background: var(--color-bg-sunken);
 }
 .list-header {
   display: flex;
@@ -143,15 +183,13 @@ onBeforeUnmount(() => emit("hotProfileChange", undefined));
   justify-content: space-between;
   height: 40px;
   padding: 0 14px;
-  color: var(--muted);
+  color: var(--color-text-secondary);
   font-size: 12px;
-  border-bottom: 1px solid var(--line);
+  border-bottom: 1px solid var(--color-border-default);
+  background: var(--color-bg-table-header);
 }
 .profile-item + .profile-item {
-  border-top: 1px solid var(--line);
-}
-.profile-item.identity-hovered {
-  background: var(--hover);
+  border-top: 1px solid var(--color-border-default);
 }
 .profile-row {
   position: relative;
@@ -161,6 +199,13 @@ onBeforeUnmount(() => emit("hotProfileChange", undefined));
   gap: 13px;
   min-height: 68px;
   padding: 11px 15px;
+  transition: background-color var(--duration-fast) var(--ease-standard);
+}
+.profile-row:has(.row-hit:hover) {
+  background: var(--color-bg-row-hover);
+}
+.profile-item:has(.row-hit:hover) .usage-wrap {
+  background: var(--color-bg-row-hover);
 }
 .row-hit {
   position: absolute;
@@ -170,7 +215,7 @@ onBeforeUnmount(() => emit("hotProfileChange", undefined));
   background: transparent;
 }
 .row-hit:focus-visible {
-  outline: 2px solid color-mix(in srgb, var(--focus) 52%, transparent);
+  outline: 2px solid color-mix(in srgb, var(--color-focus) 52%, transparent);
   outline-offset: -2px;
 }
 .dot {
@@ -178,11 +223,11 @@ onBeforeUnmount(() => emit("hotProfileChange", undefined));
   width: 9px;
   height: 9px;
   border-radius: 50%;
-  background: #61d28b;
+  background: var(--color-success);
   pointer-events: none;
 }
 .dot.off {
-  background: #888;
+  background: var(--color-status-inactive);
 }
 .copy {
   z-index: 1;
@@ -199,7 +244,7 @@ onBeforeUnmount(() => emit("hotProfileChange", undefined));
   white-space: nowrap;
 }
 .copy small {
-  color: var(--muted);
+  color: var(--color-text-secondary);
   font-size: 12px;
   line-height: 16px;
 }
@@ -211,7 +256,7 @@ onBeforeUnmount(() => emit("hotProfileChange", undefined));
 }
 .actions i {
   height: 22px;
-  border-left: 1px solid var(--line);
+  border-left: 1px solid var(--color-border-default);
 }
 .chevron {
   transition: transform 0.15s;
@@ -227,18 +272,21 @@ onBeforeUnmount(() => emit("hotProfileChange", undefined));
 .usage-wrap {
   min-height: 0;
   overflow: hidden;
+  transition: background-color var(--duration-fast) var(--ease-standard);
+}
+.usage-content {
   padding: 0 12px 12px;
 }
 .empty {
   padding: 44px;
-  color: var(--muted);
+  color: var(--color-text-secondary);
   text-align: center;
 }
 .usage-enter-active,
 .usage-leave-active {
   transition:
-    grid-template-rows 180ms ease,
-    opacity 140ms ease;
+    grid-template-rows var(--duration-slow) var(--ease-out),
+    opacity var(--duration-normal) var(--ease-standard);
 }
 .usage-enter-from,
 .usage-leave-to {
@@ -247,6 +295,8 @@ onBeforeUnmount(() => emit("hotProfileChange", undefined));
 }
 @media (prefers-reduced-motion: reduce) {
   .chevron,
+  .profile-row,
+  .usage-wrap,
   .usage-enter-active,
   .usage-leave-active {
     transition: none;

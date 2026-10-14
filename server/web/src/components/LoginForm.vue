@@ -41,9 +41,9 @@ const form = reactive({ username: "", password: "" });
   display: grid;
   gap: 14px;
   padding: 22px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--color-border-default);
   border-radius: 9px;
-  background: var(--surface);
+  background: var(--color-bg-surface);
 }
 .login-brand {
   display: flex;
@@ -57,21 +57,21 @@ const form = reactive({ username: "", password: "" });
   width: 34px;
   height: 34px;
   border-radius: 8px;
-  background: #ededed;
-  color: #171819;
+  background: var(--color-bg-accent);
+  color: var(--color-text-inverse);
 }
 .login-brand > span {
   display: grid;
   gap: 1px;
 }
 .login-brand small {
-  color: var(--muted);
+  color: var(--color-text-secondary);
   font-size: 12px;
 }
 .login label {
   display: grid;
   gap: 6px;
-  color: var(--muted);
+  color: var(--color-text-secondary);
   font-size: 12px;
 }
 .login input {

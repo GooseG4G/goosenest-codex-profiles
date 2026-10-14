@@ -73,9 +73,10 @@ const classes = computed(() => [
     :aria-pressed="selected === undefined ? undefined : selected"
     :disabled="disabled || pending"
     @click="$emit('click', $event)"
+    @pointerdown="focused = false"
     @mouseenter="hovered = true"
     @mouseleave="hovered = false"
-    @focus="focused = !button?.hasAttribute('data-focus-restored')"
+    @focus="focused = button?.matches(':focus-visible') ?? false"
     @blur="focused = false"
   >
     <span class="icon" aria-hidden="true"><slot name="icon" /></span>
@@ -93,10 +94,10 @@ const classes = computed(() => [
 
 <style scoped>
 .icon-button {
-  --button-background: var(--surface);
-  --button-foreground: var(--icon);
-  --button-hover-background: var(--hover);
-  --button-pressed-background: var(--pressed);
+  --button-background: var(--color-bg-surface);
+  --button-foreground: var(--color-icon);
+  --button-hover-background: var(--color-bg-control-hover);
+  --button-pressed-background: var(--color-bg-control-pressed);
   position: relative;
   display: inline-flex;
   align-items: center;
@@ -127,14 +128,14 @@ const classes = computed(() => [
   height: 46px;
 }
 .size-medium.background-always {
-  border-color: var(--line);
+  border-color: var(--color-border-default);
 }
 .tone-danger {
-  --button-foreground: var(--danger);
-  --button-hover-background: color-mix(in srgb, var(--danger) 10%, transparent);
+  --button-foreground: var(--color-danger);
+  --button-hover-background: color-mix(in srgb, var(--color-danger) 10%, transparent);
   --button-pressed-background: color-mix(
     in srgb,
-    var(--danger) 16%,
+    var(--color-danger) 16%,
     transparent
   );
 }
@@ -146,30 +147,30 @@ const classes = computed(() => [
 .background-hover:hover:not(:disabled),
 .background-hover:focus-visible:not(:disabled) {
   background: var(--button-hover-background);
-  color: var(--text);
+  color: var(--color-text-primary);
 }
 .tone-danger.background-always:hover:not(:disabled),
 .tone-danger.background-always:focus-visible:not(:disabled),
 .tone-danger.background-hover:hover:not(:disabled),
 .tone-danger.background-hover:focus-visible:not(:disabled) {
-  color: var(--danger-bright);
+  color: var(--color-danger-emphasis);
 }
 .background-never:hover:not(:disabled),
 .background-never:focus-visible:not(:disabled) {
   background: transparent;
 }
 .icon-button:focus-visible {
-  border-color: var(--focus);
+  border-color: var(--color-focus);
 }
 .icon-button[data-focus-restored]:focus-visible {
   border-color: transparent;
 }
 .icon-button.background-always[data-focus-restored]:focus-visible {
-  border-color: var(--line);
+  border-color: var(--color-border-default);
 }
 .icon-button.is-selected {
   background: var(--button-hover-background);
-  color: var(--text);
+  color: var(--color-text-primary);
 }
 .icon-button:active:not(:disabled) {
   background: var(--button-pressed-background);

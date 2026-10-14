@@ -117,17 +117,17 @@ onUnmounted(() => restoreFocus(returnFocus));
   display: grid;
   place-items: center;
   padding: 16px;
-  background: #050607c7;
+  background: var(--color-bg-backdrop);
   backdrop-filter: blur(1px);
 }
 .dialog {
   width: min(408px, 100%);
   padding: 17px;
-  border: 1px solid #343638;
+  border: 1px solid var(--color-border-overlay);
   border-radius: 7px;
   outline: none;
-  background: #191a1b;
-  box-shadow: 0 18px 48px #0008;
+  background: var(--color-bg-dialog);
+  box-shadow: var(--shadow-dialog);
 }
 .width-small {
   width: min(370px, 100%);
@@ -146,7 +146,7 @@ onUnmounted(() => restoreFocus(returnFocus));
 }
 .description {
   margin: 7px 0 0;
-  color: var(--muted);
+  color: var(--color-text-secondary);
   font-size: 13px;
   line-height: 1.5;
 }

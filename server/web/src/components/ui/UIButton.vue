@@ -25,7 +25,7 @@ const showPending = useDelayedVisibility(() => props.pending);
 const classes = computed(() => [
   "ui-button",
   `is-${props.variant}`,
-  { "is-pending": showPending.value },
+  { "is-busy": props.pending, "is-pending": showPending.value },
 ]);
 function handleClick(event: MouseEvent) {
   if (props.disabled || props.pending) {
@@ -49,30 +49,29 @@ function handleClick(event: MouseEvent) {
     :aria-busy="pending || undefined"
     @click="handleClick"
   >
-    <span v-if="showPending" class="spinner" aria-hidden="true" /><span
-      class="content"
-      ><slot
-    /></span>
+    <span class="content"><slot /></span>
   </component>
 </template>
 <style scoped>
 .ui-button {
   position: relative;
+  overflow: hidden;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   min-width: 72px;
   height: 34px;
   padding: 0 13px;
-  border: 1px solid var(--line-strong);
+  border: 1px solid var(--color-border-strong);
   border-radius: 6px;
   outline: none;
-  background: var(--surface-raised);
-  color: var(--text);
+  background: var(--color-bg-raised);
+  color: var(--color-text-primary);
   font-weight: 600;
   line-height: 1;
   text-decoration: none;
   transform: translateY(0) scale(1);
+  --pending-shimmer: var(--color-shimmer-light);
   transition:
     transform 140ms ease,
     background-color 140ms ease,
@@ -96,85 +95,102 @@ function handleClick(event: MouseEvent) {
   transition: transform 150ms ease;
 }
 .ui-button:hover:not(:disabled):not([aria-disabled="true"]) {
-  background: #292a2b;
-  border-color: #4b4c4d;
+  background: var(--color-bg-button-hover);
+  border-color: var(--color-border-button-hover);
   transform: translateY(-1px);
 }
 .ui-button:hover:not(:disabled):not([aria-disabled="true"]) .content :deep(svg) {
   transform: scale(1.08);
 }
 .ui-button:active:not(:disabled):not([aria-disabled="true"]) {
-  background: #303132;
+  background: var(--color-bg-button-pressed);
   transform: translateY(0) scale(0.98);
 }
 .ui-button:focus-visible {
-  border-color: var(--focus);
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--focus) 24%, transparent);
+  border-color: var(--color-focus);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-focus) 24%, transparent);
 }
 .ui-button[data-focus-restored]:focus-visible {
-  border-color: var(--line-strong);
+  border-color: var(--color-border-strong);
   box-shadow: none;
 }
 .is-primary[data-focus-restored]:focus-visible {
-  border-color: #ededed;
+  border-color: var(--color-bg-accent);
 }
 .is-danger[data-focus-restored]:focus-visible {
-  border-color: #8a3f3a;
+  border-color: var(--color-border-danger);
 }
 .is-ghost[data-focus-restored]:focus-visible {
   border-color: transparent;
 }
 .is-primary {
-  border-color: #ededed;
-  background: #ededed;
-  color: #171717;
+  --pending-shimmer: var(--color-shimmer-dark);
+  border-color: var(--color-bg-accent);
+  background: var(--color-bg-accent);
+  color: var(--color-text-inverse);
 }
 .is-primary:hover:not(:disabled):not([aria-disabled="true"]) {
-  border-color: #fff;
-  background: #fff;
+  border-color: var(--color-bg-accent-hover);
+  background: var(--color-bg-accent-hover);
 }
 .is-danger {
-  border-color: #8a3f3a;
-  background: #7b332f;
-  color: #fff;
+  border-color: var(--color-border-danger);
+  background: var(--color-bg-danger);
+  color: var(--color-text-on-emphasis);
 }
 .is-danger:hover:not(:disabled):not([aria-disabled="true"]) {
-  border-color: #a64a44;
-  background: #913b36;
+  border-color: var(--color-border-danger-hover);
+  background: var(--color-bg-danger-hover);
 }
 .is-ghost {
   border-color: transparent;
   background: transparent;
-  color: var(--muted);
+  color: var(--color-text-secondary);
 }
 .is-ghost:hover:not(:disabled):not([aria-disabled="true"]) {
-  color: var(--text);
-  background: var(--hover);
+  color: var(--color-text-primary);
+  background: var(--color-bg-control-hover);
 }
-.ui-button:disabled,
-.ui-button[aria-disabled="true"] {
+.ui-button:disabled:not(.is-busy),
+.ui-button[aria-disabled="true"]:not(.is-busy) {
   opacity: 0.48;
   cursor: not-allowed;
   transform: none;
 }
-.is-pending {
+.is-busy {
+  opacity: 0.56;
+  cursor: default;
+  transform: none;
+  transition:
+    opacity 140ms ease,
+    background-color 140ms ease,
+    border-color 140ms ease,
+    color 140ms ease;
+}
+.is-busy:hover {
   cursor: wait;
 }
 .is-pending .content {
-  opacity: 0.35;
+  opacity: 0.82;
 }
-.spinner {
+.is-pending::after {
   position: absolute;
-  width: 14px;
-  height: 14px;
-  border: 2px solid currentColor;
-  border-right-color: transparent;
-  border-radius: 50%;
-  animation: spin 0.7s linear infinite;
+  inset: 0;
+  background: linear-gradient(
+    105deg,
+    transparent 16%,
+    var(--pending-shimmer) 50%,
+    transparent 84%
+  );
+  content: "";
+  pointer-events: none;
+  transform: translateX(-100%);
+  animation: button-shimmer 1.25s linear infinite;
+  will-change: transform;
 }
-@keyframes spin {
+@keyframes button-shimmer {
   to {
-    transform: rotate(360deg);
+    transform: translateX(100%);
   }
 }
 @media (prefers-reduced-motion: reduce) {
@@ -187,8 +203,9 @@ function handleClick(event: MouseEvent) {
   .ui-button:hover:not(:disabled) .content :deep(svg) {
     transform: none;
   }
-  .spinner {
-    animation-duration: 1.4s;
+  .is-pending::after {
+    animation: none;
+    transform: none;
   }
 }
 </style>

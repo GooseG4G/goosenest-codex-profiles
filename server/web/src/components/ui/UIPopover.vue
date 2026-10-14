@@ -127,10 +127,10 @@ onBeforeUnmount(() =>
   z-index: 50;
   min-width: 180px;
   padding: 5px;
-  border: 1px solid var(--line-strong);
+  border: 1px solid var(--color-border-strong);
   border-radius: 7px;
-  background: #1a1b1c;
-  box-shadow: 0 12px 30px #0008;
+  background: var(--color-bg-overlay);
+  box-shadow: var(--shadow-overlay);
 }
 .placement-above-start {
   bottom: calc(100% + 7px);

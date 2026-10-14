@@ -25,6 +25,7 @@ export interface Profile {
   auth_status: string;
   usage?: Record<string, unknown> | null;
   usage_updated_at: string | null;
+  subscription_expires_at: string | null;
   usage_resets?: UsageResets;
   last_used_at: string | null;
 }

@@ -4,7 +4,7 @@ import type { Role, User } from "../../api";
 import UISelect from "../ui/UISelect.vue";
 
 export interface UserFormValue {
-  username: string;
+  username?: string;
   nickname: string;
   password?: string;
   role: Role;
@@ -24,7 +24,7 @@ const form = reactive({
 
 function submit() {
   emit("submit", {
-    username: form.username,
+    ...(!props.user ? { username: form.username } : {}),
     nickname: form.nickname,
     role: form.role,
     ...(form.password ? { password: form.password } : {}),
@@ -40,6 +40,7 @@ function submit() {
         type="email"
         autocomplete="off"
         placeholder="name@example.com"
+        :disabled="Boolean(user)"
         required
     /></label>
     <label
@@ -75,10 +76,14 @@ function submit() {
 .user-form label {
   display: grid;
   gap: 7px;
-  color: var(--muted);
+  color: var(--color-text-secondary);
   font-size: 12px;
 }
 .user-form input {
   width: 100%;
+}
+.user-form input:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
 }
 </style>

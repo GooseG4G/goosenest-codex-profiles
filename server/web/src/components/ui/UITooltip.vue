@@ -95,11 +95,11 @@ onUnmounted(() => {
   box-sizing: border-box;
   max-width: min(240px, calc(100vw - 14px));
   padding: 5px 8px;
-  color: var(--text);
-  border: 1px solid var(--line-strong);
+  color: var(--color-text-primary);
+  border: 1px solid var(--color-border-strong);
   border-radius: 4px;
-  background: var(--overlay);
-  box-shadow: 0 5px 18px #0008;
+  background: var(--color-bg-overlay);
+  box-shadow: var(--shadow-overlay);
   font-size: 12px;
   font-weight: 400;
   line-height: 1.3;

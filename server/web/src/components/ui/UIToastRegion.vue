@@ -61,15 +61,15 @@ defineEmits<{ dismiss: [id: number] }>();
   gap: 10px;
   min-height: 48px;
   padding: 8px 8px 8px 12px;
-  border: 1px solid var(--line-strong);
+  border: 1px solid var(--color-border-strong);
   border-radius: 7px;
-  background: var(--overlay);
-  box-shadow: 0 12px 34px #0008;
+  background: var(--color-bg-overlay);
+  box-shadow: var(--shadow-overlay);
   pointer-events: auto;
 }
 .status-icon {
   display: inline-flex;
-  color: #9eb7e9;
+  color: var(--color-text-info);
 }
 .status-icon svg {
   width: 16px;
@@ -81,10 +81,10 @@ defineEmits<{ dismiss: [id: number] }>();
   stroke-linejoin: round;
 }
 .tone-error .status-icon {
-  color: var(--danger-bright);
+  color: var(--color-danger-emphasis);
 }
 .tone-success .status-icon {
-  color: var(--success);
+  color: var(--color-success);
 }
 .message {
   overflow-wrap: anywhere;

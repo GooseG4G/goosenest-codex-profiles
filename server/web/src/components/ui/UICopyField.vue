@@ -86,11 +86,11 @@ onUnmounted(() => {
   width: 100%;
   min-height: 42px;
   padding: 10px 12px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--color-border-default);
   border-radius: 6px;
   outline: none;
-  background: #111212;
-  color: var(--text);
+  background: var(--color-bg-code);
+  color: var(--color-text-primary);
   text-align: left;
   transition:
     border-color 140ms ease,
@@ -100,20 +100,20 @@ onUnmounted(() => {
 }
 .copy-field:hover,
 .copy-field:focus-visible {
-  border-color: #527bbd;
-  background: #162033;
-  color: #b9d2ff;
+  border-color: var(--color-border-accent);
+  background: var(--color-bg-accent-subtle);
+  color: var(--color-text-accent);
 }
 .copy-field:focus-visible {
-  box-shadow: 0 0 0 2px #527bbd33;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-border-accent) 20%, transparent);
 }
 .copy-field:active {
   transform: scale(0.995);
 }
 .copy-field.copied {
-  border-color: #3d8c63;
-  color: #8de1b0;
-  background: #14241b;
+  border-color: var(--color-border-success);
+  color: var(--color-text-success);
+  background: var(--color-bg-success-subtle);
 }
 .copy-field code {
   overflow: hidden;
