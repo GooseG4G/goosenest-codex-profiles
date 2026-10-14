@@ -1,6 +1,6 @@
 from functools import lru_cache
 
-from app.api.v1.providers import get_api_settings
+from settings import get_settings
 
 from .redis import RedisContext
 from .settings import RedisSettings
@@ -8,9 +8,12 @@ from .settings import RedisSettings
 
 @lru_cache(maxsize=1)
 def get_redis_settings() -> RedisSettings:
-    settings = get_api_settings()
+    settings = get_settings()
     return RedisSettings(
-        url=settings.redis_url,
+        host=settings.redis_host,
+        port=settings.redis_port,
+        username=settings.redis_username,
+        password=settings.redis_password,
         broker_database=settings.redis_broker_database,
         backend_database=settings.redis_backend_database,
     )

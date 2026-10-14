@@ -1,34 +1,25 @@
-from typing import Generic, List, Optional, TypeVar
+from typing import Generic, TypeVar
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
-__all__ = [
-    "Meta",
-    "MetaT",
-    "Entity",
-    "EntityT",
-    "Entities",
-]
-
-QueryT = TypeVar("QueryT")
+__all__ = ["Entities", "Entity", "EntityT", "Meta", "MetaT"]
 
 
-class Meta(BaseModel, Generic[QueryT]):
+class Meta(BaseModel):
     type: str
     href: str
-    total: Optional[int] = None
-    query: Optional[QueryT] = None
+    total: int | None = Field(default=None, ge=0)
 
 
 MetaT = TypeVar("MetaT", bound=Meta)
 
 
 class Entity(BaseModel, Generic[MetaT]):
-    meta: Optional[MetaT] = None
+    meta: MetaT
 
 
 EntityT = TypeVar("EntityT", bound=Entity)
 
 
 class Entities(Entity[MetaT], Generic[MetaT, EntityT]):
-    items: Optional[List[EntityT]] = None
+    items: list[EntityT]

@@ -1,6 +1,5 @@
 import pytest
-
-from app.integrations.codex_usage import CodexUsageError, _normalize_result
+from integrations.codex.usage import CodexUsageError, _normalize_result
 
 
 def test_normalizes_codex_rate_limit_windows_and_reset_credits() -> None:

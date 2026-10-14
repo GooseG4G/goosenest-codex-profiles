@@ -1,18 +1,30 @@
 import { readonly, shallowRef } from "vue";
-import { api, type Device, type DeviceIssued } from "../api";
+import {
+  api,
+  type Device,
+  type DeviceEntities,
+  type DeviceIssued,
+} from "../api";
 
-export function useDevices() {
+export function useDevices(userId: () => string | undefined) {
   const devices = shallowRef<Device[]>([]);
   const issued = shallowRef<DeviceIssued>();
   const busy = shallowRef(false);
 
+  function path(suffix = "") {
+    const currentUserId = userId();
+    if (!currentUserId) throw new Error("Current user is unavailable");
+    return `/users/${currentUserId}/devices${suffix}`;
+  }
+
   async function load() {
-    devices.value = await api<Device[]>("/me/devices");
+    const response = await api<DeviceEntities>(path());
+    devices.value = response.items;
   }
   async function issue(name: string) {
     busy.value = true;
     try {
-      issued.value = await api<DeviceIssued>("/me/devices", {
+      issued.value = await api<DeviceIssued>(path(), {
         method: "POST",
         body: JSON.stringify({ name }),
       });
@@ -24,7 +36,7 @@ export function useDevices() {
   async function remove(deviceId: string) {
     busy.value = true;
     try {
-      await api<void>(`/me/devices/${deviceId}`, { method: "DELETE" });
+      await api<void>(path(`/${deviceId}`), { method: "DELETE" });
       devices.value = devices.value.filter(
         (device) => device.device_id !== deviceId,
       );

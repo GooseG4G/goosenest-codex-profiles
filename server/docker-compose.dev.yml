@@ -1,0 +1,51 @@
+services:
+  nginx:
+    profiles:
+      - production
+
+  web:
+    build:
+      target: build
+
+    restart: always
+    command: ["npm", "run", "dev"]
+
+    environment:
+      VITE_API_PROXY_TARGET: http://api:8000
+
+    ports:
+      - "${WEB_DEV_PORT:-8080}:8080"
+
+    volumes:
+      - ./web:/app
+      - web-node-modules:/app/node_modules
+
+    mem_limit: 192m
+
+  api:
+    command: [
+      "uvicorn", "main:app",
+      "--host", "0.0.0.0",
+      "--port", "8000",
+      "--reload",
+    ]
+
+    ports:
+      - "${API_DEV_PORT:-8000}:8000"
+
+    volumes:
+      - ./api/app:/app
+      - api-data:/data
+
+  worker:
+    volumes:
+      - ./api/app:/app
+      - api-data:/data
+
+  beat:
+    volumes:
+      - ./api/app:/app
+      - api-data:/data
+
+volumes:
+  web-node-modules:

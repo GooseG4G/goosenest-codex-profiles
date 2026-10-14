@@ -1,7 +1,6 @@
+from integrations.redis import RedisContext
+from integrations.redis.providers import get_redis_settings
 from pydantic import BaseModel
-
-from app.integrations.redis import RedisContext
-from app.integrations.redis.providers import get_redis_settings
 
 EVENT_STREAM = "goosenest:events"
 EVENT_STREAM_MAX_LENGTH = 10_000

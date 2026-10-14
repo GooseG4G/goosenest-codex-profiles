@@ -3,6 +3,7 @@ import {
   api,
   type DeviceFlow,
   type Profile,
+  type ProfileEntities,
   type StreamEvent,
   type UsageLimits,
   type UsageResets,
@@ -24,14 +25,14 @@ export function useProfiles() {
     usageRequest: Promise<void> | undefined,
     usageAbort: AbortController | undefined;
   async function load() {
-    profiles.value = await api<Profile[]>("/profiles");
+    profiles.value = (await api<ProfileEntities>("/profiles")).items;
   }
   async function startAuth() {
     busy.value = true;
     pollError.value = undefined;
     stop();
     try {
-      flow.value = await api<DeviceFlow>("/device/auth/", { method: "POST" });
+      flow.value = await api<DeviceFlow>("/device/auth", { method: "POST" });
       authTimer = window.setInterval(poll, 1500);
     } finally {
       busy.value = false;

@@ -7,6 +7,12 @@ server/web/dist/
 # Local browser test artifacts
 .playwright-cli/
 output/
+deploy/certificates/
+server/certbot/
+server/letsencrypt/etc/*
+!server/letsencrypt/etc/.gitkeep
+server/letsencrypt/www/*
+!server/letsencrypt/www/.gitkeep
 
 # Environment
 .env
