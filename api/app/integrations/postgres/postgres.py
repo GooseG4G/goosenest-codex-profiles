@@ -1,11 +1,16 @@
-import asyncpg
+import json
 from contextlib import asynccontextmanager
-
 from typing import (
-    Any, Type, Optional,
-    Iterable, AsyncGenerator,
-    List, Sequence,
+    Any,
+    AsyncGenerator,
+    Iterable,
+    List,
+    Optional,
+    Sequence,
+    Type,
 )
+
+import asyncpg
 
 from .settings import PostgresSettings
 from .types import PostgresResultT
@@ -13,9 +18,7 @@ from .types import PostgresResultT
 
 class PostgresSession:
     def __init__(
-        self,
-        context: 'PostgresContext',
-        connection: asyncpg.Connection
+        self, context: "PostgresContext", connection: asyncpg.Connection
     ) -> None:
         self._context = context
         self._connection = connection
@@ -67,10 +70,7 @@ class PostgresSession:
             timeout=timeout,
         )
 
-        result = [
-            model.model_validate({**result})
-            for result in results
-        ]
+        result = [model.model_validate({**result}) for result in results]
 
         return result
 
@@ -88,10 +88,7 @@ class PostgresSession:
             timeout=timeout,
         )
 
-        result = [
-            model.model_validate({**result})
-            for result in results
-        ]
+        result = [model.model_validate({**result}) for result in results]
 
         return result
 
@@ -117,10 +114,7 @@ class PostgresSession:
 
 class PostgresContext:
     def __init__(self, settings: PostgresSettings, **kwargs: Any) -> None:
-        self._settings = (
-            PostgresSettings.model_validate
-            (settings.model_dump() | kwargs)
-        )
+        self._settings = PostgresSettings.model_validate(settings.model_dump() | kwargs)
 
         self._pool: Optional[asyncpg.Pool] = None
 
@@ -132,18 +126,25 @@ class PostgresContext:
         if self._pool is not None:
             return None
 
-        self._pool = await (
-            asyncpg.create_pool
-            (dsn=self._settings.dsn)
+        async def configure(connection: asyncpg.Connection) -> None:
+            for type_name in ("json", "jsonb"):
+                await connection.set_type_codec(
+                    type_name,
+                    schema="pg_catalog",
+                    encoder=json.dumps,
+                    decoder=json.loads,
+                    format="text",
+                )
+
+        self._pool = await asyncpg.create_pool(
+            dsn=self._settings.dsn,
+            init=configure,
         )
 
     @asynccontextmanager
     async def acquire(self) -> AsyncGenerator[PostgresSession, None]:
         if self._pool is None:
-            message = (
-                "PostgresContext is not open. "
-                "Call 'await open()' first."
-            )
+            message = "PostgresContext is not open. Call 'await open()' first."
 
             raise RuntimeError(message)
 
@@ -155,3 +156,7 @@ class PostgresContext:
             await self._pool.close()
 
         self._pool = None
+
+    @property
+    def is_open(self) -> bool:
+        return self._pool is not None
