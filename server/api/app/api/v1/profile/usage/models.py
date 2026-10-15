@@ -30,6 +30,10 @@ class UsageWindow(BaseModel):
 
 
 class UsageLimitsEntity(Entity[UsageMeta]):
+    plan_type: Optional[str] = Field(
+        default=None,
+    )
+
     primary: Optional[UsageWindow] = Field(
         default=None,
     )

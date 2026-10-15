@@ -39,6 +39,7 @@ export interface UsageWindow {
   resets_at: number | null;
 }
 export interface UsageLimits {
+  plan_type: string | null;
   primary: UsageWindow | null;
   secondary: UsageWindow | null;
   updated_at: string | null;

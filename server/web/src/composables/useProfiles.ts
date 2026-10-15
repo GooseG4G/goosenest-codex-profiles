@@ -163,6 +163,7 @@ export function useProfiles() {
       ...profile,
       usage: {
         ...profile.usage,
+        ...(limits.plan_type ? { planType: limits.plan_type } : {}),
         primary: windowValue(limits.primary),
         secondary: windowValue(limits.secondary),
       },
