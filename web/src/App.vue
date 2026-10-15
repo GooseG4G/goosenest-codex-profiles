@@ -281,6 +281,7 @@ watch(
         <ProfilesPanel
           v-if="activeView === 'profiles'"
           :items="profiles.profiles.value"
+          :plan-pending-profile-ids="profiles.planPendingProfileIds.value"
           :resets-by-profile-id="profiles.resetsByProfileId.value"
           :busy="profiles.busy.value"
           :reset-pending="profiles.resetPending.value"

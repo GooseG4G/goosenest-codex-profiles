@@ -13,6 +13,7 @@ import {
 
 export function useProfiles() {
   const profiles = shallowRef<Profile[]>([]),
+    planPendingProfileIds = shallowRef<ReadonlySet<string>>(new Set()),
     resetsByProfileId = shallowRef<
       Readonly<Record<string, UsageResets | undefined>>
     >({}),
@@ -37,6 +38,7 @@ export function useProfiles() {
     socket: WebSocket | undefined,
     usageRequest: Promise<void> | undefined,
     usageAbort: AbortController | undefined,
+    planRequests = new Map<string, Promise<void>>(),
     resetSequence = 0;
   async function load() {
     profiles.value = (await api<ProfileEntities>("/profiles")).items;
@@ -47,6 +49,15 @@ export function useProfiles() {
       ),
     );
     connectEvents();
+    for (const profile of profiles.value) {
+      const plan = profile.usage?.planType ?? profile.usage?.plan_type;
+      if (
+        profile.enabled &&
+        profile.auth_status === "authorized" &&
+        (typeof plan !== "string" || !plan.trim())
+      )
+        void refreshPlan(profile.profile_id);
+    }
   }
   async function startAuth(profileId?: string) {
     busy.value = true;
@@ -183,6 +194,41 @@ export function useProfiles() {
       [profileId]: resets,
     };
   }
+  function setPlanPending(profileId: string, pending: boolean) {
+    const next = new Set(planPendingProfileIds.value);
+    if (pending) next.add(profileId);
+    else next.delete(profileId);
+    planPendingProfileIds.value = next;
+  }
+  function refreshPlan(profileId: string) {
+    const active = planRequests.get(profileId);
+    if (active) return active;
+    setPlanPending(profileId, true);
+    const request = api<UsageLimits>(`/profiles/${profileId}/usage/limits`)
+      .then((limits) => {
+        const profile = profiles.value.find(
+          (item) => item.profile_id === profileId,
+        );
+        if (!profile) return;
+        replaceProfile({
+          ...profile,
+          usage: {
+            ...profile.usage,
+            ...(limits.plan_type ? { planType: limits.plan_type } : {}),
+          },
+          usage_updated_at: limits.updated_at,
+        });
+      })
+      .catch(() => {
+        // A missing plan is a stable unavailable state, not endless loading.
+      })
+      .finally(() => {
+        planRequests.delete(profileId);
+        setPlanPending(profileId, false);
+      });
+    planRequests.set(profileId, request);
+    return request;
+  }
   function refreshHotProfile(profileId: string, generation: number) {
     if (
       document.hidden ||
@@ -261,6 +307,10 @@ export function useProfiles() {
           if (payload.event.profile_id === hotProfileId)
             setHotProfile(undefined);
           void load();
+        } else if (payload.event.type === "profile.usage.updated") {
+          void refreshPlan(payload.event.profile_id);
+          if (payload.event.profile_id === hotProfileId)
+            void refreshHotProfile(hotProfileId, usageGeneration);
         } else if (payload.event.type === "profile.usage.reset.completed") {
           if (resetPending.value?.startsWith(`${payload.event.profile_id}:`))
             resetPending.value = undefined;
@@ -274,8 +324,6 @@ export function useProfiles() {
           };
           if (payload.event.profile_id === hotProfileId)
             void refreshHotProfile(hotProfileId, usageGeneration);
-        } else if (payload.event.profile_id === hotProfileId) {
-          void refreshHotProfile(hotProfileId, usageGeneration);
         }
       } catch {
         // Ignore malformed events; the REST heartbeat remains authoritative.
@@ -326,6 +374,7 @@ export function useProfiles() {
   });
   return {
     profiles: readonly(profiles),
+    planPendingProfileIds: readonly(planPendingProfileIds),
     resetsByProfileId: readonly(resetsByProfileId),
     flow: readonly(flow),
     authOpened: readonly(authOpened),
