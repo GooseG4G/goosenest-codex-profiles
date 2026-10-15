@@ -281,6 +281,7 @@ watch(
         <ProfilesPanel
           v-if="activeView === 'profiles'"
           :items="profiles.profiles.value"
+          :resets-by-profile-id="profiles.resetsByProfileId.value"
           :busy="profiles.busy.value"
           :reset-pending="profiles.resetPending.value"
           @start-auth="profileDialogOpen = true"

@@ -10,10 +10,12 @@ from integrations.postgres.providers import get_postgres_session
 
 from .models import (
     UsageLimitsEntity,
-    UsageMeta,
+    UsageLimitsMeta,
     UsageResetCredit,
     UsageResetEntity,
+    UsageResetMeta,
     UsageResetsEntity,
+    UsageResetsMeta,
     UsageWindow,
 )
 from .tasks import (
@@ -85,7 +87,7 @@ async def read_limits(
     refreshing = await _revalidate_if_due(profile)
     usage = profile.usage or {}
     return UsageLimitsEntity(
-        meta=UsageMeta(href=f"/api/v1/profiles/{profile_id}/usage/limits"),
+        meta=UsageLimitsMeta(href=f"/api/v1/profiles/{profile_id}/usage/limits"),
         plan_type=(
             usage["planType"]
             if isinstance(usage.get("planType"), str)
@@ -133,7 +135,7 @@ async def read_resets(
             and isinstance(item.get("grantedAt"), (int, float))
         ]
     return UsageResetsEntity(
-        meta=UsageMeta(href=f"/api/v1/profiles/{profile_id}/usage/resets"),
+        meta=UsageResetsMeta(href=f"/api/v1/profiles/{profile_id}/usage/resets"),
         available_count=int(summary.get("availableCount", 0)),
         credits=credits,
         updated_at=profile.usage_updated_at,
@@ -157,7 +159,9 @@ async def consume_reset(
     key = idempotency_key or str(uuid4())
     task_id = await enqueue_profile_usage_reset(profile_id, reset_id, key)
     return UsageResetEntity(
-        meta=UsageMeta(href=f"/api/v1/profiles/{profile_id}/usage/resets/{reset_id}"),
+        meta=UsageResetMeta(
+            href=f"/api/v1/profiles/{profile_id}/usage/resets/{reset_id}"
+        ),
         task_id=task_id,
         idempotency_key=key,
     )

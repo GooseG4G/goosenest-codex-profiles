@@ -5,9 +5,21 @@ from api.v1.models import Entity, Meta
 from pydantic import BaseModel, Field
 
 
-class UsageMeta(Meta):
-    type: Literal["profile-usage"] = Field(
-        default="profile-usage",
+class UsageLimitsMeta(Meta):
+    type: Literal["profile-usage-limits"] = Field(
+        default="profile-usage-limits",
+    )
+
+
+class UsageResetsMeta(Meta):
+    type: Literal["profile-usage-resets"] = Field(
+        default="profile-usage-resets",
+    )
+
+
+class UsageResetMeta(Meta):
+    type: Literal["profile-usage-reset"] = Field(
+        default="profile-usage-reset",
     )
 
 
@@ -29,7 +41,7 @@ class UsageWindow(BaseModel):
     )
 
 
-class UsageLimitsEntity(Entity[UsageMeta]):
+class UsageLimitsEntity(Entity[UsageLimitsMeta]):
     plan_type: Optional[str] = Field(
         default=None,
     )
@@ -88,7 +100,7 @@ class UsageResetCredit(BaseModel):
     )
 
 
-class UsageResetsEntity(Entity[UsageMeta]):
+class UsageResetsEntity(Entity[UsageResetsMeta]):
     available_count: int = Field(
         default=0,
         ge=0,
@@ -111,7 +123,7 @@ class UsageResetsEntity(Entity[UsageMeta]):
     )
 
 
-class UsageResetEntity(Entity[UsageMeta]):
+class UsageResetEntity(Entity[UsageResetMeta]):
     task_id: str = Field(
         ...,
         min_length=1,
