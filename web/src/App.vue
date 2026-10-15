@@ -161,6 +161,17 @@ async function useUsageReset(profileId: string, resetId: string) {
     notifications.error(reason, "Could not use reset");
   }
 }
+async function setProfileEnabled(profileId: string, enabled: boolean) {
+  try {
+    await profiles.setEnabled(profileId, enabled);
+    notifications.push(`Profile ${enabled ? "enabled" : "disabled"}`, "success");
+  } catch (reason) {
+    notifications.error(
+      reason,
+      `Could not ${enabled ? "enable" : "disable"} profile`,
+    );
+  }
+}
 async function issueDevice(name: string) {
   try {
     await devices.issue(name);
@@ -282,6 +293,9 @@ watch(
           v-if="activeView === 'profiles'"
           :items="profiles.profiles.value"
           :plan-pending-profile-ids="profiles.planPendingProfileIds.value"
+          :enabled-pending-profile-ids="
+            profiles.enabledPendingProfileIds.value
+          "
           :resets-by-profile-id="profiles.resetsByProfileId.value"
           :busy="profiles.busy.value"
           :reset-pending="profiles.resetPending.value"
@@ -290,6 +304,7 @@ watch(
           @delete="requestDeleteProfile"
           @hot-profile-change="profiles.setHotProfile"
           @use-reset="useUsageReset"
+          @enabled-change="setProfileEnabled"
         />
         <UsersPanel
           v-else-if="activeView === 'users'"

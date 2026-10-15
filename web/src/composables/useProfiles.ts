@@ -15,6 +15,7 @@ import {
 export function useProfiles() {
   const profiles = shallowRef<Profile[]>([]),
     planPendingProfileIds = shallowRef<ReadonlySet<string>>(new Set()),
+    enabledPendingProfileIds = shallowRef<ReadonlySet<string>>(new Set()),
     resetsByProfileId = shallowRef<
       Readonly<Record<string, UsageResets | undefined>>
     >({}),
@@ -141,6 +142,24 @@ export function useProfiles() {
     profiles.value = profiles.value.map((item) =>
       item.profile_id === profile.profile_id ? profile : item,
     );
+  }
+  async function setEnabled(profileId: string, enabled: boolean) {
+    if (enabledPendingProfileIds.value.has(profileId)) return;
+    enabledPendingProfileIds.value = new Set(enabledPendingProfileIds.value).add(
+      profileId,
+    );
+    try {
+      const profile = await api<Profile>(`/profiles/${profileId}`, {
+        method: "PATCH",
+        body: JSON.stringify({ enabled }),
+      });
+      replaceProfile(profile);
+      if (!enabled && hotProfileId === profileId) setHotProfile(undefined);
+    } finally {
+      const next = new Set(enabledPendingProfileIds.value);
+      next.delete(profileId);
+      enabledPendingProfileIds.value = next;
+    }
   }
   function clearUsageTimer() {
     if (usageTimer) window.clearTimeout(usageTimer);
@@ -375,6 +394,7 @@ export function useProfiles() {
   return {
     profiles: readonly(profiles),
     planPendingProfileIds: readonly(planPendingProfileIds),
+    enabledPendingProfileIds: readonly(enabledPendingProfileIds),
     resetsByProfileId: readonly(resetsByProfileId),
     flow: readonly(flow),
     authOpened: readonly(authOpened),
@@ -383,6 +403,7 @@ export function useProfiles() {
     resetPending: readonly(resetPending),
     resetCompleted: readonly(resetCompleted),
     load,
+    setEnabled,
     setHotProfile,
     startAuth,
     closeFlow,
