@@ -64,7 +64,8 @@ async def _finalize(flow: DeviceFlow, session: PostgresSession) -> None:
                        'href', '/api/v1/profiles/' || profile_id
                    ) AS meta,
                    profile_id, name, enabled, auth_status, usage,
-                   usage_updated_at, subscription_expires_at,
+                   usage_updated_at, plan_type, plan_updated_at,
+                   subscription_expires_at,
                    created_at, updated_at, last_used_at, codex_home
             FROM profiles
             WHERE ($1::uuid IS NOT NULL AND profile_id=$1)
@@ -98,7 +99,8 @@ async def _finalize(flow: DeviceFlow, session: PostgresSession) -> None:
                               'href', '/api/v1/profiles/' || profile_id
                           ) AS meta,
                           profile_id, name, enabled, auth_status, usage,
-                          usage_updated_at, subscription_expires_at,
+                          usage_updated_at, plan_type, plan_updated_at,
+                          subscription_expires_at,
                           created_at, updated_at, last_used_at
                 """,
                 flow.profile_id,
@@ -123,7 +125,8 @@ async def _finalize(flow: DeviceFlow, session: PostgresSession) -> None:
                               'href', '/api/v1/profiles/' || profile_id
                           ) AS meta,
                           profile_id, name, enabled, auth_status, usage,
-                          usage_updated_at, subscription_expires_at,
+                          usage_updated_at, plan_type, plan_updated_at,
+                          subscription_expires_at,
                           created_at, updated_at, last_used_at
                 """,
                 existing.profile_id,
@@ -140,9 +143,13 @@ async def _finalize(flow: DeviceFlow, session: PostgresSession) -> None:
                 flow_id=flow.uid,
             )
         )
-        from api.v1.profile.usage.tasks import enqueue_profile_usage_refresh
+        from api.v1.profile.usage.tasks import (
+            enqueue_profile_plan_refresh,
+            enqueue_profile_usage_refresh,
+        )
 
         await enqueue_profile_usage_refresh(profile.profile_id)
+        await enqueue_profile_plan_refresh(profile.profile_id)
 
 
 async def _complete(flow: DeviceFlow) -> None:

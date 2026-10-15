@@ -3,6 +3,7 @@ import {
   api,
   type DeviceFlow,
   type Profile,
+  type ProfilePlan,
   type ProfileEntities,
   type StreamEvent,
   type UsageLimits,
@@ -50,11 +51,13 @@ export function useProfiles() {
     );
     connectEvents();
     for (const profile of profiles.value) {
-      const plan = profile.usage?.planType ?? profile.usage?.plan_type;
+      const planUpdatedAt = Date.parse(profile.plan_updated_at ?? "");
+      const planIsStale =
+        !Number.isFinite(planUpdatedAt) || Date.now() - planUpdatedAt >= 60_000;
       if (
         profile.enabled &&
         profile.auth_status === "authorized" &&
-        (typeof plan !== "string" || !plan.trim())
+        planIsStale
       )
         void refreshPlan(profile.profile_id);
     }
@@ -183,7 +186,6 @@ export function useProfiles() {
       ...profile,
       usage: {
         ...profile.usage,
-        ...(limits.plan_type ? { planType: limits.plan_type } : {}),
         primary: windowValue(limits.primary),
         secondary: windowValue(limits.secondary),
       },
@@ -204,19 +206,16 @@ export function useProfiles() {
     const active = planRequests.get(profileId);
     if (active) return active;
     setPlanPending(profileId, true);
-    const request = api<UsageLimits>(`/profiles/${profileId}/usage/limits`)
-      .then((limits) => {
+    const request = api<ProfilePlan>(`/profiles/${profileId}/plan`)
+      .then((plan) => {
         const profile = profiles.value.find(
           (item) => item.profile_id === profileId,
         );
         if (!profile) return;
         replaceProfile({
           ...profile,
-          usage: {
-            ...profile.usage,
-            ...(limits.plan_type ? { planType: limits.plan_type } : {}),
-          },
-          usage_updated_at: limits.updated_at,
+          plan_type: plan.plan_type,
+          plan_updated_at: plan.updated_at,
         });
       })
       .catch(() => {
@@ -308,9 +307,10 @@ export function useProfiles() {
             setHotProfile(undefined);
           void load();
         } else if (payload.event.type === "profile.usage.updated") {
-          void refreshPlan(payload.event.profile_id);
           if (payload.event.profile_id === hotProfileId)
             void refreshHotProfile(hotProfileId, usageGeneration);
+        } else if (payload.event.type === "profile.plan.updated") {
+          void refreshPlan(payload.event.profile_id);
         } else if (payload.event.type === "profile.usage.reset.completed") {
           if (resetPending.value?.startsWith(`${payload.event.profile_id}:`))
             resetPending.value = undefined;

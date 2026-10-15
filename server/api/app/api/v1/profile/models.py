@@ -55,6 +55,10 @@ class ProfileEntity(Entity[ProfileMeta]):
         default=None,
     )
 
+    plan_type: Optional[str] = Field(default=None)
+
+    plan_updated_at: Optional[datetime] = Field(default=None)
+
     subscription_expires_at: Optional[datetime] = Field(
         default=None,
     )

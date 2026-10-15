@@ -44,7 +44,7 @@ useEscapeLayer(
 );
 
 function planLabel(profile: Profile): string {
-  const value = profile.usage?.planType ?? profile.usage?.plan_type;
+  const value = profile.plan_type;
   if (typeof value !== "string" || !value.trim()) return "Plan unavailable";
   return value
     .trim()

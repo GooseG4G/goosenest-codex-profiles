@@ -25,6 +25,8 @@ export interface Profile {
   auth_status: string;
   usage?: Record<string, unknown> | null;
   usage_updated_at: string | null;
+  plan_type: string | null;
+  plan_updated_at: string | null;
   subscription_expires_at: string | null;
   last_used_at: string | null;
 }
@@ -41,6 +43,12 @@ export interface UsageLimits {
   plan_type: string | null;
   primary: UsageWindow | null;
   secondary: UsageWindow | null;
+  updated_at: string | null;
+  stale: boolean;
+  refreshing: boolean;
+}
+export interface ProfilePlan {
+  plan_type: string | null;
   updated_at: string | null;
   stale: boolean;
   refreshing: boolean;
@@ -75,6 +83,12 @@ export type ServerEvent =
   | {
       version: 1;
       type: "profile.usage.updated";
+      profile_id: string;
+      occurred_at: string;
+    }
+  | {
+      version: 1;
+      type: "profile.plan.updated";
       profile_id: string;
       occurred_at: string;
     }

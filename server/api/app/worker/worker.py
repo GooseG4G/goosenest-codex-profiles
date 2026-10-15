@@ -21,6 +21,7 @@ app.conf.update(
     task_queues=(Queue("default"), Queue("codex")),
     task_routes={
         "profiles.usage.refresh": {"queue": "codex"},
+        "profiles.plan.refresh": {"queue": "codex"},
         "profiles.usage.reset.consume": {"queue": "codex"},
     },
 )

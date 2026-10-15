@@ -75,6 +75,19 @@ def _normalize_result(result: object) -> dict[str, Any]:
     return usage
 
 
+def _normalize_plan(result: object) -> str | None:
+    if not isinstance(result, dict):
+        raise CodexUsageError("Codex returned an invalid usage response")
+    limits_by_id = result.get("rateLimitsByLimitId")
+    snapshot = limits_by_id.get("codex") if isinstance(limits_by_id, dict) else None
+    if not isinstance(snapshot, dict):
+        snapshot = result.get("rateLimits")
+    if not isinstance(snapshot, dict):
+        raise CodexUsageError("Codex did not return account limits")
+    value = snapshot.get("planType")
+    return value.strip() if isinstance(value, str) and value.strip() else None
+
+
 async def _call_codex(
     codex_home: str,
     method: str,
@@ -177,6 +190,15 @@ async def read_codex_usage(codex_home: str) -> dict[str, Any]:
         {"excludeResetCreditDetails": False},
     )
     return _normalize_result(result)
+
+
+async def read_codex_plan(codex_home: str) -> str | None:
+    result = await _call_codex(
+        codex_home,
+        "account/rateLimits/read",
+        {"excludeResetCreditDetails": True},
+    )
+    return _normalize_plan(result)
 
 
 async def consume_codex_usage_reset(

@@ -3,6 +3,7 @@ from integrations.codex.usage import (
     CodexAuthenticationError,
     CodexUsageError,
     _normalize_result,
+    _normalize_plan,
     codex_error,
 )
 
@@ -43,6 +44,11 @@ def test_normalizes_codex_rate_limit_windows_and_reset_credits() -> None:
 def test_rejects_response_without_usage_windows() -> None:
     with pytest.raises(CodexUsageError, match="no usage windows"):
         _normalize_result({"rateLimits": {}})
+
+
+def test_normalizes_plan_without_usage_windows() -> None:
+    assert _normalize_plan({"rateLimits": {"planType": "plus"}}) == "plus"
+    assert _normalize_plan({"rateLimits": {}}) is None
 
 
 @pytest.mark.parametrize(
