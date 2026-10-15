@@ -9,12 +9,14 @@ import UsageDisplay from "./profiles/UsageDisplay.vue";
 import UsageResetWidget from "./profiles/UsageResetWidget.vue";
 import UIIconButton from "./ui/UIIconButton.vue";
 import UISearchField from "./ui/UISearchField.vue";
+import UISwitch from "./ui/UISwitch.vue";
 const props = defineProps<{
   items: readonly Profile[];
   planPendingProfileIds: ReadonlySet<string>;
   resetsByProfileId: Readonly<Record<string, UsageResets | undefined>>;
   busy: boolean;
   resetPending?: string;
+  enabledPendingProfileIds: ReadonlySet<string>;
 }>();
 const query = useRouteQuery();
 const visible = computed(() => {
@@ -31,6 +33,7 @@ const emit = defineEmits<{
   delete: [profileId: string];
   hotProfileChange: [profileId?: string];
   useReset: [profileId: string, resetId: string];
+  enabledChange: [profileId: string, enabled: boolean];
 }>();
 const expanded = shallowRef<string>();
 const now = shallowRef(Date.now());
@@ -166,6 +169,13 @@ onBeforeUnmount(() => {
             /><small v-else>{{ expiryLabel(profile) }}</small></span
           >
           <div class="actions">
+            <UISwitch
+              :model-value="profile.enabled"
+              :accessible-label="`${profile.enabled ? 'Disable' : 'Enable'} ${profile.name}`"
+              :pending="enabledPendingProfileIds.has(profile.profile_id)"
+              @change="emit('enabledChange', profile.profile_id, $event)"
+            />
+            <i />
             <UIIconButton
               :accessible-label="
                 needsAuthentication(profile)
