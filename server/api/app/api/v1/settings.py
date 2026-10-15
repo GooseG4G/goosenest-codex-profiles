@@ -48,6 +48,18 @@ class ApiSettings(BaseSettings):
         ge=0,
         le=1,
     )
+    profile_affinity_minutes: int = Field(
+        20,
+        alias="PROFILE_AFFINITY_MINUTES",
+        ge=1,
+        le=1440,
+    )
+    profile_max_attempts: int = Field(
+        3,
+        alias="PROFILE_MAX_ATTEMPTS",
+        ge=1,
+        le=10,
+    )
 
     session_ttl_days: int = Field(30, alias="SESSION_TTL_DAYS", ge=1)
     session_cookie_secure: bool = Field(False, alias="SESSION_COOKIE_SECURE")

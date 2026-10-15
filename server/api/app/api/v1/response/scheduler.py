@@ -7,6 +7,7 @@ from uuid import UUID, uuid4
 
 from api.v1.profile.models import ProfileRuntime
 from integrations.postgres import PostgresSession
+from pydantic import BaseModel
 
 DEFAULT_WINDOW_SECONDS = {
     "primary": 5 * 60 * 60,
@@ -142,6 +143,7 @@ def order_profiles(
     *,
     weekly_reserve_percent: float,
     score_tolerance: float,
+    preferred_profile_id: UUID | None = None,
 ) -> List[ProfileRuntime]:
     profiles = list(profiles)
     tiers = [
@@ -173,6 +175,7 @@ def order_profiles(
             now,
             weekly_reserve_percent=0,
             score_tolerance=score_tolerance,
+            preferred_profile_id=preferred_profile_id,
         )
     if not scored:
         return []
@@ -195,7 +198,14 @@ def order_profiles(
             item[1].profile_id,
         )
     )
-    return [profile for _, profile in close + rest]
+    ordered = [profile for _, profile in close + rest]
+    if preferred_profile_id is not None:
+        ordered.sort(key=lambda profile: profile.profile_id != preferred_profile_id)
+    return ordered
+
+
+class AffinityRow(BaseModel):
+    profile_id: UUID
 
 
 async def reserve_profile(
@@ -204,7 +214,15 @@ async def reserve_profile(
     excluded: Set[UUID],
     weekly_reserve_percent: float,
     score_tolerance: float,
+    session_key: str,
+    model: str,
 ) -> Optional[ProfileReservation]:
+    affinity = await session.fetchrow(
+        AffinityRow,
+        """SELECT profile_id FROM chat_profile_affinity
+        WHERE session_key=$1 AND expires_at > now()""",
+        session_key,
+    )
     for _ in range(8):
         profiles = await session.fetch(
             ProfileRuntime,
@@ -222,15 +240,23 @@ async def reserve_profile(
             FROM profiles
             WHERE enabled=true AND auth_status='authorized'
               AND (cooldown_until IS NULL OR cooldown_until <= now())
+              AND NOT EXISTS (
+                  SELECT 1 FROM profile_model_health model_health
+                  WHERE model_health.profile_id=profiles.profile_id
+                    AND model_health.model=$2
+                    AND model_health.cooldown_until > now()
+              )
               AND NOT (profile_id = ANY($1::uuid[]))
             """,
             list(excluded),
+            model,
         )
         ordered = order_profiles(
             profiles,
             datetime.now(timezone.utc),
             weekly_reserve_percent=weekly_reserve_percent,
             score_tolerance=score_tolerance,
+            preferred_profile_id=affinity.profile_id if affinity else None,
         )
         if not ordered:
             return None
@@ -271,3 +297,32 @@ async def reserve_profile(
 
 async def release_profile(session: PostgresSession, lease_id: UUID) -> None:
     await session.execute("DELETE FROM profile_leases WHERE lease_id=$1", lease_id)
+
+
+async def clear_affinity(session: PostgresSession, session_key: str) -> None:
+    await session.execute(
+        "DELETE FROM chat_profile_affinity WHERE session_key=$1", session_key
+    )
+
+
+async def bind_affinity(
+    session: PostgresSession,
+    session_key: str,
+    profile_id: UUID,
+    affinity_minutes: int,
+) -> None:
+    await session.execute(
+        """INSERT INTO chat_profile_affinity
+            (session_key, profile_id, assigned_at, expires_at)
+        VALUES ($1, $2, now(), now() + make_interval(mins => $3))
+        ON CONFLICT (session_key) DO UPDATE SET
+            profile_id=EXCLUDED.profile_id,
+            assigned_at=CASE
+                WHEN chat_profile_affinity.profile_id=EXCLUDED.profile_id
+                THEN chat_profile_affinity.assigned_at ELSE now() END,
+            expires_at=EXCLUDED.expires_at,
+            last_failure_at=NULL""",
+        session_key,
+        profile_id,
+        affinity_minutes,
+    )

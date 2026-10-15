@@ -49,6 +49,8 @@ CREATE TABLE profiles (
     usage_updated_at timestamptz,
     subscription_expires_at timestamptz,
     cooldown_until timestamptz,
+    consecutive_failures integer NOT NULL DEFAULT 0,
+    last_failure_at timestamptz,
     created_at timestamptz NOT NULL DEFAULT now(),
     updated_at timestamptz NOT NULL DEFAULT now(),
     last_used_at timestamptz
@@ -61,6 +63,24 @@ CREATE TABLE profile_leases (
     created_at timestamptz NOT NULL DEFAULT now()
 );
 
+CREATE TABLE chat_profile_affinity (
+    session_key text PRIMARY KEY,
+    profile_id uuid NOT NULL REFERENCES profiles(profile_id) ON DELETE CASCADE,
+    assigned_at timestamptz NOT NULL DEFAULT now(),
+    expires_at timestamptz NOT NULL,
+    last_failure_at timestamptz
+);
+
+CREATE TABLE profile_model_health (
+    profile_id uuid NOT NULL REFERENCES profiles(profile_id) ON DELETE CASCADE,
+    model text NOT NULL,
+    consecutive_failures integer NOT NULL DEFAULT 0,
+    cooldown_until timestamptz,
+    last_failure_at timestamptz,
+    last_success_at timestamptz,
+    PRIMARY KEY (profile_id, model)
+);
+
 CREATE INDEX devices_user_id_idx ON devices(user_id);
 CREATE INDEX sessions_user_id_idx ON sessions(user_id);
 CREATE INDEX sessions_expires_at_idx ON sessions(expires_at);
@@ -70,3 +90,5 @@ CREATE INDEX profiles_scheduler_idx
     ON profiles(enabled, auth_status, cooldown_until, last_used_at);
 CREATE INDEX profile_leases_active_idx
     ON profile_leases(profile_id, expires_at);
+CREATE INDEX chat_profile_affinity_profile_idx ON chat_profile_affinity(profile_id, expires_at);
+CREATE INDEX profile_model_health_cooldown_idx ON profile_model_health(model, cooldown_until);

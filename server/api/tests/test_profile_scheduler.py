@@ -193,3 +193,18 @@ def test_profile_id_stabilizes_exact_tie() -> None:
     )
 
     assert [item.name for item in ordered] == ["low", "high"]
+
+
+def test_chat_affinity_keeps_an_eligible_profile_selected() -> None:
+    preferred = profile("preferred", usage(22, 22), NOW)
+    other = profile("other", usage(20, 20), NOW - timedelta(hours=1))
+
+    ordered = order_profiles(
+        [other, preferred],
+        NOW,
+        weekly_reserve_percent=25,
+        score_tolerance=0.05,
+        preferred_profile_id=preferred.profile_id,
+    )
+
+    assert ordered[0].profile_id == preferred.profile_id

@@ -32,6 +32,15 @@ class PostgresSession:
         async with self._connection.transaction():
             yield self
 
+    @asynccontextmanager
+    async def advisory_lock(self, key: str) -> AsyncGenerator[None, None]:
+        """Cross-process lock scoped to this database transaction."""
+        async with self._connection.transaction():
+            await self._connection.execute(
+                "SELECT pg_advisory_xact_lock(hashtextextended($1, 0))", key
+            )
+            yield
+
     async def execute(
         self,
         query: str,
