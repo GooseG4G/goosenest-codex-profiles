@@ -26,7 +26,6 @@ export interface Profile {
   usage?: Record<string, unknown> | null;
   usage_updated_at: string | null;
   subscription_expires_at: string | null;
-  usage_resets?: UsageResets;
   last_used_at: string | null;
 }
 export interface ProfileEntities {

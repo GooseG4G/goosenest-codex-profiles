@@ -13,6 +13,9 @@ import {
 
 export function useProfiles() {
   const profiles = shallowRef<Profile[]>([]),
+    resetsByProfileId = shallowRef<
+      Readonly<Record<string, UsageResets | undefined>>
+    >({}),
     flow = shallowRef<DeviceFlow>(),
     authOpened = shallowRef(false),
     busy = shallowRef(false),
@@ -37,6 +40,12 @@ export function useProfiles() {
     resetSequence = 0;
   async function load() {
     profiles.value = (await api<ProfileEntities>("/profiles")).items;
+    const profileIds = new Set(profiles.value.map((profile) => profile.profile_id));
+    resetsByProfileId.value = Object.fromEntries(
+      Object.entries(resetsByProfileId.value).filter(([profileId]) =>
+        profileIds.has(profileId),
+      ),
+    );
     connectEvents();
   }
   async function startAuth(profileId?: string) {
@@ -168,8 +177,11 @@ export function useProfiles() {
         secondary: windowValue(limits.secondary),
       },
       usage_updated_at: limits.updated_at,
-      usage_resets: resets,
     });
+    resetsByProfileId.value = {
+      ...resetsByProfileId.value,
+      [profileId]: resets,
+    };
   }
   function refreshHotProfile(profileId: string, generation: number) {
     if (
@@ -314,6 +326,7 @@ export function useProfiles() {
   });
   return {
     profiles: readonly(profiles),
+    resetsByProfileId: readonly(resetsByProfileId),
     flow: readonly(flow),
     authOpened: readonly(authOpened),
     busy: readonly(busy),

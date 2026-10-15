@@ -92,3 +92,18 @@ def test_device_auth_can_be_cancelled() -> None:
     operation = schema["paths"]["/api/v1/device/auth/{uid}"]["delete"]
 
     assert "204" in operation["responses"]
+
+
+def test_usage_resources_have_distinct_entity_types() -> None:
+    schema = app.openapi()
+    components = schema["components"]["schemas"]
+
+    assert components["UsageLimitsMeta"]["properties"]["type"]["const"] == (
+        "profile-usage-limits"
+    )
+    assert components["UsageResetsMeta"]["properties"]["type"]["const"] == (
+        "profile-usage-resets"
+    )
+    assert components["UsageResetMeta"]["properties"]["type"]["const"] == (
+        "profile-usage-reset"
+    )

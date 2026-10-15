@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ChevronDown, RefreshCw, Trash2, UserRoundPlus } from "@lucide/vue";
 import { computed, onBeforeUnmount, onMounted, shallowRef } from "vue";
-import type { Profile } from "../api";
+import type { Profile, UsageResets } from "../api";
 import { useEscapeLayer } from "../composables/useEscapeLayer";
 import { useRouteQuery } from "../composables/useRouteQuery";
 import { formatDateTime } from "../utils/date";
@@ -11,6 +11,7 @@ import UIIconButton from "./ui/UIIconButton.vue";
 import UISearchField from "./ui/UISearchField.vue";
 const props = defineProps<{
   items: readonly Profile[];
+  resetsByProfileId: Readonly<Record<string, UsageResets | undefined>>;
   busy: boolean;
   resetPending?: string;
 }>();
@@ -219,7 +220,7 @@ onBeforeUnmount(() => {
                   :updated-at="profile.usage_updated_at"
                 />
                 <UsageResetWidget
-                  :resets="profile.usage_resets"
+                  :resets="props.resetsByProfileId[profile.profile_id]"
                   :pending-reset-id="
                     props.resetPending?.startsWith(`${profile.profile_id}:`)
                       ? props.resetPending.slice(profile.profile_id.length + 1)
