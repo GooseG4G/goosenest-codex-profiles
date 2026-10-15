@@ -20,6 +20,7 @@ async def test_stream_cleanup_acquires_its_own_database_session(
 
     context.acquire = acquire
     saved: list[object] = []
+    bound: list[object] = []
     released: list[object] = []
 
     async def save_usage(db, profile_id, headers, usage):
@@ -28,14 +29,21 @@ async def test_stream_cleanup_acquires_its_own_database_session(
     async def release(db, lease_id):
         released.append((db, lease_id))
 
+    async def bind(db, session_key, profile_id, affinity_minutes):
+        bound.append((db, session_key, profile_id, affinity_minutes))
+
     monkeypatch.setattr(response, "get_postgres_context", lambda: context)
     monkeypatch.setattr(response, "_save_usage", save_usage)
+    monkeypatch.setattr(response, "bind_affinity", bind)
     monkeypatch.setattr(response, "release_profile", release)
     profile_id, lease_id = uuid4(), uuid4()
     headers = httpx.Headers({"x-test": "value"})
     usage = {"input_tokens": 1}
 
-    await response._finalize_stream(profile_id, lease_id, headers, usage)
+    await response._finalize_stream(
+        profile_id, lease_id, headers, usage, {"continuation-key"}, 20
+    )
 
     assert saved == [(session, profile_id, headers, usage)]
+    assert bound == [(session, "continuation-key", profile_id, 20)]
     assert released == [(session, lease_id)]

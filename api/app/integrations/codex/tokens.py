@@ -4,9 +4,12 @@ import json
 import os
 import time
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import httpx
+
+if TYPE_CHECKING:
+    from integrations.postgres import PostgresSession
 
 CLIENT_ID = "app_EMoamEEZ73f0CkXaXp7hrann"
 REFRESH_URL = "https://auth.openai.com/oauth/token"
@@ -40,7 +43,12 @@ def credentials(auth: dict[str, Any]) -> tuple[str | None, str | None]:
     )
 
 
-async def ensure_fresh(home: str, *, force: bool = False) -> tuple[str, str | None]:
+async def ensure_fresh(
+    home: str,
+    *,
+    force: bool = False,
+    session: "PostgresSession | None" = None,
+) -> tuple[str, str | None]:
     path, auth = read_auth(home)
     token, account_id = credentials(auth)
     if (
@@ -51,7 +59,8 @@ async def ensure_fresh(home: str, *, force: bool = False) -> tuple[str, str | No
         return token, account_id
 
     lock = _locks.setdefault(path, asyncio.Lock())
-    async with lock:
+
+    async def refresh_locked() -> tuple[str, str | None]:
         _, auth = read_auth(home)
         token, account_id = credentials(auth)
         if (
@@ -87,6 +96,12 @@ async def ensure_fresh(home: str, *, force: bool = False) -> tuple[str, str | No
         if not token:
             raise ValueError("Token refresh returned no access token")
         return token, account_id
+
+    async with lock:
+        if session is None:
+            return await refresh_locked()
+        async with session.advisory_lock(f"codex-token-refresh:{path.resolve()}"):
+            return await refresh_locked()
 
 
 def usage_from_headers(headers: httpx.Headers) -> dict[str, Any] | None:
