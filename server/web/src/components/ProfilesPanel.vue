@@ -11,6 +11,7 @@ import UIIconButton from "./ui/UIIconButton.vue";
 import UISearchField from "./ui/UISearchField.vue";
 const props = defineProps<{
   items: readonly Profile[];
+  planPendingProfileIds: ReadonlySet<string>;
   resetsByProfileId: Readonly<Record<string, UsageResets | undefined>>;
   busy: boolean;
   resetPending?: string;
@@ -44,7 +45,7 @@ useEscapeLayer(
 
 function planLabel(profile: Profile): string {
   const value = profile.usage?.planType ?? profile.usage?.plan_type;
-  if (typeof value !== "string" || !value.trim()) return "";
+  if (typeof value !== "string" || !value.trim()) return "Plan unavailable";
   return value
     .trim()
     .split(/[-_\s]+/)
@@ -52,8 +53,7 @@ function planLabel(profile: Profile): string {
     .join(" ");
 }
 function planPending(profile: Profile): boolean {
-  const value = profile.usage?.planType ?? profile.usage?.plan_type;
-  return typeof value !== "string" || !value.trim();
+  return props.planPendingProfileIds.has(profile.profile_id);
 }
 function expiryLabel(profile: Profile): string {
   const plan = planLabel(profile);
@@ -332,7 +332,7 @@ onBeforeUnmount(() => {
   line-height: 16px;
 }
 .copy small.plan-pending {
-  width: min(260px, 72%);
+  width: min(112px, 40%);
   height: 16px;
   border-radius: 3px;
   background: var(--color-bg-control-hover);
