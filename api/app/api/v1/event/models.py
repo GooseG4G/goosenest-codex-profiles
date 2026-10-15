@@ -15,6 +15,11 @@ class ProfileUsageUpdated(Event):
     profile_id: UUID
 
 
+class ProfilePlanUpdated(Event):
+    type: Literal["profile.plan.updated"] = "profile.plan.updated"
+    profile_id: UUID
+
+
 class ProfileUsageResetCompleted(Event):
     type: Literal["profile.usage.reset.completed"] = "profile.usage.reset.completed"
     profile_id: UUID
@@ -29,7 +34,10 @@ class ProfileAuthChanged(Event):
 
 
 ServerEvent: TypeAlias = Annotated[
-    ProfileUsageUpdated | ProfileUsageResetCompleted | ProfileAuthChanged,
+    ProfileUsageUpdated
+    | ProfilePlanUpdated
+    | ProfileUsageResetCompleted
+    | ProfileAuthChanged,
     Field(discriminator="type"),
 ]
 
