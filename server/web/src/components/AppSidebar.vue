@@ -20,11 +20,11 @@ defineEmits<{ logout: [] }>();
       <RouterLink to="/me/devices"
         ><Smartphone /><span>Devices</span></RouterLink
       ><template v-if="principal.role === 'administrator'"
-        ><hr />
-        <RouterLink to="/profiles"><Layers /><span>Profiles</span></RouterLink
-        ><RouterLink to="/users"
-          ><UsersRound /><span>Users</span></RouterLink
-        ></template
+        ><div class="admin-links">
+          <hr />
+          <RouterLink to="/profiles"><Layers /><span>Profiles</span></RouterLink>
+          <RouterLink to="/users"><UsersRound /><span>Users</span></RouterLink>
+        </div></template
       >
     </nav>
     <div class="account">
@@ -92,7 +92,11 @@ defineEmits<{ logout: [] }>();
 }
 .sidebar nav {
   display: grid;
-  gap: 3px;
+  gap: 8px;
+}
+.admin-links {
+  display: grid;
+  gap: 8px;
 }
 .sidebar nav a {
   display: flex;
@@ -134,7 +138,7 @@ defineEmits<{ logout: [] }>();
 }
 .sidebar nav a:active {
   background: var(--color-bg-control-pressed);
-  transform: scale(0.985);
+  transform: none;
 }
 .sidebar nav a:focus-visible {
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-focus) 52%, transparent);
@@ -146,7 +150,7 @@ defineEmits<{ logout: [] }>();
 .sidebar nav hr {
   width: 100%;
   height: 1px;
-  margin: 7px 0;
+  margin: 0;
   border: 0;
   background: var(--color-border-default);
 }
@@ -271,12 +275,14 @@ defineEmits<{ logout: [] }>();
   }
   .sidebar nav {
     display: flex;
+    gap: 6px;
     justify-content: center;
   }
+  .admin-links {
+    display: contents;
+  }
   .sidebar nav hr {
-    width: 1px;
-    height: 24px;
-    margin: 0 4px;
+    display: none;
   }
   .sidebar nav a {
     width: 38px;

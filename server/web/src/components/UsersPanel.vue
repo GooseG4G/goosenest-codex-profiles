@@ -208,7 +208,7 @@ watch(
   background: transparent;
 }
 .empty {
-  padding: 50px;
+  padding: 44px 14px;
   color: var(--color-text-secondary);
   text-align: center;
 }

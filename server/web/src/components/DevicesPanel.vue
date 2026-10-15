@@ -70,10 +70,7 @@ function close() {
         Device <span>{{ devices.length }}</span>
       </div>
       <div v-if="!visible.length" class="empty">
-        <strong>No devices found</strong
-        ><span>{{
-          query ? "Try another search." : "Add a device to connect Codex."
-        }}</span>
+        No devices found
       </div>
       <article
         v-for="device in visible"
@@ -235,14 +232,9 @@ function close() {
   display: inline-flex;
 }
 .empty {
-  display: grid;
-  gap: 6px;
-  padding: 54px;
+  padding: 44px 14px;
   color: var(--color-text-secondary);
   text-align: center;
-}
-.empty strong {
-  color: var(--color-text-primary);
 }
 .device-form label {
   display: grid;

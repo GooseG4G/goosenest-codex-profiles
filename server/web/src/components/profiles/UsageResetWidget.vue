@@ -139,7 +139,7 @@ function confirmReset() {
   background: transparent;
 }
 .reset-summary:hover {
-  background: var(--color-bg-row-hover);
+  background: var(--color-bg-control-hover);
 }
 .reset-summary:focus-visible {
   outline: none;
@@ -155,12 +155,12 @@ function confirmReset() {
   justify-self: stretch;
   padding: 4px 9px;
   border-radius: 999px;
-  color: #d9ffe7;
+  color: var(--color-text-success);
   font-size: 11px;
   font-weight: 650;
   line-height: 14px;
   text-align: center;
-  background: #086b31;
+  background: var(--color-bg-success-subtle);
 }
 .reset-widget-empty .reset-summary {
   grid-template-columns: minmax(0, 1fr) auto;

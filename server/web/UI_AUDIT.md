@@ -14,6 +14,24 @@ This document is the working contract for the control panel UI. Components may c
 | `UIField`      | Login and edit/create forms                | Label, control, optional hint             | Border increases contrast                       | Focus border and optional error clears | N/A                              | Muted surface                         |
 | `UISearchField` | Collection filtering                      | One icon/input surface                    | Outer border increases contrast                  | Ring belongs to the complete search surface | N/A                           | Entire surface is muted               |
 
+### Button state matrix
+
+| Control | Size | Surface policy | Icon policy | Motion policy |
+| --- | --- | --- | --- | --- |
+| `UIButton` | default 34 px, small 30 px | `secondary` owns the neutral surface; `primary` and `danger` keep their semantic surfaces; `ghost` is transparent until hover/focus | Slotted icons stay 17 px and move with the label | Hover lifts 1 px and scales the icon; press compresses to 0.98; pending removes decorative motion |
+| `UIIconButton` | small 28 px, medium 46 px | `hover` is the row default; `always` is for toolbar surfaces; `never` stays transparent | Icon box is 17 px; `together` is the default; destructive actions use `none` unless motion communicates progress | Surface motion is explicitly selected (`none`, `lift`, or `scale`); pending owns the spin animation; disabled removes motion and tooltip |
+| `UISwitch` | 36 × 20 px | Neutral widget track in both states; active state is communicated by the white thumb position | Thumb is 12 px and moves as one unit | Track transitions color/border; thumb translates 16 px; pending uses a restrained pulse |
+
+The matrix keeps background, icon and surface motion independently configurable. A row action must not combine a semantic danger surface with an unrelated accent color, and a restored programmatic focus must not reopen a tooltip.
+
+### Context rules
+
+- A control gets a tooltip only when its meaning is not already clear from visible text or a row-level affordance.
+- A row-level disclosure indicator is not a second button: the complete identity row is the click target, while the indicator only reflects state and rotates.
+- `UISwitch` owns only enable/disable semantics; its track does not inherit disclosure hover or pressed motion.
+- Destructive delete remains an independent `UIIconButton` with its own danger surface and tooltip.
+- Background, icon scale/rotation and surface translation are selected independently per context; no global hover animation is applied to every button.
+
 ## Navigation
 
 - Desktop navigation is a compact vertical list, not a stack of cards.

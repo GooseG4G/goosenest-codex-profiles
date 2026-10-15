@@ -170,6 +170,7 @@ function resetLabel(timestamp: number): string {
 .skeleton {
   position: relative;
   overflow: hidden;
+  border-radius: 4px;
   color: transparent;
   background: transparent;
 }

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, shallowRef, useId, useTemplateRef } from "vue";
+import { computed, onBeforeUnmount, onMounted, shallowRef, useId, useTemplateRef } from "vue";
 import { useDelayedVisibility } from "../../composables/useDelayedVisibility";
 import UITooltip from "./UITooltip.vue";
 
@@ -56,6 +56,14 @@ const tooltipOpen = computed(
     !tooltipDismissed.value &&
     (hovered.value || focused.value),
 );
+function onDocumentKeydown(event: KeyboardEvent) {
+  if (event.key !== "Escape") return;
+  tooltipDismissed.value = true;
+  hovered.value = false;
+  focused.value = false;
+}
+onMounted(() => document.addEventListener("keydown", onDocumentKeydown));
+onBeforeUnmount(() => document.removeEventListener("keydown", onDocumentKeydown));
 const classes = computed(() => [
   `tone-${props.tone}`,
   `size-${props.size}`,
@@ -81,7 +89,7 @@ const classes = computed(() => [
     @pointerdown="focused = false"
     @mouseenter="hovered = true; tooltipDismissed = false"
     @mouseleave="hovered = false; tooltipDismissed = false"
-    @focus="focused = button?.matches(':focus-visible') ?? false; tooltipDismissed = false"
+    @focus="focused = (button?.matches(':focus-visible') ?? false) && !button?.dataset.focusRestored; tooltipDismissed = false"
     @blur="focused = false; tooltipDismissed = false"
   >
     <span class="icon" aria-hidden="true"><slot name="icon" /></span>

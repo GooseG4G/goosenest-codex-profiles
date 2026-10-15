@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { computed, onBeforeUnmount, onMounted, shallowRef, useId, useTemplateRef } from "vue";
+import UITooltip from "./UITooltip.vue";
 const props = withDefaults(
   defineProps<{
     modelValue: boolean;
@@ -15,6 +17,18 @@ const props = withDefaults(
 const emit = defineEmits<{
   change: [value: boolean];
 }>();
+const button = useTemplateRef<HTMLButtonElement>("button");
+const tooltipId = useId();
+const hovered = shallowRef(false);
+const focused = shallowRef(false);
+const tooltipOpen = computed(() => !props.disabled && !props.pending && (hovered.value || focused.value));
+function onDocumentKeydown(event: KeyboardEvent) {
+  if (event.key !== "Escape") return;
+  hovered.value = false;
+  focused.value = false;
+}
+onMounted(() => document.addEventListener("keydown", onDocumentKeydown));
+onBeforeUnmount(() => document.removeEventListener("keydown", onDocumentKeydown));
 
 function toggle() {
   if (props.disabled || props.pending) return;
@@ -24,29 +38,35 @@ function toggle() {
 
 <template>
   <button
+    ref="button"
     type="button"
     class="ui-switch"
     :class="{ checked: modelValue, pending }"
     role="switch"
     :aria-label="accessibleLabel"
+    :aria-describedby="tooltipId"
     :aria-checked="modelValue"
     :aria-busy="pending || undefined"
-    :title="accessibleLabel"
     :disabled="disabled || pending"
     @click.stop="toggle"
+    @mouseenter="hovered = true"
+    @mouseleave="hovered = false"
+    @focus="focused = (button?.matches(':focus-visible') ?? false) && !button?.dataset.focusRestored"
+    @blur="focused = false"
   >
     <span class="thumb" aria-hidden="true" />
   </button>
+  <UITooltip :id="tooltipId" :anchor="button" :text="accessibleLabel" :open="tooltipOpen" :instant="focused" />
 </template>
 
 <style scoped>
 .ui-switch {
   position: relative;
-  width: 32px;
-  height: 18px;
+  width: 36px;
+  height: 20px;
   flex: 0 0 auto;
   padding: 0;
-  border: 1px solid var(--color-border-strong);
+  border: 1px solid var(--color-border-default);
   border-radius: 999px;
   outline: none;
   background: var(--color-bg-widget);
@@ -57,22 +77,27 @@ function toggle() {
     opacity var(--duration-fast) var(--ease-standard);
 }
 .ui-switch:hover:not(:disabled) {
-  border-color: var(--color-text-tertiary);
+  border-color: var(--color-border-strong);
+  background: var(--color-bg-raised);
 }
 .ui-switch:focus-visible {
   border-color: var(--color-focus);
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-focus) 24%, transparent);
 }
 .ui-switch.checked {
-  border-color: var(--color-border-success);
-  background: var(--color-bg-success-subtle);
+  border-color: var(--color-border-strong);
+  background: var(--color-bg-widget);
+}
+.ui-switch.checked:hover:not(:disabled) {
+  border-color: var(--color-text-tertiary);
+  background: var(--color-bg-raised);
 }
 .thumb {
   position: absolute;
   top: 3px;
   left: 3px;
-  width: 10px;
-  height: 10px;
+  width: 12px;
+  height: 12px;
   border-radius: 50%;
   background: var(--color-status-inactive);
   transition:
@@ -80,8 +105,8 @@ function toggle() {
     background-color var(--duration-normal) var(--ease-standard);
 }
 .checked .thumb {
-  background: var(--color-success);
-  transform: translateX(14px);
+  background: var(--color-bg-accent);
+  transform: translateX(16px);
 }
 .ui-switch:disabled {
   cursor: default;
