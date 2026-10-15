@@ -6,16 +6,26 @@ import {
   type ProfileEntities,
   type StreamEvent,
   type UsageLimits,
+  type UsageResetOutcome,
+  type UsageResetRequest,
   type UsageResets,
 } from "../api";
 
 export function useProfiles() {
   const profiles = shallowRef<Profile[]>([]),
     flow = shallowRef<DeviceFlow>(),
+    authOpened = shallowRef(false),
     busy = shallowRef(false),
-    pollError = shallowRef<unknown>();
+    pollError = shallowRef<unknown>(),
+    resetPending = shallowRef<string>(),
+    resetCompleted = shallowRef<{
+      profileId: string;
+      outcome: UsageResetOutcome;
+      sequence: number;
+    }>();
   let authTimer: number | undefined,
     usageTimer: number | undefined,
+    resetTimer: number | undefined,
     reconnectTimer: number | undefined,
     hotProfileId: string | undefined,
     usageGeneration = 0,
@@ -23,16 +33,24 @@ export function useProfiles() {
     lastStreamId = "$",
     socket: WebSocket | undefined,
     usageRequest: Promise<void> | undefined,
-    usageAbort: AbortController | undefined;
+    usageAbort: AbortController | undefined,
+    resetSequence = 0;
   async function load() {
     profiles.value = (await api<ProfileEntities>("/profiles")).items;
+    connectEvents();
   }
-  async function startAuth() {
+  async function startAuth(profileId?: string) {
     busy.value = true;
     pollError.value = undefined;
+    authOpened.value = false;
     stop();
     try {
-      flow.value = await api<DeviceFlow>("/device/auth", { method: "POST" });
+      const query = profileId
+        ? `?profile_id=${encodeURIComponent(profileId)}`
+        : "";
+      flow.value = await api<DeviceFlow>(`/device/auth${query}`, {
+        method: "POST",
+      });
       authTimer = window.setInterval(poll, 1500);
     } finally {
       busy.value = false;
@@ -72,9 +90,29 @@ export function useProfiles() {
     authTimer = undefined;
   }
   function closeFlow() {
+    const uid = flow.value?.uid;
     stop();
     flow.value = undefined;
     pollError.value = undefined;
+    authOpened.value = false;
+    if (uid)
+      void api(`/device/auth/${uid}`, { method: "DELETE" }).catch(() => {
+        // Server-side expiry remains the fallback; closing the UI stays immediate.
+      });
+  }
+  function finishFlow() {
+    const uid = flow.value?.uid;
+    stop();
+    flow.value = undefined;
+    pollError.value = undefined;
+    authOpened.value = false;
+    if (uid)
+      void api(`/device/auth/${uid}`, { method: "DELETE" }).catch(() => {
+        // Completed flows also expire server-side; this eagerly releases memory.
+      });
+  }
+  function markAuthOpened() {
+    if (flow.value?.status === "pending") authOpened.value = true;
   }
   function replaceProfile(profile: Profile) {
     profiles.value = profiles.value.map((item) =>
@@ -84,6 +122,27 @@ export function useProfiles() {
   function clearUsageTimer() {
     if (usageTimer) window.clearTimeout(usageTimer);
     usageTimer = undefined;
+  }
+  async function consumeReset(profileId: string, resetId: string) {
+    if (resetPending.value) return;
+    resetPending.value = `${profileId}:${resetId}`;
+    try {
+      await api<UsageResetRequest>(
+        `/profiles/${profileId}/usage/resets/${encodeURIComponent(resetId)}`,
+        {
+          method: "POST",
+          headers: { "Idempotency-Key": crypto.randomUUID() },
+        },
+      );
+      if (resetTimer) window.clearTimeout(resetTimer);
+      resetTimer = window.setTimeout(() => {
+        resetPending.value = undefined;
+        resetTimer = undefined;
+      }, 120_000);
+    } catch (reason) {
+      resetPending.value = undefined;
+      throw reason;
+    }
   }
   function applyUsage(
     profileId: string,
@@ -160,7 +219,7 @@ export function useProfiles() {
     if (active && active.readyState < WebSocket.CLOSING) active.close(1000);
   }
   function connectEvents() {
-    if (!hotProfileId || document.hidden || socket) return;
+    if (document.hidden || socket) return;
     const protocol = location.protocol === "https:" ? "wss:" : "ws:";
     const url = `${protocol}//${location.host}/api/v1/events?after=${encodeURIComponent(lastStreamId)}`;
     const next = new WebSocket(url);
@@ -173,15 +232,45 @@ export function useProfiles() {
         const payload = JSON.parse(String(message.data)) as StreamEvent;
         if (!payload.stream_id || !payload.event) return;
         lastStreamId = payload.stream_id;
-        if (payload.event.profile_id === hotProfileId)
+        if (payload.event.type === "profile.auth.changed") {
+          if (
+            payload.event.auth_status === "authorized" &&
+            payload.event.flow_id &&
+            payload.event.flow_id === flow.value?.uid
+          ) {
+            stop();
+            flow.value = {
+              ...flow.value,
+              status: "authorized",
+              profile_id: payload.event.profile_id,
+            };
+          }
+          if (payload.event.profile_id === hotProfileId)
+            setHotProfile(undefined);
+          void load();
+        } else if (payload.event.type === "profile.usage.reset.completed") {
+          if (resetPending.value?.startsWith(`${payload.event.profile_id}:`))
+            resetPending.value = undefined;
+          if (resetTimer) window.clearTimeout(resetTimer);
+          resetTimer = undefined;
+          resetSequence += 1;
+          resetCompleted.value = {
+            profileId: payload.event.profile_id,
+            outcome: payload.event.outcome,
+            sequence: resetSequence,
+          };
+          if (payload.event.profile_id === hotProfileId)
+            void refreshHotProfile(hotProfileId, usageGeneration);
+        } else if (payload.event.profile_id === hotProfileId) {
           void refreshHotProfile(hotProfileId, usageGeneration);
+        }
       } catch {
         // Ignore malformed events; the REST heartbeat remains authoritative.
       }
     });
     next.addEventListener("close", () => {
       if (socket === next) socket = undefined;
-      if (!hotProfileId || document.hidden) return;
+      if (document.hidden) return;
       const delay = Math.min(1_000 * 2**reconnectAttempt, 15_000);
       reconnectAttempt += 1;
       reconnectTimer = window.setTimeout(connectEvents, delay);
@@ -197,9 +286,9 @@ export function useProfiles() {
     usageGeneration += 1;
     closeEvents();
     reconnectAttempt = 0;
-    if (profileId && !document.hidden) {
+    if (!document.hidden) {
       connectEvents();
-      void refreshHotProfile(profileId, usageGeneration);
+      if (profileId) void refreshHotProfile(profileId, usageGeneration);
     }
   }
   function handleVisibilityChange() {
@@ -209,14 +298,15 @@ export function useProfiles() {
     usageRequest = undefined;
     closeEvents();
     usageGeneration += 1;
-    if (!document.hidden && hotProfileId) {
+    if (!document.hidden) {
       connectEvents();
-      void refreshHotProfile(hotProfileId, usageGeneration);
+      if (hotProfileId) void refreshHotProfile(hotProfileId, usageGeneration);
     }
   }
   document.addEventListener("visibilitychange", handleVisibilityChange);
   onUnmounted(() => {
-    stop();
+    closeFlow();
+    if (resetTimer) window.clearTimeout(resetTimer);
     clearUsageTimer();
     closeEvents();
     document.removeEventListener("visibilitychange", handleVisibilityChange);
@@ -224,11 +314,17 @@ export function useProfiles() {
   return {
     profiles: readonly(profiles),
     flow: readonly(flow),
+    authOpened: readonly(authOpened),
     busy: readonly(busy),
     pollError: readonly(pollError),
+    resetPending: readonly(resetPending),
+    resetCompleted: readonly(resetCompleted),
     load,
     setHotProfile,
     startAuth,
     closeFlow,
+    finishFlow,
+    markAuthOpened,
+    consumeReset,
   };
 }

@@ -72,3 +72,23 @@ def test_username_is_immutable() -> None:
 
     assert "username" not in user_update["properties"]
     assert user_update["additionalProperties"] is False
+
+
+def test_device_auth_can_target_an_existing_profile() -> None:
+    schema = app.openapi()
+    operation = schema["paths"]["/api/v1/device/auth"]["post"]
+
+    profile_id = next(
+        parameter
+        for parameter in operation["parameters"]
+        if parameter["name"] == "profile_id"
+    )
+    assert profile_id["in"] == "query"
+    assert profile_id["required"] is False
+
+
+def test_device_auth_can_be_cancelled() -> None:
+    schema = app.openapi()
+    operation = schema["paths"]["/api/v1/device/auth/{uid}"]["delete"]
+
+    assert "204" in operation["responses"]

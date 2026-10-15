@@ -2,13 +2,12 @@ import asyncio
 import json
 import re
 
-from api.v1.session.auth import Principal
+from api.v1.session.auth import Principal, get_session_principal
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from integrations.events import EVENT_STREAM
 from integrations.postgres.providers import get_postgres_context
 from integrations.redis.providers import get_redis_context
 from pydantic import TypeAdapter, ValidationError
-from security import hash_session_token
 
 from .models import ServerEvent, StreamEvent
 
@@ -21,21 +20,17 @@ async def _principal(session_token: str | None) -> Principal | None:
     if not session_token:
         return None
     async with get_postgres_context().acquire() as session:
-        return await session.fetchrow(
-            Principal,
-            """SELECT u.user_id, u.username, u.role
-               FROM sessions AS s
-               JOIN users AS u ON u.user_id=s.user_id
-               WHERE s.token_hash=$1 AND s.expires_at > now()""",
-            hash_session_token(session_token),
-        )
+        return await get_session_principal(session, session_token)
 
 
 @router.websocket("/events")
 async def events(websocket: WebSocket, after: str = "$") -> None:
     principal = await _principal(websocket.cookies.get("session_token"))
-    if principal is None or principal.role != "administrator":
+    if principal is None:
         await websocket.close(code=4401)
+        return
+    if principal.role != "administrator":
+        await websocket.close(code=4403)
         return
     if not stream_id_pattern.fullmatch(after):
         await websocket.close(code=4400)

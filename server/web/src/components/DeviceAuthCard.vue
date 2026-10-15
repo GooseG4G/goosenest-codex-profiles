@@ -6,8 +6,13 @@ import UICopyField from "./ui/UICopyField.vue";
 import UIDialog from "./ui/UIDialog.vue";
 import UIIconButton from "./ui/UIIconButton.vue";
 
-defineProps<{ open: boolean; flow?: DeviceFlow; pending: boolean }>();
-defineEmits<{ close: []; start: [] }>();
+defineProps<{
+  open: boolean;
+  flow?: DeviceFlow;
+  pending: boolean;
+  authOpened: boolean;
+}>();
+defineEmits<{ close: []; start: []; authOpened: [] }>();
 </script>
 
 <template>
@@ -16,7 +21,7 @@ defineEmits<{ close: []; start: [] }>();
     :title="flow ? 'Sign in to Codex' : 'Add profile'"
     :description="
       flow
-        ? 'Open ChatGPT and enter this one-time code.'
+        ? 'Continue in OpenAI and enter this one-time code.'
         : 'Start Codex sign-in to connect another profile.'
     "
     :close-disabled="pending"
@@ -51,7 +56,9 @@ defineEmits<{ close: []; start: [] }>();
         :href="flow.verification_url"
         target="_blank"
         rel="noopener noreferrer"
-        >Open ChatGPT <SquareArrowOutUpRight /></UIButton
+        :pending="authOpened && flow.status === 'pending'"
+        @click="$emit('authOpened')"
+        >OpenAI <SquareArrowOutUpRight /></UIButton
       ><UIButton
         v-else
         variant="primary"

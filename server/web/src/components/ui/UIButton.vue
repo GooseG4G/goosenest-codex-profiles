@@ -10,6 +10,7 @@ const props = withDefaults(
     href?: string;
     target?: "_blank" | "_self";
     rel?: string;
+    size?: "default" | "small";
   }>(),
   {
     variant: "secondary",
@@ -18,6 +19,7 @@ const props = withDefaults(
     href: undefined,
     target: undefined,
     rel: undefined,
+    size: "default",
   },
 );
 const emit = defineEmits<{ click: [event: MouseEvent] }>();
@@ -25,6 +27,7 @@ const showPending = useDelayedVisibility(() => props.pending);
 const classes = computed(() => [
   "ui-button",
   `is-${props.variant}`,
+  `is-${props.size}`,
   { "is-busy": props.pending, "is-pending": showPending.value },
 ]);
 function handleClick(event: MouseEvent) {
@@ -83,6 +86,12 @@ function handleClick(event: MouseEvent) {
   align-items: center;
   justify-content: center;
   gap: 7px;
+}
+.ui-button.is-small {
+  min-width: 72px;
+  height: 30px;
+  padding: 0 10px;
+  font-size: 12px;
 }
 .content :deep(svg) {
   width: 17px;

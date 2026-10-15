@@ -21,8 +21,15 @@ class ProfileUsageResetCompleted(Event):
     outcome: Literal["reset", "nothingToReset", "noCredit", "alreadyRedeemed"]
 
 
+class ProfileAuthChanged(Event):
+    type: Literal["profile.auth.changed"] = "profile.auth.changed"
+    profile_id: UUID
+    auth_status: Literal["authorized", "expired"]
+    flow_id: UUID | None = None
+
+
 ServerEvent: TypeAlias = Annotated[
-    ProfileUsageUpdated | ProfileUsageResetCompleted,
+    ProfileUsageUpdated | ProfileUsageResetCompleted | ProfileAuthChanged,
     Field(discriminator="type"),
 ]
 

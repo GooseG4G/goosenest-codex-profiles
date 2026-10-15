@@ -3,6 +3,7 @@ from typing import Annotated
 from uuid import UUID
 
 from api.v1.session.auth import Principal, require_admin
+from asyncpg import UniqueViolationError
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 from integrations.codex.providers import get_codex_settings
 from integrations.postgres import PostgresSession
@@ -58,19 +59,24 @@ async def read_profile(
 async def update_profile(
     profile_id: UUID, body: ProfileUpdate, _: Administrator, session: Session
 ) -> ProfileEntity:
-    profile = await session.fetchrow(
-        ProfileEntity,
-        f"""UPDATE profiles
-        SET name=COALESCE($2,name), enabled=COALESCE($3,enabled),
-            subscription_expires_at=COALESCE($4,subscription_expires_at),
-            updated_at=now()
-        WHERE profile_id=$1
-        RETURNING {FIELDS}""",
-        profile_id,
-        body.name,
-        body.enabled,
-        body.subscription_expires_at,
-    )
+    try:
+        profile = await session.fetchrow(
+            ProfileEntity,
+            f"""UPDATE profiles
+            SET name=COALESCE($2,name), enabled=COALESCE($3,enabled),
+                subscription_expires_at=COALESCE($4,subscription_expires_at),
+                updated_at=now()
+            WHERE profile_id=$1
+            RETURNING {FIELDS}""",
+            profile_id,
+            body.name,
+            body.enabled,
+            body.subscription_expires_at,
+        )
+    except UniqueViolationError as error:
+        raise HTTPException(
+            status_code=409, detail="Profile email already exists"
+        ) from error
     if profile is None:
         raise HTTPException(status_code=404, detail="Profile not found")
     return profile
