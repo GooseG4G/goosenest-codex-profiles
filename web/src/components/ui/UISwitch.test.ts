@@ -1,5 +1,6 @@
 // @vitest-environment happy-dom
 import { mount } from "@vue/test-utils";
+import { nextTick } from "vue";
 import { describe, expect, it } from "vitest";
 import UISwitch from "./UISwitch.vue";
 
@@ -39,5 +40,26 @@ describe("UISwitch", () => {
     await control.trigger("click");
 
     expect(wrapper.emitted("change")).toBeUndefined();
+  });
+
+  it("dismisses its tooltip on Escape while hovered", async () => {
+    const wrapper = mount(UISwitch, {
+      props: {
+        modelValue: false,
+        accessibleLabel: "Enable profile@example.com",
+      },
+    });
+    const control = wrapper.get('[role="switch"]');
+
+    await control.trigger("mouseenter");
+    await nextTick();
+    expect(document.body.querySelector('[role="tooltip"]')).not.toBeNull();
+
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+    await nextTick();
+    await new Promise((resolve) => setTimeout(resolve, 100));
+
+    expect(document.body.querySelector('[role="tooltip"]')).toBeNull();
+    wrapper.unmount();
   });
 });

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ChevronDown, RefreshCw, Trash2, UserRoundPlus } from "@lucide/vue";
-import { computed, onBeforeUnmount, onMounted, shallowRef } from "vue";
+import { computed, onBeforeUnmount, onMounted, shallowRef, watch } from "vue";
 import type { Profile, UsageResets } from "../api";
 import { useEscapeLayer } from "../composables/useEscapeLayer";
 import { useRouteQuery } from "../composables/useRouteQuery";
@@ -37,6 +37,8 @@ const emit = defineEmits<{
 }>();
 const expanded = shallowRef<string>();
 const now = shallowRef(Date.now());
+const planShimmerIds = shallowRef(new Set<string>());
+const planShimmerTimers = new Map<string, ReturnType<typeof setTimeout>>();
 let clock: ReturnType<typeof setInterval> | undefined;
 useEscapeLayer(
   () => Boolean(expanded.value),
@@ -56,7 +58,7 @@ function planLabel(profile: Profile): string {
     .join(" ");
 }
 function planPending(profile: Profile): boolean {
-  return props.planPendingProfileIds.has(profile.profile_id);
+  return planShimmerIds.value.has(profile.profile_id);
 }
 function expiryLabel(profile: Profile): string {
   const plan = planLabel(profile);
@@ -101,8 +103,45 @@ onMounted(() => {
     now.value = Date.now();
   }, 60_000);
 });
+watch(
+  () => ({
+    pendingIds: props.planPendingProfileIds,
+    plans: props.items.map((profile) => [profile.profile_id, profile.plan_type]),
+  }),
+  ({ pendingIds }) => {
+    for (const profile of props.items) {
+      const id = profile.profile_id;
+      const hasPlan = Boolean(profile.plan_type?.trim());
+      if (hasPlan) {
+        const timer = planShimmerTimers.get(id);
+        if (timer) {
+          clearTimeout(timer);
+          planShimmerTimers.delete(id);
+        }
+        if (planShimmerIds.value.has(id)) {
+          const next = new Set(planShimmerIds.value);
+          next.delete(id);
+          planShimmerIds.value = next;
+        }
+      } else if (pendingIds.has(id)) {
+        planShimmerIds.value = new Set(planShimmerIds.value).add(id);
+      } else if (!pendingIds.has(id) && planShimmerIds.value.has(id) && !planShimmerTimers.has(id)) {
+        const timer = setTimeout(() => {
+          const next = new Set(planShimmerIds.value);
+          next.delete(id);
+          planShimmerIds.value = next;
+          planShimmerTimers.delete(id);
+        }, 1250);
+        planShimmerTimers.set(id, timer);
+      }
+    }
+  },
+  { immediate: true, deep: true },
+);
 onBeforeUnmount(() => {
   clearInterval(clock);
+  for (const timer of planShimmerTimers.values()) clearTimeout(timer);
+  planShimmerTimers.clear();
   emit("hotProfileChange", undefined);
 });
 </script>
@@ -169,40 +208,20 @@ onBeforeUnmount(() => {
             /><small v-else>{{ expiryLabel(profile) }}</small></span
           >
           <div class="actions">
-            <UISwitch
+            <span
+              class="row-indicator"
+              :class="{ expanded: expanded === profile.profile_id }"
+              aria-hidden="true"
+            ><RefreshCw v-if="needsAuthentication(profile)" class="reauth-icon" /><ChevronDown
+                v-else
+                class="chevron"
+              /></span
+            ><UISwitch
               :model-value="profile.enabled"
               :accessible-label="`${profile.enabled ? 'Disable' : 'Enable'} ${profile.name}`"
               :pending="enabledPendingProfileIds.has(profile.profile_id)"
               @change="emit('enabledChange', profile.profile_id, $event)"
-            />
-            <i />
-            <UIIconButton
-              :accessible-label="
-                needsAuthentication(profile)
-                  ? `Sign in to ${profile.name} again`
-                  : expanded === profile.profile_id
-                    ? 'Hide usage limits'
-                    : 'Show usage limits'
-              "
-              :title="
-                needsAuthentication(profile)
-                  ? 'Sign in again'
-                  : expanded === profile.profile_id
-                    ? 'Hide'
-                    : 'Show'
-              "
-              size="small"
-              surface-motion="none"
-              :icon-motion="needsAuthentication(profile) ? 'spin' : 'together'"
-              @click="activate(profile)"
-              ><template #icon
-                ><RefreshCw v-if="needsAuthentication(profile)" /><ChevronDown
-                  v-else
-                  class="chevron"
-                  :class="{
-                    expanded: expanded === profile.profile_id,
-                  }" /></template></UIIconButton
-            ><i /><UIIconButton
+            /><i /><UIIconButton
               :accessible-label="`Delete ${profile.name}`"
               title="Delete"
               tone="danger"
@@ -344,7 +363,7 @@ onBeforeUnmount(() => {
 .copy small.plan-pending {
   width: min(112px, 40%);
   height: 16px;
-  border-radius: 3px;
+  border-radius: 4px;
   background: var(--color-bg-control-hover);
 }
 .copy small.plan-pending::after {
@@ -357,6 +376,7 @@ onBeforeUnmount(() => {
     transparent 80%
   );
   content: "";
+  border-radius: inherit;
   transform: translateX(-100%);
   animation: plan-shimmer 1.25s linear infinite;
 }
@@ -369,17 +389,38 @@ onBeforeUnmount(() => {
   z-index: 2;
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 10px;
 }
 .actions i {
   height: 22px;
+  margin: 0 2px;
   border-left: 1px solid var(--color-border-default);
 }
 .chevron {
+  width: 17px;
+  height: 17px;
   transition: transform var(--duration-normal) var(--ease-standard);
 }
-.chevron.expanded {
+.row-indicator {
+  z-index: 1;
+  display: inline-flex;
+  width: 28px;
+  height: 28px;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-icon);
+  pointer-events: none;
+}
+.row-indicator.expanded .chevron {
   transform: rotate(180deg);
+}
+.reauth-icon {
+  width: 17px;
+  height: 17px;
+  animation: profile-reauth-spin 0.9s linear infinite;
+}
+@keyframes profile-reauth-spin {
+  to { transform: rotate(360deg); }
 }
 .usage-collapse {
   display: grid;

@@ -1,10 +1,32 @@
 <script setup lang="ts">
 import { CircleAlert, CircleCheck, Info, X } from "@lucide/vue";
 import type { NotificationItem } from "../../composables/useNotifications";
+import { shallowRef } from "vue";
 import UIIconButton from "./UIIconButton.vue";
 
 defineProps<{ items: readonly NotificationItem[] }>();
-defineEmits<{ dismiss: [id: number] }>();
+const emit = defineEmits<{ dismiss: [id: number] }>();
+const swipe = shallowRef<{ id: number; pointerId: number; startX: number; offsetX: number }>();
+
+function onPointerDown(itemId: number, event: PointerEvent) {
+  if (event.pointerType === "mouse" && event.button !== 0) return;
+  swipe.value = { id: itemId, pointerId: event.pointerId, startX: event.clientX, offsetX: 0 };
+  (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
+}
+function onPointerMove(event: PointerEvent) {
+  if (!swipe.value || swipe.value.pointerId !== event.pointerId) return;
+  swipe.value = { ...swipe.value, offsetX: event.clientX - swipe.value.startX };
+}
+function onPointerEnd(event: PointerEvent) {
+  if (!swipe.value || swipe.value.pointerId !== event.pointerId) return;
+  const current = swipe.value;
+  swipe.value = undefined;
+  if (Math.abs(current.offsetX) >= 72) emit("dismiss", current.id);
+}
+function toastStyle(itemId: number) {
+  const offsetX = swipe.value?.id === itemId ? swipe.value.offsetX : 0;
+  return { "--toast-swipe-x": `${offsetX}px` };
+}
 </script>
 
 <template>
@@ -22,6 +44,11 @@ defineEmits<{ dismiss: [id: number] }>();
           :class="`tone-${item.tone}`"
           :role="item.tone === 'error' ? 'alert' : 'status'"
           aria-atomic="true"
+          :style="toastStyle(item.id)"
+          @pointerdown="onPointerDown(item.id, $event)"
+          @pointermove="onPointerMove"
+          @pointerup="onPointerEnd"
+          @pointercancel="onPointerEnd"
         >
           <span class="status-icon" aria-hidden="true">
             <CircleCheck v-if="item.tone === 'success'" />
@@ -66,6 +93,9 @@ defineEmits<{ dismiss: [id: number] }>();
   background: var(--color-bg-overlay);
   box-shadow: var(--shadow-overlay);
   pointer-events: auto;
+  touch-action: pan-y;
+  transform: translateX(var(--toast-swipe-x, 0));
+  transition: transform 120ms ease;
 }
 .status-icon {
   display: inline-flex;
@@ -105,6 +135,9 @@ defineEmits<{ dismiss: [id: number] }>();
 @media (prefers-reduced-motion: reduce) {
   .toast-enter-active,
   .toast-leave-active {
+    transition: none;
+  }
+  .toast {
     transition: none;
   }
 }
