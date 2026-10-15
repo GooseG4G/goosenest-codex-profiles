@@ -59,6 +59,7 @@
   --color-danger-emphasis: #ff8c84;
   --color-success: #58d68d;
   --color-status-inactive: #888;
+  --color-status-warning: #d99a18;
   --color-selection: #496a9d;
   --color-shimmer-light: rgb(255 255 255 / 13%);
   --color-shimmer-strong: rgb(255 255 255 / 16%);
@@ -81,6 +82,12 @@ body,
   min-width: 280px;
   min-height: 100%;
   margin: 0;
+}
+html {
+  scrollbar-width: none;
+}
+html::-webkit-scrollbar {
+  display: none;
 }
 body {
   background: var(--color-bg-canvas);

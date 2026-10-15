@@ -195,7 +195,7 @@ defineEmits<{ logout: [] }>();
   stroke-width: 1.8;
 }
 .account-chevron {
-  transition: transform 140ms ease;
+  transition: transform var(--duration-normal) var(--ease-standard);
 }
 .account-chevron.open {
   transform: rotate(180deg);
@@ -245,7 +245,8 @@ defineEmits<{ logout: [] }>();
 }
 @media (prefers-reduced-motion: reduce) {
   .sidebar nav a,
-  .sidebar nav a svg {
+  .sidebar nav a svg,
+  .account-chevron {
     transition: none;
   }
   .sidebar nav a:hover svg,

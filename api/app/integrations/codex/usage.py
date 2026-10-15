@@ -11,6 +11,25 @@ class CodexUsageError(RuntimeError):
     pass
 
 
+class CodexAuthenticationError(CodexUsageError):
+    pass
+
+
+def codex_error(message: str) -> CodexUsageError:
+    normalized = message.casefold()
+    if any(
+        marker in normalized
+        for marker in (
+            "401 unauthorized",
+            "token_revoked",
+            "invalidated oauth token",
+            "not authenticated",
+        )
+    ):
+        return CodexAuthenticationError(message)
+    return CodexUsageError(message)
+
+
 def _normalize_window(value: object) -> dict[str, int | float | None] | None:
     if not isinstance(value, dict):
         return None
@@ -64,7 +83,7 @@ async def _call_codex(
     settings = get_codex_settings()
     home = Path(codex_home).resolve()
     if not (home / "auth.json").is_file():
-        raise CodexUsageError("Codex profile is not authenticated")
+        raise CodexAuthenticationError("Codex profile is not authenticated")
 
     environment = os.environ.copy()
     environment["CODEX_HOME"] = str(home)
@@ -111,7 +130,7 @@ async def _call_codex(
                     continue
                 if message.get("id") == 1 and not initialized:
                     if message.get("error"):
-                        raise CodexUsageError(
+                        raise codex_error(
                             message["error"].get(
                                 "message", "Codex initialization failed"
                             )
@@ -127,14 +146,14 @@ async def _call_codex(
                     )
                 elif message.get("id") == 2:
                     if message.get("error"):
-                        raise CodexUsageError(
+                        raise codex_error(
                             message["error"].get(
                                 "message", "Could not read usage limits"
                             )
                         )
                     return message.get("result")
             stderr = (await process.stderr.read()).decode(errors="replace").strip()
-            raise CodexUsageError(
+            raise codex_error(
                 stderr[-1000:] or "Codex app-server stopped before returning usage"
             )
     except TimeoutError as error:

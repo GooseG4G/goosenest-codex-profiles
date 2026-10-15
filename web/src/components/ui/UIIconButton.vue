@@ -47,9 +47,14 @@ const button = useTemplateRef<HTMLButtonElement>("button");
 const tooltipId = useId();
 const hovered = shallowRef(false);
 const focused = shallowRef(false);
+const tooltipDismissed = shallowRef(false);
 const tooltipText = computed(() => props.title ?? props.accessibleLabel);
 const tooltipOpen = computed(
-  () => !props.disabled && !props.pending && (hovered.value || focused.value),
+  () =>
+    !props.disabled &&
+    !props.pending &&
+    !tooltipDismissed.value &&
+    (hovered.value || focused.value),
 );
 const classes = computed(() => [
   `tone-${props.tone}`,
@@ -72,12 +77,12 @@ const classes = computed(() => [
     :aria-busy="pending || undefined"
     :aria-pressed="selected === undefined ? undefined : selected"
     :disabled="disabled || pending"
-    @click="$emit('click', $event)"
+    @click="tooltipDismissed = true; $emit('click', $event)"
     @pointerdown="focused = false"
-    @mouseenter="hovered = true"
-    @mouseleave="hovered = false"
-    @focus="focused = button?.matches(':focus-visible') ?? false"
-    @blur="focused = false"
+    @mouseenter="hovered = true; tooltipDismissed = false"
+    @mouseleave="hovered = false; tooltipDismissed = false"
+    @focus="focused = button?.matches(':focus-visible') ?? false; tooltipDismissed = false"
+    @blur="focused = false; tooltipDismissed = false"
   >
     <span class="icon" aria-hidden="true"><slot name="icon" /></span>
     <span v-if="$slots.default" class="label"><slot /></span>

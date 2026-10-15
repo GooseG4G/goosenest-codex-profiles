@@ -1,5 +1,10 @@
 import pytest
-from integrations.codex.usage import CodexUsageError, _normalize_result
+from integrations.codex.usage import (
+    CodexAuthenticationError,
+    CodexUsageError,
+    _normalize_result,
+    codex_error,
+)
 
 
 def test_normalizes_codex_rate_limit_windows_and_reset_credits() -> None:
@@ -37,3 +42,20 @@ def test_normalizes_codex_rate_limit_windows_and_reset_credits() -> None:
 def test_rejects_response_without_usage_windows() -> None:
     with pytest.raises(CodexUsageError, match="no usage windows"):
         _normalize_result({"rateLimits": {}})
+
+
+@pytest.mark.parametrize(
+    "message",
+    [
+        "401 Unauthorized",
+        "token_revoked",
+        "Encountered invalidated oauth token for user",
+        "Codex profile is not authenticated",
+    ],
+)
+def test_classifies_authentication_failures(message: str) -> None:
+    assert isinstance(codex_error(message), CodexAuthenticationError)
+
+
+def test_preserves_non_authentication_usage_errors() -> None:
+    assert type(codex_error("Codex returned no usage windows")) is CodexUsageError

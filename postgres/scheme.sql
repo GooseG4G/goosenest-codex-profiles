@@ -65,6 +65,7 @@ CREATE INDEX devices_user_id_idx ON devices(user_id);
 CREATE INDEX sessions_user_id_idx ON sessions(user_id);
 CREATE INDEX sessions_expires_at_idx ON sessions(expires_at);
 CREATE INDEX profiles_enabled_idx ON profiles(enabled);
+CREATE UNIQUE INDEX profiles_name_unique_idx ON profiles(lower(name));
 CREATE INDEX profiles_scheduler_idx
     ON profiles(enabled, auth_status, cooldown_until, last_used_at);
 CREATE INDEX profile_leases_active_idx

@@ -17,7 +17,10 @@ const tooltipId = useId();
 const hovered = shallowRef(false);
 const focused = shallowRef(false);
 const copied = shallowRef(false);
-const tooltipOpen = computed(() => hovered.value || focused.value);
+const tooltipDismissed = shallowRef(false);
+const tooltipOpen = computed(
+  () => !tooltipDismissed.value && (hovered.value || focused.value),
+);
 const tooltipText = computed(() =>
   copied.value ? props.copiedLabel : props.label,
 );
@@ -39,6 +42,7 @@ async function copy() {
     if (!copiedSuccessfully) return;
   }
   copied.value = true;
+  tooltipDismissed.value = true;
   if (resetTimer) window.clearTimeout(resetTimer);
   resetTimer = window.setTimeout(() => {
     copied.value = false;
@@ -58,10 +62,11 @@ onUnmounted(() => {
     :aria-label="tooltipText"
     :aria-describedby="tooltipId"
     @click="copy"
-    @mouseenter="hovered = true"
-    @mouseleave="hovered = false"
-    @focus="focused = true"
-    @blur="focused = false"
+    @pointerdown="focused = false"
+    @mouseenter="hovered = true; tooltipDismissed = false"
+    @mouseleave="hovered = false; tooltipDismissed = false"
+    @focus="focused = button?.matches(':focus-visible') ?? false; tooltipDismissed = false"
+    @blur="focused = false; tooltipDismissed = false"
   >
     <code>{{ value }}</code>
     <span class="copy-icon" aria-hidden="true"

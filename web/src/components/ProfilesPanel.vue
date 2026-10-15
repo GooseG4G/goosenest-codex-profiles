@@ -1,13 +1,19 @@
 <script setup lang="ts">
-import { ChevronDown, Trash2, UserRoundPlus } from "@lucide/vue";
+import { ChevronDown, RefreshCw, Trash2, UserRoundPlus } from "@lucide/vue";
 import { computed, onBeforeUnmount, onMounted, shallowRef } from "vue";
 import type { Profile } from "../api";
+import { useEscapeLayer } from "../composables/useEscapeLayer";
 import { useRouteQuery } from "../composables/useRouteQuery";
 import { formatDateTime } from "../utils/date";
 import UsageDisplay from "./profiles/UsageDisplay.vue";
+import UsageResetWidget from "./profiles/UsageResetWidget.vue";
 import UIIconButton from "./ui/UIIconButton.vue";
 import UISearchField from "./ui/UISearchField.vue";
-const props = defineProps<{ items: readonly Profile[]; busy: boolean }>();
+const props = defineProps<{
+  items: readonly Profile[];
+  busy: boolean;
+  resetPending?: string;
+}>();
 const query = useRouteQuery();
 const visible = computed(() => {
   const value = query.value.trim().toLocaleLowerCase();
@@ -19,21 +25,34 @@ const visible = computed(() => {
 });
 const emit = defineEmits<{
   startAuth: [];
+  reauthorize: [profileId: string];
   delete: [profileId: string];
   hotProfileChange: [profileId?: string];
+  useReset: [profileId: string, resetId: string];
 }>();
 const expanded = shallowRef<string>();
 const now = shallowRef(Date.now());
 let clock: ReturnType<typeof setInterval> | undefined;
+useEscapeLayer(
+  () => Boolean(expanded.value),
+  () => {
+    expanded.value = undefined;
+    emit("hotProfileChange", undefined);
+  },
+);
 
 function planLabel(profile: Profile): string {
   const value = profile.usage?.planType ?? profile.usage?.plan_type;
-  if (typeof value !== "string" || !value.trim()) return "Codex";
+  if (typeof value !== "string" || !value.trim()) return "Checking plan";
   return value
     .trim()
     .split(/[-_\s]+/)
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
     .join(" ");
+}
+function planPending(profile: Profile): boolean {
+  const value = profile.usage?.planType ?? profile.usage?.plan_type;
+  return typeof value !== "string" || !value.trim();
 }
 function expiryLabel(profile: Profile): string {
   const plan = planLabel(profile);
@@ -62,6 +81,16 @@ function toggle(profile: Profile) {
   expanded.value =
     expanded.value === profile.profile_id ? undefined : profile.profile_id;
   emit("hotProfileChange", expanded.value);
+}
+function needsAuthentication(profile: Profile): boolean {
+  return profile.auth_status !== "authorized";
+}
+function activate(profile: Profile) {
+  if (needsAuthentication(profile)) {
+    emit("reauthorize", profile.profile_id);
+    return;
+  }
+  toggle(profile);
 }
 onMounted(() => {
   clock = setInterval(() => {
@@ -92,7 +121,7 @@ onBeforeUnmount(() => {
       <div class="list-header">
         Profile <span>{{ items.length }}</span>
       </div>
-      <div v-if="!visible.length" class="empty">No profiles found</div>
+      <div v-if="!visible.length" class="profiles-empty">No profiles found</div>
       <article
         v-for="profile in visible"
         :key="profile.profile_id"
@@ -101,29 +130,61 @@ onBeforeUnmount(() => {
         <div class="profile-row">
           <button
             class="row-hit"
-            :aria-label="`${expanded === profile.profile_id ? 'Hide' : 'Show'} usage for ${profile.name}`"
-            :aria-expanded="expanded === profile.profile_id"
-            :aria-controls="`usage-${profile.profile_id}`"
-            @click="toggle(profile)"
-          /><span :class="['dot', { off: !profile.enabled }]" /><span
+            :aria-label="
+              needsAuthentication(profile)
+                ? `Sign in to ${profile.name} again`
+                : `${expanded === profile.profile_id ? 'Hide' : 'Show'} usage for ${profile.name}`
+            "
+            :aria-expanded="
+              needsAuthentication(profile)
+                ? undefined
+                : expanded === profile.profile_id
+            "
+            :aria-controls="
+              needsAuthentication(profile)
+                ? undefined
+                : `usage-${profile.profile_id}`
+            "
+            @mousedown.prevent
+            @click="activate(profile)"
+          /><span
+            :class="[
+              'dot',
+              {
+                off: !profile.enabled,
+                warning: needsAuthentication(profile),
+              },
+            ]"
+          /><span
             class="copy"
             ><strong>{{ profile.name }}</strong
-            ><small>{{ expiryLabel(profile) }}</small></span
+            ><small :class="{ 'plan-pending': planPending(profile) }">{{
+              expiryLabel(profile)
+            }}</small></span
           >
           <div class="actions">
             <UIIconButton
               :accessible-label="
-                expanded === profile.profile_id
-                  ? 'Hide usage limits'
-                  : 'Show usage limits'
+                needsAuthentication(profile)
+                  ? `Sign in to ${profile.name} again`
+                  : expanded === profile.profile_id
+                    ? 'Hide usage limits'
+                    : 'Show usage limits'
               "
-              :title="expanded === profile.profile_id ? 'Hide' : 'Show'"
+              :title="
+                needsAuthentication(profile)
+                  ? 'Sign in again'
+                  : expanded === profile.profile_id
+                    ? 'Hide'
+                    : 'Show'
+              "
               size="small"
               surface-motion="none"
-              icon-motion="together"
-              @click="toggle(profile)"
+              :icon-motion="needsAuthentication(profile) ? 'spin' : 'together'"
+              @click="activate(profile)"
               ><template #icon
-                ><ChevronDown
+                ><RefreshCw v-if="needsAuthentication(profile)" /><ChevronDown
+                  v-else
                   class="chevron"
                   :class="{
                     expanded: expanded === profile.profile_id,
@@ -142,7 +203,10 @@ onBeforeUnmount(() => {
         </div>
         <Transition name="usage"
           ><div
-            v-if="expanded === profile.profile_id"
+            v-if="
+              !needsAuthentication(profile) &&
+              expanded === profile.profile_id
+            "
             :id="`usage-${profile.profile_id}`"
             class="usage-collapse"
           >
@@ -151,6 +215,15 @@ onBeforeUnmount(() => {
                 <UsageDisplay
                   :usage="profile.usage"
                   :updated-at="profile.usage_updated_at"
+                />
+                <UsageResetWidget
+                  :resets="profile.usage_resets"
+                  :pending-reset-id="
+                    props.resetPending?.startsWith(`${profile.profile_id}:`)
+                      ? props.resetPending.slice(profile.profile_id.length + 1)
+                      : undefined
+                  "
+                  @use-reset="emit('useReset', profile.profile_id, $event)"
                 />
               </div>
             </div></div
@@ -215,8 +288,8 @@ onBeforeUnmount(() => {
   background: transparent;
 }
 .row-hit:focus-visible {
-  outline: 2px solid color-mix(in srgb, var(--color-focus) 52%, transparent);
-  outline-offset: -2px;
+  outline: none;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-focus) 76%, transparent);
 }
 .dot {
   z-index: 1;
@@ -228,6 +301,9 @@ onBeforeUnmount(() => {
 }
 .dot.off {
   background: var(--color-status-inactive);
+}
+.dot.warning {
+  background: var(--color-status-warning);
 }
 .copy {
   z-index: 1;
@@ -244,9 +320,36 @@ onBeforeUnmount(() => {
   white-space: nowrap;
 }
 .copy small {
+  position: relative;
+  overflow: hidden;
+  width: fit-content;
+  max-width: 100%;
   color: var(--color-text-secondary);
   font-size: 12px;
   line-height: 16px;
+}
+.copy small.plan-pending {
+  border-radius: 3px;
+  color: var(--color-text-secondary);
+  background: var(--color-bg-control-hover);
+}
+.copy small.plan-pending::after {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    105deg,
+    transparent 20%,
+    var(--color-shimmer-light) 50%,
+    transparent 80%
+  );
+  content: "";
+  transform: translateX(-100%);
+  animation: plan-shimmer 1.25s linear infinite;
+}
+@keyframes plan-shimmer {
+  to {
+    transform: translateX(100%);
+  }
 }
 .actions {
   z-index: 2;
@@ -259,7 +362,7 @@ onBeforeUnmount(() => {
   border-left: 1px solid var(--color-border-default);
 }
 .chevron {
-  transition: transform 0.15s;
+  transition: transform var(--duration-normal) var(--ease-standard);
 }
 .chevron.expanded {
   transform: rotate(180deg);
@@ -275,9 +378,12 @@ onBeforeUnmount(() => {
   transition: background-color var(--duration-fast) var(--ease-standard);
 }
 .usage-content {
+  display: grid;
+  align-items: start;
+  gap: 8px;
   padding: 0 12px 12px;
 }
-.empty {
+.profiles-empty {
   padding: 44px;
   color: var(--color-text-secondary);
   text-align: center;
@@ -300,6 +406,10 @@ onBeforeUnmount(() => {
   .usage-enter-active,
   .usage-leave-active {
     transition: none;
+  }
+  .copy small.plan-pending::after {
+    animation: none;
+    transform: none;
   }
 }
 </style>

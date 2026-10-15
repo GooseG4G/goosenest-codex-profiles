@@ -6,6 +6,7 @@ import {
   useId,
   useTemplateRef,
 } from "vue";
+import { useEscapeLayer } from "../../composables/useEscapeLayer";
 import { restoreFocus } from "../../utils/focus";
 
 const props = withDefaults(
@@ -68,11 +69,6 @@ function onDocumentPointerDown(event: PointerEvent) {
 }
 
 function onKeydown(event: KeyboardEvent) {
-  if (event.key === "Escape") {
-    event.preventDefault();
-    close();
-    return;
-  }
   if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
   const items = focusableItems();
   if (!items.length) return;
@@ -82,6 +78,7 @@ function onKeydown(event: KeyboardEvent) {
   const next = current < 0 ? 0 : (current + direction + items.length) % items.length;
   items[next]?.focus();
 }
+useEscapeLayer(open, close);
 
 document.addEventListener("pointerdown", onDocumentPointerDown);
 onBeforeUnmount(() =>

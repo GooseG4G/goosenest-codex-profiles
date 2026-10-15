@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { nextTick, onUnmounted, useId, useTemplateRef, watch } from "vue";
+import { useEscapeLayer } from "../../composables/useEscapeLayer";
 import { restoreFocus } from "../../utils/focus";
 
 const props = withDefaults(
@@ -34,11 +35,6 @@ function focusableElements() {
   );
 }
 function handleKeydown(event: KeyboardEvent) {
-  if (event.key === "Escape") {
-    event.preventDefault();
-    close();
-    return;
-  }
   if (event.key !== "Tab") return;
   const elements = focusableElements();
   if (!elements.length) {
@@ -56,6 +52,10 @@ function handleKeydown(event: KeyboardEvent) {
     first.focus();
   }
 }
+useEscapeLayer(
+  () => props.open,
+  close,
+);
 
 watch(
   () => props.open,

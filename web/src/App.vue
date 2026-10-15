@@ -121,6 +121,14 @@ async function startAuth() {
     notifications.error(reason, "Could not start Codex sign-in");
   }
 }
+async function reauthorizeProfile(profileId: string) {
+  profileDialogOpen.value = true;
+  try {
+    await profiles.startAuth(profileId);
+  } catch (reason) {
+    notifications.error(reason, "Could not restart OpenAI sign-in");
+  }
+}
 function closeProfileDialog() {
   if (profiles.busy.value) return;
   profiles.closeFlow();
@@ -143,6 +151,14 @@ async function deleteProfile() {
     notifications.error(reason, "Could not delete profile");
   } finally {
     deletePending.value = false;
+  }
+}
+async function useUsageReset(profileId: string, resetId: string) {
+  try {
+    await profiles.consumeReset(profileId, resetId);
+    notifications.push("Usage reset queued", "success");
+  } catch (reason) {
+    notifications.error(reason, "Could not use reset");
   }
 }
 async function issueDevice(name: string) {
@@ -214,6 +230,28 @@ watch(
     profiles.closeFlow();
   },
 );
+watch(
+  () => profiles.flow.value?.status,
+  (flowStatus) => {
+    if (flowStatus !== "authorized") return;
+    profileDialogOpen.value = false;
+    profiles.finishFlow();
+    notifications.push("Profile added", "success");
+  },
+);
+watch(
+  () => profiles.resetCompleted.value,
+  (completed) => {
+    if (!completed) return;
+    const messages = {
+      reset: "Usage limits reset",
+      nothingToReset: "Usage limits did not need a reset",
+      noCredit: "Reset credit is no longer available",
+      alreadyRedeemed: "Reset credit was already used",
+    } as const;
+    notifications.push(messages[completed.outcome], "success");
+  },
+);
 </script>
 
 <template>
@@ -244,9 +282,12 @@ watch(
           v-if="activeView === 'profiles'"
           :items="profiles.profiles.value"
           :busy="profiles.busy.value"
+          :reset-pending="profiles.resetPending.value"
           @start-auth="profileDialogOpen = true"
+          @reauthorize="reauthorizeProfile"
           @delete="requestDeleteProfile"
           @hot-profile-change="profiles.setHotProfile"
+          @use-reset="useUsageReset"
         />
         <UsersPanel
           v-else-if="activeView === 'users'"
@@ -272,12 +313,14 @@ watch(
     :open="profileDialogOpen"
     :flow="profiles.flow.value"
     :pending="profiles.busy.value"
+    :auth-opened="profiles.authOpened.value"
     @start="startAuth"
+    @auth-opened="profiles.markAuthOpened"
     @close="closeProfileDialog"
   />
   <UIConfirmDialog
     :open="Boolean(pendingDeleteProfileId)"
-    title="Delete"
+    title="Delete profile"
     description="The stored credentials for this profile will be permanently removed."
     :pending="deletePending"
     @close="pendingDeleteProfileId = undefined"

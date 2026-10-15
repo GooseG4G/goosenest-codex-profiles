@@ -3,13 +3,17 @@ from typing import Annotated, Any, AsyncGenerator
 from uuid import UUID
 
 import httpx
+from api.v1.profile.auth.status import expire_profile_authentication
 from api.v1.settings import get_api_settings
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import StreamingResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from integrations.codex.tokens import ensure_fresh, usage_from_headers
 from integrations.postgres import PostgresSession
-from integrations.postgres.providers import get_postgres_session
+from integrations.postgres.providers import (
+    get_postgres_context,
+    get_postgres_session,
+)
 from pydantic import BaseModel
 from security import hash_device_secret
 
@@ -100,6 +104,18 @@ async def _cool_down(
     )
 
 
+async def _finalize_stream(
+    profile_id: UUID,
+    lease_id: UUID,
+    headers: httpx.Headers,
+    response_usage: dict[str, Any] | None,
+) -> None:
+    async with get_postgres_context().acquire() as session:
+        if response_usage:
+            await _save_usage(session, profile_id, headers, response_usage)
+        await release_profile(session, lease_id)
+
+
 async def _send(
     client: httpx.AsyncClient,
     url: str,
@@ -144,12 +160,7 @@ async def create_response(
             token, account_id = await ensure_fresh(profile.codex_home)
         except (OSError, ValueError, httpx.HTTPError):
             last_error = f"Profile {profile.profile_id} authentication failed"
-            await session.execute(
-                """UPDATE profiles
-                SET auth_status='expired', updated_at=now()
-                WHERE profile_id=$1""",
-                profile.profile_id,
-            )
+            await expire_profile_authentication(session, profile.profile_id)
             await release_profile(session, reservation.lease_id)
             continue
         try:
@@ -173,12 +184,7 @@ async def create_response(
                     f"Profile {profile.profile_id} returned {upstream.status_code}"
                 )
                 if upstream.status_code == 401:
-                    await session.execute(
-                        """UPDATE profiles
-                        SET auth_status='expired', updated_at=now()
-                        WHERE profile_id=$1""",
-                        profile.profile_id,
-                    )
+                    await expire_profile_authentication(session, profile.profile_id)
                 if upstream.status_code == 429:
                     await _cool_down(
                         session,
@@ -209,16 +215,14 @@ async def create_response(
                     yield chunk
             finally:
                 response_usage = _response_usage_from_sse(bytes(captured))
-                if response_usage:
-                    await _save_usage(
-                        session,
-                        profile.profile_id,
-                        response.headers,
-                        response_usage,
-                    )
                 await response.aclose()
-                await release_profile(session, reservation.lease_id)
                 await client.aclose()
+                await _finalize_stream(
+                    profile.profile_id,
+                    reservation.lease_id,
+                    response.headers,
+                    response_usage,
+                )
 
         return StreamingResponse(
             stream_body(), status_code=upstream.status_code, headers=response_headers

@@ -11,8 +11,9 @@ withDefaults(
     description: string;
     pending?: boolean;
     confirmLabel?: string;
+    confirmVariant?: "primary" | "danger";
   }>(),
-  { pending: false, confirmLabel: "Delete" },
+  { pending: false, confirmLabel: "Delete", confirmVariant: "danger" },
 );
 defineEmits<{ close: []; confirm: [] }>();
 </script>
@@ -39,7 +40,7 @@ defineEmits<{ close: []; confirm: [] }>();
     </template>
     <template #footer="{ close }">
       <UIButton :disabled="pending" @click="close">Cancel</UIButton>
-      <UIButton variant="danger" :pending="pending" @click="$emit('confirm')">
+      <UIButton :variant="confirmVariant" :pending="pending" @click="$emit('confirm')">
         {{ confirmLabel }}
       </UIButton>
     </template>

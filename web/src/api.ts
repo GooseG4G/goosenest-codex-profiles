@@ -61,6 +61,16 @@ export interface UsageResets {
   stale: boolean;
   refreshing: boolean;
 }
+export interface UsageResetRequest {
+  task_id: string;
+  idempotency_key: string;
+  status: "queued";
+}
+export type UsageResetOutcome =
+  | "reset"
+  | "nothingToReset"
+  | "noCredit"
+  | "alreadyRedeemed";
 export type ServerEvent =
   | {
       version: 1;
@@ -73,7 +83,14 @@ export type ServerEvent =
       type: "profile.usage.reset.completed";
       profile_id: string;
       occurred_at: string;
-      outcome: "reset" | "nothingToReset" | "noCredit" | "alreadyRedeemed";
+      outcome: UsageResetOutcome;
+    }
+  | {
+      version: 1;
+      type: "profile.auth.changed";
+      profile_id: string;
+      auth_status: "authorized" | "expired";
+      flow_id?: string | null;
     };
 export interface StreamEvent {
   stream_id: string;

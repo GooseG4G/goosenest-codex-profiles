@@ -65,8 +65,8 @@ const model = defineModel<string>({ required: true });
   stroke-linecap: round;
   stroke-linejoin: round;
   transition:
-    color 140ms ease,
-    transform 140ms ease;
+    color var(--duration-normal) var(--ease-standard),
+    transform var(--duration-normal) var(--ease-standard);
 }
 .select-control:focus-within svg {
   stroke: var(--color-text-primary);

@@ -18,6 +18,40 @@ class Principal(BaseModel):
     role: Role
 
 
+async def get_session_principal(
+    session: PostgresSession,
+    session_token: str | None,
+    *,
+    touch: bool = True,
+) -> Principal | None:
+    if not session_token:
+        return None
+    query = (
+        """
+        UPDATE sessions AS s
+           SET last_seen_at = now()
+          FROM users AS u
+         WHERE s.token_hash = $1
+           AND s.expires_at > now()
+           AND u.user_id = s.user_id
+        RETURNING u.user_id, u.username, u.role
+        """
+        if touch
+        else """
+        SELECT u.user_id, u.username, u.role
+          FROM sessions AS s
+          JOIN users AS u ON u.user_id = s.user_id
+         WHERE s.token_hash = $1
+           AND s.expires_at > now()
+        """
+    )
+    return await session.fetchrow(
+        Principal,
+        query,
+        hash_session_token(session_token),
+    )
+
+
 async def get_principal(
     credentials: Annotated[HTTPBasicCredentials | None, Depends(basic)],
     session: Annotated[PostgresSession, Depends(get_postgres_session)],
@@ -28,19 +62,7 @@ async def get_principal(
         detail="Authentication is required",
     )
     if session_token:
-        principal = await session.fetchrow(
-            Principal,
-            """
-            UPDATE sessions AS s
-               SET last_seen_at = now()
-              FROM users AS u
-             WHERE s.token_hash = $1
-               AND s.expires_at > now()
-               AND u.user_id = s.user_id
-            RETURNING u.user_id, u.username, u.role
-            """,
-            hash_session_token(session_token),
-        )
+        principal = await get_session_principal(session, session_token)
         if principal is not None:
             return principal
 
