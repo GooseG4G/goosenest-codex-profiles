@@ -35,6 +35,7 @@ def test_normalizes_codex_rate_limit_windows_and_reset_credits() -> None:
 
     assert usage["primary"]["usedPercent"] == 12
     assert usage["secondary"]["windowDurationMins"] == 10_080
+    assert usage["planType"] == "plus"
     assert usage["ordinaryUsageAllowed"] is True
     assert usage["rateLimitResetCredits"]["availableCount"] == 1
 

@@ -43,7 +43,7 @@ useEscapeLayer(
 
 function planLabel(profile: Profile): string {
   const value = profile.usage?.planType ?? profile.usage?.plan_type;
-  if (typeof value !== "string" || !value.trim()) return "Checking plan";
+  if (typeof value !== "string" || !value.trim()) return "";
   return value
     .trim()
     .split(/[-_\s]+/)
@@ -158,9 +158,11 @@ onBeforeUnmount(() => {
           /><span
             class="copy"
             ><strong>{{ profile.name }}</strong
-            ><small :class="{ 'plan-pending': planPending(profile) }">{{
-              expiryLabel(profile)
-            }}</small></span
+            ><small
+              v-if="planPending(profile)"
+              class="plan-pending"
+              aria-label="Loading plan"
+            /><small v-else>{{ expiryLabel(profile) }}</small></span
           >
           <div class="actions">
             <UIIconButton
@@ -329,8 +331,9 @@ onBeforeUnmount(() => {
   line-height: 16px;
 }
 .copy small.plan-pending {
+  width: min(260px, 72%);
+  height: 16px;
   border-radius: 3px;
-  color: var(--color-text-secondary);
   background: var(--color-bg-control-hover);
 }
 .copy small.plan-pending::after {
