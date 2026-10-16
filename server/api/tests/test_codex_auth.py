@@ -1,4 +1,5 @@
 import json
+import os
 from pathlib import Path
 from types import SimpleNamespace
 from uuid import uuid4
@@ -90,6 +91,7 @@ async def test_completion_notification_is_authoritative(tmp_path: Path) -> None:
     assert flow.completion_event.is_set()
 
 
+@pytest.mark.skipif(os.name == "nt", reason="POSIX permission bits are unavailable")
 def test_credentials_are_owner_only(tmp_path: Path) -> None:
     auth_path = tmp_path / "auth.json"
     auth_path.write_text("{}", encoding="utf-8")

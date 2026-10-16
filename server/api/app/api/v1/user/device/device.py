@@ -2,10 +2,10 @@ from typing import Annotated
 from uuid import UUID
 
 from api.v1.session.auth import Principal, get_principal
+from api.v1.user.models import UserIdentity
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 from integrations.postgres import PostgresSession
 from integrations.postgres.providers import get_postgres_session
-from pydantic import BaseModel
 
 from .models import (
     DeviceCreate,
@@ -29,16 +29,12 @@ def require_access(principal: Principal, user_id: UUID) -> None:
 
 async def require_user(session: PostgresSession, user_id: UUID) -> None:
     exists = await session.fetchrow(
-        DeviceOwner,
+        UserIdentity,
         "SELECT user_id FROM users WHERE user_id=$1",
         user_id,
     )
     if exists is None:
         raise HTTPException(status_code=404, detail="User not found")
-
-
-class DeviceOwner(BaseModel):
-    user_id: UUID
 
 
 @router.get("")

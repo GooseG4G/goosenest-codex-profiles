@@ -14,6 +14,10 @@ class UserMeta(Meta):
     )
 
 
+class UserIdentity(BaseModel):
+    user_id: UUID
+
+
 class UserCreate(BaseModel):
     username: EmailStr = Field(
         ...,

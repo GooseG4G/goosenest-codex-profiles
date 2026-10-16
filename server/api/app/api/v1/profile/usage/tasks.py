@@ -8,6 +8,7 @@ from api.v1.event.service import publish_event
 from api.v1.profile.auth.status import expire_profile_authentication
 from api.v1.profile.models import ProfileRuntime
 from api.v1.profile.task_settings import get_profile_task_settings
+from celery import shared_task
 from integrations.codex.usage import (
     CodexAuthenticationError,
     consume_codex_usage_reset,
@@ -16,7 +17,6 @@ from integrations.codex.usage import (
 from integrations.postgres import PostgresContext
 from integrations.postgres.providers import get_postgres_settings
 from worker.singleflight import claim_execution, enqueue_once, release_execution
-from worker.worker import app
 
 logger = logging.getLogger(__name__)
 USAGE_REFRESH_TASK = "profiles.usage.refresh"
@@ -129,7 +129,7 @@ async def _refresh(profile_id: UUID) -> None:
         await context.close()
 
 
-@app.task(name=USAGE_REFRESH_TASK, bind=True)
+@shared_task(name=USAGE_REFRESH_TASK, bind=True)
 def refresh_profile_usage(self, profile_id: str) -> None:
     settings = get_profile_task_settings()
     task_id = str(self.request.id)
@@ -212,7 +212,7 @@ async def _consume_reset(
         await context.close()
 
 
-@app.task(
+@shared_task(
     name=USAGE_RESET_TASK,
     bind=True,
 )

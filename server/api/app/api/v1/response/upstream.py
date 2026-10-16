@@ -1,8 +1,9 @@
 from functools import lru_cache
 
 import httpx
-from api.v1.settings import get_api_settings
 from fastapi import Request
+
+from .settings import get_responses_settings
 
 _FORWARDED_HEADERS = ("idempotency-key", "x-client-request-id")
 _RESPONSE_HEADERS_TO_STRIP = {
@@ -56,7 +57,7 @@ class ResponsesUpstream:
     async def open(self) -> None:
         if self._client is not None:
             return
-        settings = get_api_settings()
+        settings = get_responses_settings()
         self._client = httpx.AsyncClient(
             timeout=httpx.Timeout(
                 settings.request_timeout,

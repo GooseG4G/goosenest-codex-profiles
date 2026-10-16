@@ -7,20 +7,13 @@ from api.v1.session.auth import Principal, require_admin
 from fastapi import APIRouter, Depends, HTTPException
 from integrations.postgres import PostgresSession
 from integrations.postgres.providers import get_postgres_session
-from pydantic import BaseModel
 
+from .models import ProfilePlan
 from .tasks import enqueue_profile_plan_refresh
 
 router = APIRouter(prefix="/{profile_id}/plan", tags=["profile plan"])
 Session = Annotated[PostgresSession, Depends(get_postgres_session)]
 Administrator = Annotated[Principal, Depends(require_admin)]
-
-
-class ProfilePlan(BaseModel):
-    plan_type: str | None = None
-    updated_at: datetime | None = None
-    stale: bool = True
-    refreshing: bool = False
 
 
 @router.get("")
