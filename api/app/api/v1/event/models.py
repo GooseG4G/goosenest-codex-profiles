@@ -1,13 +1,21 @@
 from datetime import datetime, timezone
 from typing import Annotated, Literal, TypeAlias
-from uuid import UUID
+from uuid import UUID, uuid4
 
+from api.v1.session.auth import Role
 from pydantic import BaseModel, Field
+
+
+class EventAudience(BaseModel):
+    roles: frozenset[Role] = Field(default_factory=lambda: frozenset({"administrator"}))
+    user_ids: frozenset[UUID] = Field(default_factory=frozenset)
 
 
 class Event(BaseModel):
     version: Literal[1] = 1
+    event_id: UUID = Field(default_factory=uuid4)
     occurred_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    audience: EventAudience = Field(default_factory=EventAudience)
 
 
 class ProfileUsageUpdated(Event):

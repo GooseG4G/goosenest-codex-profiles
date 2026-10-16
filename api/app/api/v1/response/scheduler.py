@@ -1,13 +1,12 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from typing import Any, Dict, Iterable, List, Optional, Set
 from uuid import UUID, uuid4
 
 from api.v1.profile.models import ProfileRuntime
 from integrations.postgres import PostgresSession
-from pydantic import BaseModel
 
 DEFAULT_WINDOW_SECONDS = {
     "primary": 5 * 60 * 60,
@@ -118,25 +117,6 @@ def profile_score(
     )
 
 
-def drain_tier(expires_at: Optional[datetime], now: datetime) -> int:
-    if expires_at is None:
-        return 0
-    remaining = expires_at - now
-    if remaining <= timedelta(0):
-        return -1
-    if remaining <= timedelta(days=1):
-        return 3
-    if remaining <= timedelta(days=3):
-        return 2
-    if remaining <= timedelta(days=7):
-        return 1
-    return 0
-
-
-def reserve_for_tier(tier: int, default: float) -> float:
-    return {3: 0.0, 2: 5.0, 1: 15.0}.get(tier, default)
-
-
 def order_profiles(
     profiles: Iterable[ProfileRuntime],
     now: datetime,
@@ -146,22 +126,12 @@ def order_profiles(
     preferred_profile_id: UUID | None = None,
 ) -> List[ProfileRuntime]:
     profiles = list(profiles)
-    tiers = [
-        (drain_tier(profile.subscription_expires_at, now), profile)
-        for profile in profiles
-    ]
-    tiers = [(tier, profile) for tier, profile in tiers if tier >= 0]
-    if not tiers:
-        return []
-    highest_tier = max(tier for tier, _ in tiers)
-    profiles = [profile for tier, profile in tiers if tier == highest_tier]
-    effective_reserve = reserve_for_tier(highest_tier, weekly_reserve_percent)
     scored = [
         (
             profile_score(
                 profile.usage,
                 now,
-                weekly_reserve_percent=effective_reserve,
+                weekly_reserve_percent=weekly_reserve_percent,
                 active_requests=profile.active_requests,
             ),
             profile,
@@ -169,7 +139,7 @@ def order_profiles(
         for profile in profiles
     ]
     scored = [(score, profile) for score, profile in scored if score is not None]
-    if not scored and effective_reserve:
+    if not scored and weekly_reserve_percent:
         return order_profiles(
             profiles,
             now,
@@ -204,25 +174,15 @@ def order_profiles(
     return ordered
 
 
-class AffinityRow(BaseModel):
-    profile_id: UUID
-
-
 async def reserve_profile(
     session: PostgresSession,
     *,
     excluded: Set[UUID],
     weekly_reserve_percent: float,
     score_tolerance: float,
-    session_key: str,
+    preferred_profile_id: UUID | None,
     model: str,
 ) -> Optional[ProfileReservation]:
-    affinity = await session.fetchrow(
-        AffinityRow,
-        """SELECT profile_id FROM chat_profile_affinity
-        WHERE session_key=$1 AND expires_at > now()""",
-        session_key,
-    )
     for _ in range(8):
         profiles = await session.fetch(
             ProfileRuntime,
@@ -233,7 +193,7 @@ async def reserve_profile(
                        'href', '/api/v1/profiles/' || profile_id
                    ) AS meta,
                    usage_updated_at, plan_type, plan_updated_at,
-                   subscription_expires_at, created_at,
+                   created_at,
                    updated_at, last_used_at,
                    (SELECT count(*) FROM profile_leases lease
                     WHERE lease.profile_id=profiles.profile_id
@@ -257,7 +217,7 @@ async def reserve_profile(
             datetime.now(timezone.utc),
             weekly_reserve_percent=weekly_reserve_percent,
             score_tolerance=score_tolerance,
-            preferred_profile_id=affinity.profile_id if affinity else None,
+            preferred_profile_id=preferred_profile_id,
         )
         if not ordered:
             return None
@@ -279,7 +239,7 @@ async def reserve_profile(
                           'href', '/api/v1/profiles/' || profile_id
                       ) AS meta,
                       usage_updated_at, plan_type, plan_updated_at,
-                      subscription_expires_at, created_at,
+                      created_at,
                       updated_at, last_used_at, $3::int AS active_requests
             """,
             candidate.profile_id,
@@ -299,32 +259,3 @@ async def reserve_profile(
 
 async def release_profile(session: PostgresSession, lease_id: UUID) -> None:
     await session.execute("DELETE FROM profile_leases WHERE lease_id=$1", lease_id)
-
-
-async def clear_affinity(session: PostgresSession, session_key: str) -> None:
-    await session.execute(
-        "DELETE FROM chat_profile_affinity WHERE session_key=$1", session_key
-    )
-
-
-async def bind_affinity(
-    session: PostgresSession,
-    session_key: str,
-    profile_id: UUID,
-    affinity_minutes: int,
-) -> None:
-    await session.execute(
-        """INSERT INTO chat_profile_affinity
-            (session_key, profile_id, assigned_at, expires_at)
-        VALUES ($1, $2, now(), now() + make_interval(mins => $3))
-        ON CONFLICT (session_key) DO UPDATE SET
-            profile_id=EXCLUDED.profile_id,
-            assigned_at=CASE
-                WHEN chat_profile_affinity.profile_id=EXCLUDED.profile_id
-                THEN chat_profile_affinity.assigned_at ELSE now() END,
-            expires_at=EXCLUDED.expires_at,
-            last_failure_at=NULL""",
-        session_key,
-        profile_id,
-        affinity_minutes,
-    )

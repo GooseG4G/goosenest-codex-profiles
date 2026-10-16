@@ -11,15 +11,15 @@ async def initialize_database(context: PostgresContext | None = None) -> None:
         await context.open()
 
     async with context.acquire() as session:
-        if settings.bootstrap_username and settings.bootstrap_password:
-            nickname = settings.bootstrap_nickname or settings.bootstrap_username
+        if settings.account_username and settings.account_password:
+            nickname = settings.account_nickname or settings.account_username
             await session.execute(
                 """
                 INSERT INTO users (username, nickname, password, role)
                 VALUES ($1, $2, $3, 'administrator')
                 ON CONFLICT (username) DO NOTHING
                 """,
-                settings.bootstrap_username,
+                settings.account_username,
                 nickname,
-                hash_secret(settings.bootstrap_password),
+                hash_secret(settings.account_password),
             )

@@ -47,3 +47,41 @@ async def test_stream_cleanup_acquires_its_own_database_session(
     assert saved == [(session, profile_id, headers, usage)]
     assert bound == [(session, "continuation-key", profile_id, 20)]
     assert released == [(session, lease_id)]
+
+
+@pytest.mark.asyncio
+async def test_stream_cleanup_releases_lease_when_affinity_write_fails(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    session = object()
+    context = SimpleNamespace()
+
+    @asynccontextmanager
+    async def acquire():
+        yield session
+
+    context.acquire = acquire
+    released: list[object] = []
+
+    async def bind(*_args):
+        raise RuntimeError("database write failed")
+
+    async def release(db, lease_id):
+        released.append((db, lease_id))
+
+    monkeypatch.setattr(response, "get_postgres_context", lambda: context)
+    monkeypatch.setattr(response, "bind_affinity", bind)
+    monkeypatch.setattr(response, "release_profile", release)
+    profile_id, lease_id = uuid4(), uuid4()
+
+    with pytest.raises(RuntimeError, match="database write failed"):
+        await response._finalize_stream(
+            profile_id,
+            lease_id,
+            httpx.Headers(),
+            None,
+            {"continuation-key"},
+            20,
+        )
+
+    assert released == [(session, lease_id)]

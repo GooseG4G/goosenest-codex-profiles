@@ -1,7 +1,7 @@
 from uuid import UUID
 
 from api.v1.event.models import ProfileAuthChanged
-from integrations.events import publish_event
+from api.v1.event.service import publish_event
 from integrations.postgres import PostgresSession
 
 

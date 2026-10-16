@@ -1,14 +1,17 @@
 import hashlib
 import json
+from datetime import datetime, timedelta, timezone
+from email.utils import format_datetime
 
 import httpx
 import pytest
-from api.v1.response.response import (
-    _response_affinity_keys_from_sse,
-    _send,
-    _session_key,
+from api.v1.response.affinity import (
+    request_affinity_key,
+    response_affinity_keys,
 )
+from api.v1.response.response import _retry_after_seconds
 from api.v1.response.streaming import classify_failure, probe_stream
+from api.v1.response.upstream import downstream_headers, upstream_headers
 
 
 class ByteStream(httpx.AsyncByteStream):
@@ -20,19 +23,6 @@ class ByteStream(httpx.AsyncByteStream):
             yield chunk
 
 
-class CapturingClient:
-    def __init__(self) -> None:
-        self.request: httpx.Request | None = None
-
-    def build_request(self, method, url, **kwargs):
-        self.request = httpx.Request(method, url, **kwargs)
-        return self.request
-
-    async def send(self, request, *, stream):
-        assert stream
-        return httpx.Response(200, request=request)
-
-
 def frame(value: dict) -> bytes:
     return b"data: " + json.dumps(value).encode() + b"\n\n"
 
@@ -40,15 +30,16 @@ def frame(value: dict) -> bytes:
 def test_session_key_prefers_explicit_chat_header() -> None:
     request = httpx.Request("POST", "http://test", headers={"x-chat-id": "chat-7"})
 
-    assert _session_key(request, b"{}") == hashlib.sha256(
-        b"header:x-chat-id:chat-7"
-    ).hexdigest()
+    assert (
+        request_affinity_key(request, b"{}")
+        == hashlib.sha256(b"header:x-chat-id:chat-7").hexdigest()
+    )
 
 
 def test_session_key_uses_conversation_from_body() -> None:
     request = httpx.Request("POST", "http://test")
 
-    assert _session_key(request, b'{"conversation_id":"conv-7"}') == (
+    assert request_affinity_key(request, b'{"conversation_id":"conv-7"}') == (
         hashlib.sha256(b"body:conversation_id:conv-7").hexdigest()
     )
 
@@ -56,39 +47,35 @@ def test_session_key_uses_conversation_from_body() -> None:
 def test_session_key_does_not_pin_unidentified_chats_to_a_device() -> None:
     request = httpx.Request("POST", "http://test")
 
-    assert _session_key(request, b"{}") != _session_key(request, b"{}")
+    assert request_affinity_key(request, b"{}") is None
 
 
 def test_session_key_uses_official_conversation_fields() -> None:
     request = httpx.Request("POST", "http://test")
 
-    conversation = _session_key(request, b'{"conversation":"conv_7"}')
-    previous = _session_key(request, b'{"previous_response_id":"resp_7"}')
+    conversation = request_affinity_key(request, b'{"conversation":"conv_7"}')
+    previous = request_affinity_key(request, b'{"previous_response_id":"resp_7"}')
 
     assert conversation == hashlib.sha256(b"body:conversation:conv_7").hexdigest()
-    assert previous == hashlib.sha256(
-        b"body:previous_response_id:resp_7"
-    ).hexdigest()
+    assert previous == hashlib.sha256(b"body:previous_response_id:resp_7").hexdigest()
 
 
 def test_prompt_cache_key_is_not_used_as_chat_identity() -> None:
     request = httpx.Request("POST", "http://test")
     body = b'{"prompt_cache_key":"same-user"}'
 
-    assert _session_key(request, body) != _session_key(request, body)
+    assert request_affinity_key(request, body) is None
 
 
 def test_response_id_becomes_continuation_affinity_alias() -> None:
     payload = frame({"type": "response.created", "response": {"id": "resp_7"}})
 
-    assert _response_affinity_keys_from_sse(payload) == {
+    assert response_affinity_keys(payload) == {
         hashlib.sha256(b"body:previous_response_id:resp_7").hexdigest()
     }
 
 
-@pytest.mark.asyncio
-async def test_send_uses_a_stable_upstream_header_contract() -> None:
-    client = CapturingClient()
+def test_send_uses_a_stable_upstream_header_contract() -> None:
     request = httpx.Request(
         "POST",
         "http://proxy/responses",
@@ -99,26 +86,44 @@ async def test_send_uses_a_stable_upstream_header_contract() -> None:
             "X-Session-Id": "chat-7",
             "Connection": "keep-alive",
             "Cookie": "private=value",
+            "X-Client-Request-Id": "request-7",
+            "Idempotency-Key": "operation-7",
         },
     )
 
-    await _send(
-        client,  # type: ignore[arg-type]
-        "https://upstream.example/responses",
-        b"{}",
-        request,
-        "oauth-token",
-        "pool-account",
+    headers = httpx.Headers(upstream_headers(request, "oauth-token", "pool-account"))
+
+    assert headers["authorization"] == "Bearer oauth-token"
+    assert headers["chatgpt-account-id"] == "pool-account"
+    assert headers["x-client-request-id"] == "request-7"
+    assert headers["idempotency-key"] == "operation-7"
+    assert "openai-beta" not in headers
+    assert "x-session-id" not in headers
+    assert "cookie" not in headers
+    assert "connection" not in headers
+    assert headers["user-agent"] == "codex-cli"
+
+
+def test_response_header_contract_strips_transport_state_and_cookies() -> None:
+    headers = downstream_headers(
+        httpx.Headers(
+            {
+                "Connection": "keep-alive",
+                "Content-Length": "99",
+                "Set-Cookie": "session=private",
+                "X-OAI-Request-Id": "upstream-7",
+                "Retry-After": "30",
+                "Content-Type": "text/event-stream",
+            }
+        )
     )
 
-    assert client.request is not None
-    assert client.request.headers["authorization"] == "Bearer oauth-token"
-    assert client.request.headers["chatgpt-account-id"] == "pool-account"
-    assert "openai-beta" not in client.request.headers
-    assert "x-session-id" not in client.request.headers
-    assert "cookie" not in client.request.headers
-    assert client.request.headers.get("connection") != "keep-alive"
-    assert client.request.headers["user-agent"] == "codex-cli"
+    assert "connection" not in headers
+    assert "content-length" not in headers
+    assert "set-cookie" not in headers
+    assert headers["x-oai-request-id"] == "upstream-7"
+    assert headers["retry-after"] == "30"
+    assert headers["content-type"] == "text/event-stream"
 
 
 def test_capacity_error_is_retryable() -> None:
@@ -144,14 +149,20 @@ def test_invalid_request_is_not_retryable() -> None:
     assert not failure.retryable
 
 
+def test_retry_after_accepts_delta_seconds_and_http_date() -> None:
+    retry_at = format_datetime(datetime.now(timezone.utc) + timedelta(seconds=120))
+
+    assert _retry_after_seconds("15") == 15
+    assert 118 <= _retry_after_seconds(retry_at) <= 120
+    assert _retry_after_seconds("invalid") == 60
+
+
 @pytest.mark.asyncio
 async def test_probe_detects_failed_response_before_content() -> None:
     payload = frame(
         {
             "type": "response.failed",
-            "response": {
-                "error": {"code": "server_error", "message": "Try again"}
-            },
+            "response": {"error": {"code": "server_error", "message": "Try again"}},
         }
     )
     response = httpx.Response(200, stream=ByteStream([payload]))
@@ -164,12 +175,12 @@ async def test_probe_detects_failed_response_before_content() -> None:
 
 
 @pytest.mark.asyncio
-async def test_probe_stops_at_first_content_and_preserves_bytes() -> None:
+async def test_probe_stops_at_created_event_to_minimize_first_byte_latency() -> None:
     created = frame({"type": "response.created"})
     content = frame({"type": "response.output_text.delta", "delta": "hello"})
     response = httpx.Response(200, stream=ByteStream([created, content]))
 
     probe = await probe_stream(response)
 
-    assert probe.prefix == created + content
+    assert probe.prefix == created
     assert probe.failure is None

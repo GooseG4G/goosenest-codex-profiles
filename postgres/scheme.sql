@@ -49,7 +49,6 @@ CREATE TABLE profiles (
     usage_updated_at timestamptz,
     plan_type text,
     plan_updated_at timestamptz,
-    subscription_expires_at timestamptz,
     cooldown_until timestamptz,
     consecutive_failures integer NOT NULL DEFAULT 0,
     last_failure_at timestamptz,
@@ -92,5 +91,7 @@ CREATE INDEX profiles_scheduler_idx
     ON profiles(enabled, auth_status, cooldown_until, last_used_at);
 CREATE INDEX profile_leases_active_idx
     ON profile_leases(profile_id, expires_at);
+CREATE INDEX profile_leases_expiry_idx ON profile_leases(expires_at);
 CREATE INDEX chat_profile_affinity_profile_idx ON chat_profile_affinity(profile_id, expires_at);
+CREATE INDEX chat_profile_affinity_expiry_idx ON chat_profile_affinity(expires_at);
 CREATE INDEX profile_model_health_cooldown_idx ON profile_model_health(model, cooldown_until);

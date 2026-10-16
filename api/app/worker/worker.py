@@ -16,12 +16,24 @@ app.conf.update(
     task_track_started=True,
     task_reject_on_worker_lost=True,
     worker_prefetch_multiplier=1,
-    imports=("api.v1.profile.usage.tasks",),
+    imports=(
+        "api.v1.profile.plan.tasks",
+        "api.v1.profile.usage.tasks",
+        "api.v1.response.tasks",
+    ),
     task_default_queue="default",
     task_queues=(Queue("default"), Queue("codex")),
     task_routes={
         "profiles.usage.refresh": {"queue": "codex"},
         "profiles.plan.refresh": {"queue": "codex"},
         "profiles.usage.reset.consume": {"queue": "codex"},
+        "responses.state.cleanup": {"queue": "default"},
+    },
+    beat_schedule={
+        "cleanup-expired-response-state": {
+            "task": "responses.state.cleanup",
+            "schedule": 900.0,
+            "options": {"expires": 840},
+        },
     },
 )

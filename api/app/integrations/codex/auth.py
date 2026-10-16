@@ -136,7 +136,8 @@ class CodexDeviceAuth:
             return flow
         except (KeyError, OSError, RuntimeError, asyncio.TimeoutError) as error:
             await self.stop(flow)
-            raise RuntimeError(str(error) or "Codex did not start device sign-in") from error
+            message = str(error) or "Codex did not start device sign-in"
+            raise RuntimeError(message) from error
 
     def get(self, uid: UUID) -> DeviceFlow | None:
         return self._flows.get(uid)

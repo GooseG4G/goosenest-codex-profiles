@@ -1,6 +1,7 @@
 import json
 from pathlib import Path
 from types import SimpleNamespace
+from uuid import uuid4
 
 import pytest
 from integrations.codex.auth import (
@@ -9,7 +10,6 @@ from integrations.codex.auth import (
     secure_credentials,
 )
 from integrations.codex.models import DeviceFlow
-from uuid import uuid4
 
 
 def test_authentication_is_ready_when_access_token_exists(tmp_path: Path) -> None:

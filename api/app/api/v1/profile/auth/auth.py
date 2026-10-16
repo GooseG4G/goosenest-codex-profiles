@@ -5,6 +5,7 @@ from typing import Annotated
 from uuid import UUID
 
 from api.v1.event.models import ProfileAuthChanged
+from api.v1.event.service import publish_event
 from api.v1.profile.models import ProfileEntity, ProfileRuntime
 from api.v1.session.auth import Principal, require_admin
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -15,7 +16,6 @@ from integrations.codex.auth import (
     secure_credentials,
 )
 from integrations.codex.models import DeviceFlow
-from integrations.events import publish_event
 from integrations.postgres import PostgresSession
 from integrations.postgres.providers import (
     get_postgres_context,
@@ -65,7 +65,6 @@ async def _finalize(flow: DeviceFlow, session: PostgresSession) -> None:
                    ) AS meta,
                    profile_id, name, enabled, auth_status, usage,
                    usage_updated_at, plan_type, plan_updated_at,
-                   subscription_expires_at,
                    created_at, updated_at, last_used_at, codex_home
             FROM profiles
             WHERE ($1::uuid IS NOT NULL AND profile_id=$1)
@@ -100,7 +99,6 @@ async def _finalize(flow: DeviceFlow, session: PostgresSession) -> None:
                           ) AS meta,
                           profile_id, name, enabled, auth_status, usage,
                           usage_updated_at, plan_type, plan_updated_at,
-                          subscription_expires_at,
                           created_at, updated_at, last_used_at
                 """,
                 flow.profile_id,
@@ -126,7 +124,6 @@ async def _finalize(flow: DeviceFlow, session: PostgresSession) -> None:
                           ) AS meta,
                           profile_id, name, enabled, auth_status, usage,
                           usage_updated_at, plan_type, plan_updated_at,
-                          subscription_expires_at,
                           created_at, updated_at, last_used_at
                 """,
                 existing.profile_id,
@@ -143,10 +140,8 @@ async def _finalize(flow: DeviceFlow, session: PostgresSession) -> None:
                 flow_id=flow.uid,
             )
         )
-        from api.v1.profile.usage.tasks import (
-            enqueue_profile_plan_refresh,
-            enqueue_profile_usage_refresh,
-        )
+        from api.v1.profile.plan.tasks import enqueue_profile_plan_refresh
+        from api.v1.profile.usage.tasks import enqueue_profile_usage_refresh
 
         await enqueue_profile_usage_refresh(profile.profile_id)
         await enqueue_profile_plan_refresh(profile.profile_id)
