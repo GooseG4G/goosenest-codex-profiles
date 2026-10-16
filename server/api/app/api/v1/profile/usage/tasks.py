@@ -49,8 +49,11 @@ async def enqueue_profile_usage_refresh(profile_id: UUID) -> str:
     task_id = str(uuid4())
 
     async def dispatch() -> None:
+        from worker import app
+
         await asyncio.to_thread(
-            refresh_profile_usage.apply_async,
+            app.send_task,
+            USAGE_REFRESH_TASK,
             args=[str(profile_id)],
             task_id=task_id,
         )
@@ -72,8 +75,11 @@ async def enqueue_profile_usage_reset(
     task_id = str(uuid4())
 
     async def dispatch() -> None:
+        from worker import app
+
         await asyncio.to_thread(
-            consume_profile_usage_reset.apply_async,
+            app.send_task,
+            USAGE_RESET_TASK,
             args=[str(profile_id), credit_id, idempotency_key],
             task_id=task_id,
         )
