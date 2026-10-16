@@ -75,18 +75,22 @@ async def _consume_reset(
                 profile_id,
             )
 
-        if (
-            profile is None
-            or not profile.enabled
-            or profile.auth_status != "authorized"
-        ):
+        profile_available = (
+            profile is not None
+            and profile.enabled
+            and profile.auth_status == "authorized"
+        )
+        if not profile_available:
             return "profileUnavailable"
+
         outcome = await consume_codex_usage_reset(
             profile.codex_home,
             credit_id,
             idempotency_key,
         )
+
         usage = await read_codex_usage(profile.codex_home)
+
         async with context.acquire() as session:
             await session.execute(
                 """UPDATE profiles
@@ -95,13 +99,16 @@ async def _consume_reset(
                 profile.profile_id,
                 usage,
             )
+
         await publish_event(
             ProfileUsageResetCompleted(
                 profile_id=profile.profile_id,
                 outcome=outcome,
             )
         )
+
         return outcome
+
     finally:
         await context.close()
 
@@ -119,6 +126,7 @@ def consume_profile_usage_reset(
     settings = get_profile_task_settings()
     resource_id = f"{profile_id}:{credit_id}"
     task_id = str(self.request.id)
+
     try:
         if not asyncio.run(
             claim_execution(
@@ -157,6 +165,9 @@ def consume_profile_usage_reset(
         )
 
     else:
-        _release_execution_safely(resource_id, task_id)
+        _release_execution_safely(
+            resource_id,
+            task_id,
+        )
 
         return outcome
