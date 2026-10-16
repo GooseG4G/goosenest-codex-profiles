@@ -4,8 +4,8 @@ from uuid import uuid4
 
 import pytest
 import worker
-from worker.tasks.profile.plan import refresh as plan_tasks
-from worker.tasks.profile.usage import refresh as usage_tasks
+from worker.tasks.profile import plan as plan_tasks
+from worker.tasks.profile.usage import usage as usage_tasks
 
 
 @pytest.mark.asyncio
