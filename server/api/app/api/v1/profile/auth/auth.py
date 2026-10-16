@@ -141,11 +141,11 @@ async def _finalize(flow: DeviceFlow, session: PostgresSession) -> None:
                 flow_id=flow.uid,
             )
         )
-        from worker.tasks.profile.plan import _enqueue_profile_plan_refresh
-        from worker.tasks.profile.usage.usage import _enqueue_profile_usage_refresh
+        from worker.tasks.profile.plan import _schedule_profile_plan_refresh
+        from worker.tasks.profile.usage.usage import _schedule_profile_usage_refresh
 
-        await _enqueue_profile_usage_refresh(profile.profile_id)
-        await _enqueue_profile_plan_refresh(profile.profile_id)
+        await _schedule_profile_usage_refresh(profile.profile_id)
+        await _schedule_profile_plan_refresh(profile.profile_id)
 
 
 async def _complete(flow: DeviceFlow) -> None:

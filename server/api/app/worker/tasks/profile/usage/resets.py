@@ -131,6 +131,7 @@ def consume_profile_usage_reset(
         outcome = asyncio.run(
             _consume_reset(UUID(profile_id), credit_id, idempotency_key),
         )
+
     except Exception as error:
         logger.warning(
             "profiles.usage.reset.consume failed for %s (attempt %s): %s",
