@@ -3,8 +3,8 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from .refresh import enqueue_profile_usage_refresh, refresh_profile_usage
     from .resets import consume_profile_usage_reset, enqueue_profile_usage_reset
+    from .usage import enqueue_profile_usage_refresh, refresh_profile_usage
 
 __all__ = [
     "consume_profile_usage_reset",
@@ -16,9 +16,9 @@ __all__ = [
 
 def __getattr__(name: str) -> Any:
     if name in {"enqueue_profile_usage_refresh", "refresh_profile_usage"}:
-        from . import refresh
+        from . import usage
 
-        return getattr(refresh, name)
+        return getattr(usage, name)
 
     if name in {"consume_profile_usage_reset", "enqueue_profile_usage_reset"}:
         from . import resets
