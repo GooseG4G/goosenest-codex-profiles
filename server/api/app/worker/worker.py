@@ -15,6 +15,7 @@ app.conf.update(
     task_ignore_result=True,
     task_reject_on_worker_lost=True,
     worker_prefetch_multiplier=1,
+    beat_schedule_filename="/data/celerybeat-schedule",
     imports=(
         "api.v1.profile.plan.tasks",
         "api.v1.profile.usage.tasks",
