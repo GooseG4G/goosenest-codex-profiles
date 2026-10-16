@@ -36,8 +36,11 @@ async def enqueue_profile_plan_refresh(profile_id: UUID) -> str:
     task_id = str(uuid4())
 
     async def dispatch() -> None:
+        from worker import app
+
         await asyncio.to_thread(
-            refresh_profile_plan.apply_async,
+            app.send_task,
+            PLAN_REFRESH_TASK,
             args=[str(profile_id)],
             task_id=task_id,
         )
