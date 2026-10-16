@@ -1,7 +1,7 @@
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from api.v1.session import tasks
+from worker.tasks.session import cleanup as tasks
 
 
 @pytest.mark.asyncio

@@ -18,10 +18,6 @@ from .models import (
     UsageResetsMeta,
     UsageWindow,
 )
-from .tasks import (
-    enqueue_profile_usage_refresh,
-    enqueue_profile_usage_reset,
-)
 
 router = APIRouter(prefix="/{profile_id}/usage", tags=["profile usage"])
 Session = Annotated[PostgresSession, Depends(get_postgres_session)]
@@ -56,6 +52,8 @@ def _age(profile: ProfileEntity) -> float:
 async def _revalidate_if_due(profile: ProfileEntity) -> bool:
     if _age(profile) < 60:
         return False
+    from worker.tasks import enqueue_profile_usage_refresh
+
     await enqueue_profile_usage_refresh(profile.profile_id)
     return True
 
@@ -155,6 +153,8 @@ async def consume_reset(
 ) -> UsageResetEntity:
     await _profile(profile_id, session)
     key = idempotency_key or str(uuid4())
+    from worker.tasks import enqueue_profile_usage_reset
+
     task_id = await enqueue_profile_usage_reset(profile_id, reset_id, key)
     return UsageResetEntity(
         meta=UsageResetMeta(

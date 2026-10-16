@@ -1,0 +1,40 @@
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from .plan import enqueue_profile_plan_refresh, refresh_profile_plan
+    from .usage import (
+        consume_profile_usage_reset,
+        enqueue_profile_usage_refresh,
+        enqueue_profile_usage_reset,
+        refresh_profile_usage,
+    )
+
+__all__ = [
+    "consume_profile_usage_reset",
+    "enqueue_profile_plan_refresh",
+    "enqueue_profile_usage_refresh",
+    "enqueue_profile_usage_reset",
+    "refresh_profile_plan",
+    "refresh_profile_usage",
+]
+
+
+def __getattr__(name: str) -> Any:
+    if name in {"enqueue_profile_plan_refresh", "refresh_profile_plan"}:
+        from . import plan
+
+        return getattr(plan, name)
+
+    if name in {
+        "consume_profile_usage_reset",
+        "enqueue_profile_usage_refresh",
+        "enqueue_profile_usage_reset",
+        "refresh_profile_usage",
+    }:
+        from . import usage
+
+        return getattr(usage, name)
+
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
