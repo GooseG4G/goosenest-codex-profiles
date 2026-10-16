@@ -74,6 +74,7 @@ async def _consume_reset(
                 f"SELECT {FIELDS} FROM profiles WHERE profile_id=$1",
                 profile_id,
             )
+
         if (
             profile is None
             or not profile.enabled
