@@ -32,7 +32,7 @@ def _release_execution_safely(resource_id: str, task_id: str) -> None:
         logger.exception("Failed to release plan task lease for %s", resource_id)
 
 
-async def enqueue_profile_plan_refresh(profile_id: UUID) -> str:
+async def _schedule_profile_plan_refresh(profile_id: UUID) -> str:
     task_id = str(uuid4())
 
     async def dispatch() -> None:

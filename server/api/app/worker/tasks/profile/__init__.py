@@ -3,38 +3,35 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from .plan import enqueue_profile_plan_refresh, refresh_profile_plan
+    from .plan import refresh_profile_plan
     from .usage import (
         consume_profile_usage_reset,
-        enqueue_profile_usage_refresh,
-        enqueue_profile_usage_reset,
         refresh_profile_usage,
     )
 
 __all__ = [
-    "consume_profile_usage_reset",
-    "enqueue_profile_plan_refresh",
-    "enqueue_profile_usage_refresh",
-    "enqueue_profile_usage_reset",
     "refresh_profile_plan",
     "refresh_profile_usage",
+    "consume_profile_usage_reset",
 ]
 
 
 def __getattr__(name: str) -> Any:
-    if name in {"enqueue_profile_plan_refresh", "refresh_profile_plan"}:
-        from . import plan
+    if name == "refresh_profile_plan":
+        from .plan import refresh_profile_plan
 
-        return getattr(plan, name)
+        return refresh_profile_plan
 
-    if name in {
-        "consume_profile_usage_reset",
-        "enqueue_profile_usage_refresh",
-        "enqueue_profile_usage_reset",
-        "refresh_profile_usage",
-    }:
-        from . import usage
+    if name == "refresh_profile_usage":
+        from .usage import refresh_profile_usage
 
-        return getattr(usage, name)
+        return refresh_profile_usage
 
-    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+    if name == "consume_profile_usage_reset":
+        from .usage import consume_profile_usage_reset
+
+        return consume_profile_usage_reset
+
+    message = f"module {__name__!r} has no attribute {name!r}"
+
+    raise AttributeError(message)
