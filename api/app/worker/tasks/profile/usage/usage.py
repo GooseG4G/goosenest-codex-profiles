@@ -40,7 +40,7 @@ def _release_execution_safely(
         )
 
 
-async def enqueue_profile_usage_refresh(profile_id: UUID) -> str:
+async def _schedule_profile_usage_refresh(profile_id: UUID) -> str:
     task_id = str(uuid4())
 
     async def dispatch() -> None:

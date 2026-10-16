@@ -5,9 +5,6 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from .profile import (
         consume_profile_usage_reset,
-        enqueue_profile_plan_refresh,
-        enqueue_profile_usage_refresh,
-        enqueue_profile_usage_reset,
         refresh_profile_plan,
         refresh_profile_usage,
     )
@@ -15,29 +12,29 @@ if TYPE_CHECKING:
     from .session import cleanup_sessions
 
 __all__ = [
-    "cleanup_response_state",
-    "cleanup_sessions",
     "consume_profile_usage_reset",
-    "enqueue_profile_plan_refresh",
-    "enqueue_profile_usage_refresh",
-    "enqueue_profile_usage_reset",
     "refresh_profile_plan",
     "refresh_profile_usage",
+    "cleanup_response_state",
+    "cleanup_sessions",
 ]
 
 
 def __getattr__(name: str) -> Any:
-    if name in {
-        "consume_profile_usage_reset",
-        "enqueue_profile_plan_refresh",
-        "enqueue_profile_usage_refresh",
-        "enqueue_profile_usage_reset",
-        "refresh_profile_plan",
-        "refresh_profile_usage",
-    }:
-        from . import profile
+    if name == "consume_profile_usage_reset":
+        from .profile import consume_profile_usage_reset
 
-        return getattr(profile, name)
+        return consume_profile_usage_reset
+
+    if name == "refresh_profile_plan":
+        from .profile import refresh_profile_plan
+
+        return refresh_profile_plan
+
+    if name == "refresh_profile_usage":
+        from .profile import refresh_profile_usage
+
+        return refresh_profile_usage
 
     if name == "cleanup_response_state":
         from .response import cleanup_response_state
@@ -49,4 +46,6 @@ def __getattr__(name: str) -> Any:
 
         return cleanup_sessions
 
-    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+    message = f"module {__name__!r} has no attribute {name!r}"
+
+    raise AttributeError(message)

@@ -14,4 +14,6 @@ def __getattr__(name: str) -> Any:
 
         return cleanup_response_state
 
-    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+    message = f"module {__name__!r} has no attribute {name!r}"
+
+    raise AttributeError(message)

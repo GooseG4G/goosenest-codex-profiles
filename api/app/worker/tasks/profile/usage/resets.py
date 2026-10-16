@@ -13,7 +13,6 @@ from integrations.postgres.providers import get_postgres_settings
 from worker.singleflight import claim_execution, enqueue_once, release_execution
 
 logger = logging.getLogger(__name__)
-USAGE_RESET_TASK = "profiles.usage.reset.consume"
 FIELDS = """jsonb_build_object(
                 'type', 'profile',
                 'href', '/api/v1/profiles/' || profile_id
@@ -25,7 +24,9 @@ FIELDS = """jsonb_build_object(
 
 def _release_execution_safely(resource_id: str, task_id: str) -> None:
     try:
-        asyncio.run(release_execution(USAGE_RESET_TASK, resource_id, task_id))
+        asyncio.run(
+            release_execution("profiles.usage.reset.consume", resource_id, task_id)
+        )
     except Exception:
         logger.exception(
             "Failed to release usage reset task lease for %s",
@@ -33,7 +34,7 @@ def _release_execution_safely(resource_id: str, task_id: str) -> None:
         )
 
 
-async def enqueue_profile_usage_reset(
+async def _schedule_profile_usage_reset(
     profile_id: UUID,
     credit_id: str,
     idempotency_key: str,
@@ -45,13 +46,13 @@ async def enqueue_profile_usage_reset(
 
         await asyncio.to_thread(
             app.send_task,
-            USAGE_RESET_TASK,
+            "profiles.usage.reset.consume",
             args=[str(profile_id), credit_id, idempotency_key],
             task_id=task_id,
         )
 
     return await enqueue_once(
-        USAGE_RESET_TASK,
+        "profiles.usage.reset.consume",
         f"{profile_id}:{credit_id}",
         task_id,
         dispatch,
@@ -105,7 +106,7 @@ async def _consume_reset(
 
 
 @shared_task(
-    name=USAGE_RESET_TASK,
+    name="profiles.usage.reset.consume",
     bind=True,
 )
 def consume_profile_usage_reset(
@@ -120,7 +121,7 @@ def consume_profile_usage_reset(
     try:
         if not asyncio.run(
             claim_execution(
-                USAGE_RESET_TASK,
+                "profiles.usage.reset.consume",
                 resource_id,
                 task_id,
                 lease_ttl=settings.lease_ttl,
@@ -137,18 +138,23 @@ def consume_profile_usage_reset(
             self.request.retries + 1,
             error,
         )
+
         if self.request.retries >= settings.max_retries:
             _release_execution_safely(resource_id, task_id)
             raise
+
         delay = min(
             settings.min_retry_delay * 2**self.request.retries,
             settings.max_retry_delay,
         )
+
         raise self.retry(
             exc=error,
             max_retries=settings.max_retries,
             countdown=delay,
         )
+
     else:
         _release_execution_safely(resource_id, task_id)
+
         return outcome

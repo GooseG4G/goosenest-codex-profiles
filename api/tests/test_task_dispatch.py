@@ -14,12 +14,12 @@ from worker.tasks.profile.usage import usage as usage_tasks
     [
         (
             plan_tasks,
-            plan_tasks.enqueue_profile_plan_refresh,
+            plan_tasks._schedule_profile_plan_refresh,
             plan_tasks.PLAN_REFRESH_TASK,
         ),
         (
             usage_tasks,
-            usage_tasks.enqueue_profile_usage_refresh,
+            usage_tasks._schedule_profile_usage_refresh,
             usage_tasks.USAGE_REFRESH_TASK,
         ),
     ],
