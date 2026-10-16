@@ -67,7 +67,7 @@ function close() {
     </div>
     <div class="table-card">
       <div class="list-header">
-        Device <span>{{ devices.length }}</span>
+        Device
       </div>
       <div v-if="!visible.length" class="empty">
         No devices found
@@ -92,6 +92,7 @@ function close() {
             tone="danger"
             size="small"
             icon-motion="none"
+            motion-preset="surface"
             @click="emit('delete', device.device_id)"
             ><template #icon><Trash2 /></template></UIIconButton
         ></span>

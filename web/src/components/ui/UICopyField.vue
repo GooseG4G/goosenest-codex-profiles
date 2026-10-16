@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Check, Copy } from "@lucide/vue";
-import { computed, onUnmounted, shallowRef, useId, useTemplateRef } from "vue";
+import { computed, onBeforeUnmount, onMounted, onUnmounted, shallowRef, useId, useTemplateRef } from "vue";
 import UITooltip from "./UITooltip.vue";
 
 const props = withDefaults(
@@ -24,6 +24,14 @@ const tooltipOpen = computed(
 const tooltipText = computed(() =>
   copied.value ? props.copiedLabel : props.label,
 );
+function onDocumentKeydown(event: KeyboardEvent) {
+  if (event.key !== "Escape") return;
+  hovered.value = false;
+  focused.value = false;
+  tooltipDismissed.value = true;
+}
+onMounted(() => document.addEventListener("keydown", onDocumentKeydown));
+onBeforeUnmount(() => document.removeEventListener("keydown", onDocumentKeydown));
 let resetTimer: number | undefined;
 
 async function copy() {
@@ -65,7 +73,7 @@ onUnmounted(() => {
     @pointerdown="focused = false"
     @mouseenter="hovered = true; tooltipDismissed = false"
     @mouseleave="hovered = false; tooltipDismissed = false"
-    @focus="focused = button?.matches(':focus-visible') ?? false; tooltipDismissed = false"
+    @focus="focused = (button?.matches(':focus-visible') ?? false) && !button?.dataset.focusRestored; tooltipDismissed = false"
     @blur="focused = false; tooltipDismissed = false"
   >
     <code>{{ value }}</code>

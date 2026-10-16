@@ -12,6 +12,7 @@ type IconMotion =
   | "tilt-counterclockwise"
   | "shift-diagonal"
   | "none";
+type MotionPreset = "independent" | "surface";
 
 const props = withDefaults(
   defineProps<{
@@ -26,6 +27,7 @@ const props = withDefaults(
     background?: Background;
     surfaceMotion?: SurfaceMotion;
     iconMotion?: IconMotion;
+    motionPreset?: MotionPreset;
   }>(),
   {
     title: undefined,
@@ -35,6 +37,7 @@ const props = withDefaults(
     background: "hover",
     surfaceMotion: "none",
     iconMotion: "together",
+    motionPreset: "independent",
     pending: false,
     selected: undefined,
   },
@@ -68,8 +71,8 @@ const classes = computed(() => [
   `tone-${props.tone}`,
   `size-${props.size}`,
   `background-${props.background}`,
-  `surface-${props.surfaceMotion}`,
-  `icon-${props.iconMotion}`,
+  `surface-${props.motionPreset === "surface" ? "scale" : props.surfaceMotion}`,
+  `icon-${props.motionPreset === "surface" ? "none" : props.iconMotion}`,
   { "is-selected": props.selected, "is-pending": showPending.value },
 ]);
 </script>

@@ -141,6 +141,10 @@ function confirmReset() {
 .reset-summary:hover {
   background: var(--color-bg-control-hover);
 }
+.reset-summary:active {
+  background: var(--color-bg-control-pressed);
+  transform: scale(0.995);
+}
 .reset-summary:focus-visible {
   outline: none;
   box-shadow: inset 0 0 0 1px var(--color-focus);

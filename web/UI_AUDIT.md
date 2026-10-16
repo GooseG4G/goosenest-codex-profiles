@@ -28,9 +28,25 @@ The matrix keeps background, icon and surface motion independently configurable.
 
 - A control gets a tooltip only when its meaning is not already clear from visible text or a row-level affordance.
 - A row-level disclosure indicator is not a second button: the complete identity row is the click target, while the indicator only reflects state and rotates.
+- Disclosure icons have no independent tooltip, background or hover target; row hover/press owns the feedback and the icon may scale/rotate as a subordinate state cue.
 - `UISwitch` owns only enable/disable semantics; its track does not inherit disclosure hover or pressed motion.
+- `UISwitch` hover uses the dedicated button-hover surface and border tokens so it remains distinct from a hovered profile row; hover never changes its geometry.
+- `UISwitch` keeps a full accessible name (`Enable/Disable <profile>`) while its visual tooltip is the short action (`Enable`/`Disable`); disabled and pending states never open it.
 - Destructive delete remains an independent `UIIconButton` with its own danger surface and tooltip.
 - Background, icon scale/rotation and surface translation are selected independently per context; no global hover animation is applied to every button.
+
+### Usage audit
+
+| Context | Control treatment | Background | Icon treatment | Surface treatment |
+| --- | --- | --- | --- | --- |
+| Add/create in a toolbar | `UIIconButton` medium | `always` | `together` (subtle scale communicates an available action) | no lift; the persistent surface supplies the hit-target boundary |
+| Row delete / destructive close | `UIIconButton` small, danger | hover-only or transparent at rest | `none`; the icon follows the button surface as one unit | `motionPreset="surface"`; one restrained scale avoids stacking surface and icon transforms |
+| Row copy / dismiss | `UIIconButton` small | hover-only | `none` or `together` only for copy success feedback | `none` by default; feedback is conveyed by label/state, not displacement |
+| Row disclosure | row hit target with a passive icon | row hover | rotation only | no icon-button surface; the row owns hover/pressed feedback |
+| Authentication retry / refresh | `UIIconButton` small | hover-only | `spin` while retrying, `together` at rest | `none` to keep progress anchored |
+| Dialog close | `UIIconButton` small | hover-only | `none` | `none`; focus ring remains the primary affordance |
+| Form submit / confirm | `UIButton` | semantic variant surface | slotted icon moves with label | 1 px lift on hover, 0.98 compression on press; pending removes decorative motion |
+| Toggle enablement | `UISwitch` | neutral track | thumb translates only | track/border transition, no scale or lift |
 
 ## Navigation
 
@@ -40,6 +56,7 @@ The matrix keeps background, icon and surface motion independently configurable.
 - Icon and label form one hit target with a minimum height of 36 px.
 - Devices stays first, then a separator, then Profiles and Users.
 - Mobile switches to a compact horizontal navigation without hiding access to any view.
+- Mobile navigation is a fixed bottom bar on coarse-pointer layouts, with 44×44 hit targets, safe-area padding and workspace bottom compensation.
 - View state is addressable: Devices is `/me/devices`, Profiles is `/profiles`, and Users is `/users`.
 - Administrator-only routes redirect non-administrators to `/me/devices`.
 

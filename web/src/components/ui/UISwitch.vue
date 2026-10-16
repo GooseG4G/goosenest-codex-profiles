@@ -5,12 +5,14 @@ const props = withDefaults(
   defineProps<{
     modelValue: boolean;
     accessibleLabel: string;
+    tooltip?: string;
     disabled?: boolean;
     pending?: boolean;
   }>(),
   {
     disabled: false,
     pending: false,
+    tooltip: undefined,
   },
 );
 
@@ -21,6 +23,7 @@ const button = useTemplateRef<HTMLButtonElement>("button");
 const tooltipId = useId();
 const hovered = shallowRef(false);
 const focused = shallowRef(false);
+const tooltipText = computed(() => props.tooltip ?? props.accessibleLabel);
 const tooltipOpen = computed(() => !props.disabled && !props.pending && (hovered.value || focused.value));
 function onDocumentKeydown(event: KeyboardEvent) {
   if (event.key !== "Escape") return;
@@ -56,7 +59,7 @@ function toggle() {
   >
     <span class="thumb" aria-hidden="true" />
   </button>
-  <UITooltip :id="tooltipId" :anchor="button" :text="accessibleLabel" :open="tooltipOpen" :instant="focused" />
+  <UITooltip :id="tooltipId" :anchor="button" :text="tooltipText" :open="tooltipOpen" :instant="focused" />
 </template>
 
 <style scoped>
@@ -77,8 +80,8 @@ function toggle() {
     opacity var(--duration-fast) var(--ease-standard);
 }
 .ui-switch:hover:not(:disabled) {
-  border-color: var(--color-border-strong);
-  background: var(--color-bg-raised);
+  border-color: var(--color-border-button-hover);
+  background: var(--color-bg-button-hover);
 }
 .ui-switch:focus-visible {
   border-color: var(--color-focus);
@@ -89,8 +92,8 @@ function toggle() {
   background: var(--color-bg-widget);
 }
 .ui-switch.checked:hover:not(:disabled) {
-  border-color: var(--color-text-tertiary);
-  background: var(--color-bg-raised);
+  border-color: var(--color-border-button-hover);
+  background: var(--color-bg-button-hover);
 }
 .thumb {
   position: absolute;
