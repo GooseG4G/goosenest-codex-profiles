@@ -214,6 +214,9 @@ function confirmReset() {
   color: var(--color-text-secondary);
   background: var(--color-bg-control-hover);
 }
+.available.is-stale {
+  color: transparent;
+}
 .reset-widget-empty .reset-summary:hover {
   background: transparent;
 }
