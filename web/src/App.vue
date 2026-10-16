@@ -38,6 +38,13 @@ const deletePending = shallowRef(false);
 const pendingDeleteDeviceId = shallowRef<string>();
 const deviceDeletePending = shallowRef(false);
 const profileDialogOpen = shallowRef(false);
+const authProfileId = shallowRef<string>();
+const authProfileName = computed(
+  () =>
+    profiles.profiles.value.find(
+      (profile) => profile.profile_id === authProfileId.value,
+    )?.name,
+);
 
 async function loadUsers() {
   users.value = (await api<UserEntities>("/users")).items;
@@ -116,23 +123,29 @@ async function updateUser(userId: string, body: object) {
 }
 async function startAuth() {
   try {
-    await profiles.startAuth();
+    await profiles.startAuth(authProfileId.value);
   } catch (reason) {
-    notifications.error(reason, "Could not start Codex sign-in");
+    notifications.error(
+      reason,
+      authProfileId.value
+        ? "Could not restart OpenAI sign-in"
+        : "Could not start Codex sign-in",
+    );
   }
 }
-async function reauthorizeProfile(profileId: string) {
+function openProfileDialog() {
+  authProfileId.value = undefined;
   profileDialogOpen.value = true;
-  try {
-    await profiles.startAuth(profileId);
-  } catch (reason) {
-    notifications.error(reason, "Could not restart OpenAI sign-in");
-  }
+}
+function reauthorizeProfile(profileId: string) {
+  authProfileId.value = profileId;
+  profileDialogOpen.value = true;
 }
 function closeProfileDialog() {
   if (profiles.busy.value) return;
   profiles.closeFlow();
   profileDialogOpen.value = false;
+  authProfileId.value = undefined;
 }
 function requestDeleteProfile(profileId: string) {
   pendingDeleteProfileId.value = profileId;
@@ -245,9 +258,14 @@ watch(
   () => profiles.flow.value?.status,
   (flowStatus) => {
     if (flowStatus !== "authorized") return;
+    const reauthorized = Boolean(authProfileId.value);
     profileDialogOpen.value = false;
+    authProfileId.value = undefined;
     profiles.finishFlow();
-    notifications.push("Profile added", "success");
+    notifications.push(
+      reauthorized ? "Profile reauthorized" : "Profile added",
+      "success",
+    );
   },
 );
 watch(
@@ -299,7 +317,7 @@ watch(
           :resets-by-profile-id="profiles.resetsByProfileId.value"
           :busy="profiles.busy.value"
           :reset-pending="profiles.resetPending.value"
-          @start-auth="profileDialogOpen = true"
+          @start-auth="openProfileDialog"
           @reauthorize="reauthorizeProfile"
           @delete="requestDeleteProfile"
           @hot-profile-change="profiles.setHotProfile"
@@ -331,6 +349,7 @@ watch(
     :flow="profiles.flow.value"
     :pending="profiles.busy.value"
     :auth-opened="profiles.authOpened.value"
+    :profile-name="authProfileName"
     @start="startAuth"
     @auth-opened="profiles.markAuthOpened"
     @close="closeProfileDialog"

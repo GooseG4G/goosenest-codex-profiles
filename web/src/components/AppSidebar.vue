@@ -22,13 +22,15 @@ defineEmits<{ logout: [] }>();
       ><template v-if="principal.role === 'administrator'"
         ><div class="admin-links">
           <hr />
-          <RouterLink to="/profiles"><Layers /><span>Profiles</span></RouterLink>
+          <RouterLink to="/profiles"
+            ><Layers /><span>Profiles</span></RouterLink
+          >
           <RouterLink to="/users"><UsersRound /><span>Users</span></RouterLink>
         </div></template
       >
     </nav>
     <div class="account">
-      <UIPopover placement="above-end" mobile-placement="below-end">
+      <UIPopover placement="above-end" mobile-placement="above-end">
         <template #trigger="{ open, toggle, triggerId, panelId }">
           <button
             :id="triggerId"
@@ -52,7 +54,10 @@ defineEmits<{ logout: [] }>();
             class="account-action"
             type="button"
             role="menuitem"
-            @click="close(); $emit('logout')"
+            @click="
+              close();
+              $emit('logout');
+            "
           >
             <LogOut /><span>Sign out</span>
           </button>
@@ -176,7 +181,10 @@ defineEmits<{ logout: [] }>();
   background: transparent;
   color: var(--color-text-secondary);
   text-align: left;
-  transition: background-color 120ms ease, color 120ms ease, border-color 120ms ease;
+  transition:
+    background-color 120ms ease,
+    color 120ms ease,
+    border-color 120ms ease;
 }
 .account-trigger > span {
   overflow: hidden;
@@ -244,7 +252,9 @@ defineEmits<{ logout: [] }>();
   color: var(--color-text-secondary);
   font-size: 12px;
   text-align: left;
-  transition: background-color 120ms ease, color 120ms ease;
+  transition:
+    background-color 120ms ease,
+    color 120ms ease;
 }
 .account-action:hover,
 .account-action:focus-visible {
@@ -282,8 +292,9 @@ defineEmits<{ logout: [] }>();
     inset-block-end: 0;
     left: 0;
     z-index: 20;
-    height: 72px;
-    padding: 8px max(14px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(14px, env(safe-area-inset-left));
+    height: calc(60px + env(safe-area-inset-bottom));
+    padding: 8px max(14px, env(safe-area-inset-right))
+      max(8px, env(safe-area-inset-bottom)) max(14px, env(safe-area-inset-left));
     display: grid;
     grid-template-columns: 1fr auto 1fr;
     align-items: center;

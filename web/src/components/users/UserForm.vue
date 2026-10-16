@@ -2,6 +2,7 @@
 import { reactive } from "vue";
 import type { Role, User } from "../../api";
 import UISelect from "../ui/UISelect.vue";
+import type { SelectOption } from "../ui/UISelect.vue";
 
 export interface UserFormValue {
   username?: string;
@@ -15,6 +16,10 @@ const props = defineProps<{
   user?: User;
 }>();
 const emit = defineEmits<{ submit: [value: UserFormValue] }>();
+const roleOptions = [
+  { value: "user", label: "User" },
+  { value: "administrator", label: "Administrator" },
+] as const satisfies readonly SelectOption[];
 const form = reactive({
   username: props.user?.username ?? "",
   nickname: props.user?.nickname ?? "",
@@ -56,15 +61,14 @@ function submit() {
         type="password"
         minlength="8"
         autocomplete="new-password"
-        :placeholder="user ? 'Leave blank to keep current password' : 'At least 8 characters'"
+        :placeholder="
+          user
+            ? 'Leave blank to keep current password'
+            : 'At least 8 characters'
+        "
         :required="!user"
     /></label>
-    <label
-      >Role<UISelect v-model="form.role">
-        <option value="user">User</option>
-        <option value="administrator">Administrator</option>
-      </UISelect></label
-    >
+    <label>Role<UISelect v-model="form.role" :options="roleOptions" /></label>
   </form>
 </template>
 

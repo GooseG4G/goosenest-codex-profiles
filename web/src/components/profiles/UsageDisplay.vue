@@ -27,7 +27,7 @@ const isStale = computed(() => {
   const updatedAt = props.updatedAt
     ? new Date(props.updatedAt).getTime()
     : Number.NaN;
-  return !Number.isFinite(updatedAt) || now.value - updatedAt > 180_000;
+  return !Number.isFinite(updatedAt) || now.value - updatedAt >= 180_000;
 });
 const windows = computed<WindowInfo[]>(() =>
   [
@@ -76,16 +76,10 @@ function resetLabel(timestamp: number): string {
       <span class="copy">
         <strong>{{ window.label }}</strong>
         <small v-if="!isStale">{{ resetLabel(window.reset) }}</small>
-        <small
-          v-else
-          class="skeleton skeleton-reset"
-          aria-hidden="true"
-        />
+        <small v-else class="skeleton skeleton-reset" aria-hidden="true" />
       </span>
       <span class="track" :class="{ 'is-stale': isStale }">
-        <i
-          :style="{ width: `${100 - window.used}%` }"
-        />
+        <i :style="{ width: `${100 - window.used}%` }" />
       </span>
       <span v-if="!isStale" class="remaining">
         {{ Math.round(100 - window.used) }}% left

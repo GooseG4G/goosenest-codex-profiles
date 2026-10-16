@@ -11,6 +11,7 @@ import {
   type UsageResetRequest,
   type UsageResets,
 } from "../api";
+import { useEventStream } from "./useEventStream";
 
 export function useProfiles() {
   const profiles = shallowRef<Profile[]>([]),
@@ -32,16 +33,17 @@ export function useProfiles() {
   let authTimer: number | undefined,
     usageTimer: number | undefined,
     resetTimer: number | undefined,
-    reconnectTimer: number | undefined,
     hotProfileId: string | undefined,
     usageGeneration = 0,
-    reconnectAttempt = 0,
-    lastStreamId = "$",
-    socket: WebSocket | undefined,
     usageRequest: Promise<void> | undefined,
     usageAbort: AbortController | undefined,
     planRequests = new Map<string, Promise<void>>(),
     resetSequence = 0;
+  const { connect: connectEvents } = useEventStream<StreamEvent>({
+    path: "/api/v1/events",
+    storageKey: "goosenest:event-stream:last-id",
+    onEvent: handleServerEvent,
+  });
   async function load() {
     profiles.value = (await api<ProfileEntities>("/profiles")).items;
     const profileIds = new Set(profiles.value.map((profile) => profile.profile_id));
@@ -285,76 +287,42 @@ export function useProfiles() {
     })();
     return usageRequest;
   }
-  function clearReconnectTimer() {
-    if (reconnectTimer) window.clearTimeout(reconnectTimer);
-    reconnectTimer = undefined;
-  }
-  function closeEvents() {
-    clearReconnectTimer();
-    const active = socket;
-    socket = undefined;
-    if (active && active.readyState < WebSocket.CLOSING) active.close(1000);
-  }
-  function connectEvents() {
-    if (document.hidden || socket) return;
-    const protocol = location.protocol === "https:" ? "wss:" : "ws:";
-    const url = `${protocol}//${location.host}/api/v1/events?after=${encodeURIComponent(lastStreamId)}`;
-    const next = new WebSocket(url);
-    socket = next;
-    next.addEventListener("open", () => {
-      reconnectAttempt = 0;
-    });
-    next.addEventListener("message", (message) => {
-      try {
-        const payload = JSON.parse(String(message.data)) as StreamEvent;
-        if (!payload.stream_id || !payload.event) return;
-        lastStreamId = payload.stream_id;
-        if (payload.event.type === "profile.auth.changed") {
-          if (
-            payload.event.auth_status === "authorized" &&
-            payload.event.flow_id &&
-            payload.event.flow_id === flow.value?.uid
-          ) {
-            stop();
-            flow.value = {
-              ...flow.value,
-              status: "authorized",
-              profile_id: payload.event.profile_id,
-            };
-          }
-          if (payload.event.profile_id === hotProfileId)
-            setHotProfile(undefined);
-          void load();
-        } else if (payload.event.type === "profile.usage.updated") {
-          if (payload.event.profile_id === hotProfileId)
-            void refreshHotProfile(hotProfileId, usageGeneration);
-        } else if (payload.event.type === "profile.plan.updated") {
-          void refreshPlan(payload.event.profile_id);
-        } else if (payload.event.type === "profile.usage.reset.completed") {
-          if (resetPending.value?.startsWith(`${payload.event.profile_id}:`))
-            resetPending.value = undefined;
-          if (resetTimer) window.clearTimeout(resetTimer);
-          resetTimer = undefined;
-          resetSequence += 1;
-          resetCompleted.value = {
-            profileId: payload.event.profile_id,
-            outcome: payload.event.outcome,
-            sequence: resetSequence,
-          };
-          if (payload.event.profile_id === hotProfileId)
-            void refreshHotProfile(hotProfileId, usageGeneration);
-        }
-      } catch {
-        // Ignore malformed events; the REST heartbeat remains authoritative.
+  function handleServerEvent(payload: StreamEvent) {
+    if (!payload.event) return;
+    if (payload.event.type === "profile.auth.changed") {
+      if (
+        payload.event.auth_status === "authorized" &&
+        payload.event.flow_id &&
+        payload.event.flow_id === flow.value?.uid
+      ) {
+        stop();
+        flow.value = {
+          ...flow.value,
+          status: "authorized",
+          profile_id: payload.event.profile_id,
+        };
       }
-    });
-    next.addEventListener("close", () => {
-      if (socket === next) socket = undefined;
-      if (document.hidden) return;
-      const delay = Math.min(1_000 * 2**reconnectAttempt, 15_000);
-      reconnectAttempt += 1;
-      reconnectTimer = window.setTimeout(connectEvents, delay);
-    });
+      if (payload.event.profile_id === hotProfileId) setHotProfile(undefined);
+      void load();
+    } else if (payload.event.type === "profile.usage.updated") {
+      if (payload.event.profile_id === hotProfileId)
+        void refreshHotProfile(hotProfileId, usageGeneration);
+    } else if (payload.event.type === "profile.plan.updated") {
+      void refreshPlan(payload.event.profile_id);
+    } else if (payload.event.type === "profile.usage.reset.completed") {
+      if (resetPending.value?.startsWith(`${payload.event.profile_id}:`))
+        resetPending.value = undefined;
+      if (resetTimer) window.clearTimeout(resetTimer);
+      resetTimer = undefined;
+      resetSequence += 1;
+      resetCompleted.value = {
+        profileId: payload.event.profile_id,
+        outcome: payload.event.outcome,
+        sequence: resetSequence,
+      };
+      if (payload.event.profile_id === hotProfileId)
+        void refreshHotProfile(hotProfileId, usageGeneration);
+    }
   }
   function setHotProfile(profileId?: string) {
     if (hotProfileId === profileId) return;
@@ -364,10 +332,7 @@ export function useProfiles() {
     usageRequest = undefined;
     hotProfileId = profileId;
     usageGeneration += 1;
-    closeEvents();
-    reconnectAttempt = 0;
     if (!document.hidden) {
-      connectEvents();
       if (profileId) void refreshHotProfile(profileId, usageGeneration);
     }
   }
@@ -376,10 +341,8 @@ export function useProfiles() {
     usageAbort?.abort();
     usageAbort = undefined;
     usageRequest = undefined;
-    closeEvents();
     usageGeneration += 1;
     if (!document.hidden) {
-      connectEvents();
       if (hotProfileId) void refreshHotProfile(hotProfileId, usageGeneration);
     }
   }
@@ -388,7 +351,6 @@ export function useProfiles() {
     closeFlow();
     if (resetTimer) window.clearTimeout(resetTimer);
     clearUsageTimer();
-    closeEvents();
     document.removeEventListener("visibilitychange", handleVisibilityChange);
   });
   return {
