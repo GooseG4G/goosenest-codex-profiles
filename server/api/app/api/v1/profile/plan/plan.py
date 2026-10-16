@@ -1,13 +1,15 @@
 from datetime import datetime, timezone
 from typing import Annotated
 from uuid import UUID
-from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
-from integrations.postgres import PostgresSession
-from integrations.postgres.providers import get_postgres_session
+
 from api.v1.profile.models import ProfileEntity
 from api.v1.session.auth import Principal, require_admin
-from .usage.tasks import enqueue_profile_plan_refresh
+from fastapi import APIRouter, Depends, HTTPException
+from integrations.postgres import PostgresSession
+from integrations.postgres.providers import get_postgres_session
+from pydantic import BaseModel
+
+from .tasks import enqueue_profile_plan_refresh
 
 router = APIRouter(prefix="/{profile_id}/plan", tags=["profile plan"])
 Session = Annotated[PostgresSession, Depends(get_postgres_session)]
@@ -32,7 +34,7 @@ async def read_plan(
                    'href', '/api/v1/profiles/' || profile_id
                ) AS meta,
                profile_id, name, enabled, auth_status, usage, usage_updated_at,
-               plan_type, plan_updated_at, subscription_expires_at,
+               plan_type, plan_updated_at,
                created_at, updated_at, last_used_at
            FROM profiles WHERE profile_id=$1""",
         profile_id,

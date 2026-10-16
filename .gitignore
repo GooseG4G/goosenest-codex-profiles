@@ -11,6 +11,7 @@ deploy/certificates/
 server/certbot/
 server/letsencrypt/etc/*
 !server/letsencrypt/etc/.gitkeep
+server/letsencrypt/live/*
 server/letsencrypt/www/*
 !server/letsencrypt/www/.gitkeep
 

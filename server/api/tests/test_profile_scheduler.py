@@ -3,10 +3,8 @@ from uuid import UUID, uuid4
 
 from api.v1.profile.models import ProfileMeta, ProfileRuntime
 from api.v1.response.scheduler import (
-    drain_tier,
     order_profiles,
     profile_score,
-    reserve_for_tier,
     window_state,
 )
 
@@ -33,7 +31,6 @@ def profile(
     limits: dict,
     last_used_at: datetime | None,
     *,
-    expires_at: datetime | None = None,
     active_requests: int = 0,
     profile_id: UUID | None = None,
 ) -> ProfileRuntime:
@@ -49,7 +46,6 @@ def profile(
         created_at=NOW,
         updated_at=NOW,
         last_used_at=last_used_at,
-        subscription_expires_at=expires_at,
         active_requests=active_requests,
     )
 
@@ -110,57 +106,6 @@ def test_missing_weekly_window_is_not_blocked_by_weekly_reserve() -> None:
     del limits["secondary"]
 
     assert profile_score(limits, NOW, weekly_reserve_percent=25) is not None
-
-
-def test_drain_tier_boundaries() -> None:
-    assert drain_tier(NOW, NOW) == -1
-    assert drain_tier(NOW + timedelta(days=1), NOW) == 3
-    assert drain_tier(NOW + timedelta(days=1, seconds=1), NOW) == 2
-    assert drain_tier(NOW + timedelta(days=3), NOW) == 2
-    assert drain_tier(NOW + timedelta(days=3, seconds=1), NOW) == 1
-    assert drain_tier(NOW + timedelta(days=7), NOW) == 1
-    assert drain_tier(NOW + timedelta(days=7, seconds=1), NOW) == 0
-    assert drain_tier(None, NOW) == 0
-
-
-def test_expired_subscription_is_excluded() -> None:
-    expired = profile(
-        "expired",
-        usage(0, 0),
-        None,
-        expires_at=NOW - timedelta(seconds=1),
-    )
-
-    assert (
-        order_profiles([expired], NOW, weekly_reserve_percent=25, score_tolerance=0.05)
-        == []
-    )
-
-
-def test_highest_drain_tier_wins_before_score() -> None:
-    draining = profile(
-        "draining",
-        usage(95, 95),
-        NOW,
-        expires_at=NOW + timedelta(hours=12),
-    )
-    regular = profile("regular", usage(0, 0), NOW - timedelta(days=1))
-
-    ordered = order_profiles(
-        [regular, draining],
-        NOW,
-        weekly_reserve_percent=25,
-        score_tolerance=0.05,
-    )
-
-    assert [item.name for item in ordered] == ["draining"]
-
-
-def test_reserve_changes_with_drain_tier() -> None:
-    assert reserve_for_tier(3, 25) == 0
-    assert reserve_for_tier(2, 25) == 5
-    assert reserve_for_tier(1, 25) == 15
-    assert reserve_for_tier(0, 25) == 25
 
 
 def test_active_request_penalizes_otherwise_equal_profile() -> None:

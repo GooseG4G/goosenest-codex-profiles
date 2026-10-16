@@ -14,19 +14,18 @@ class ApiSettings(BaseSettings):
         extra="ignore",
     )
 
-    bootstrap_username: EmailStr | None = Field(
+    account_username: EmailStr | None = Field(
         None,
-        alias="BOOTSTARTUP_USERNAME",
+        alias="ACCOUNT_USERNAME",
     )
-    bootstrap_nickname: str | None = Field(
+    account_nickname: str | None = Field(
         None,
-        alias="BOOTSTARTUP_NICKNAME",
+        alias="ACCOUNT_NICKNAME",
     )
-    bootstrap_password: str | None = Field(
+    account_password: str | None = Field(
         None,
-        alias="BOOTSTARTUP_PASSWORD",
+        alias="ACCOUNT_PASSWORD",
     )
-
     responses_url: str = Field(
         "https://chatgpt.com/backend-api/codex/responses",
         alias="OPENAI_RESPONSES_URL",
@@ -48,15 +47,15 @@ class ApiSettings(BaseSettings):
         ge=0,
         le=1,
     )
-    profile_affinity_minutes: int = Field(
-        20,
-        alias="PROFILE_AFFINITY_MINUTES",
+    profile_affinity_ttl_days: int = Field(
+        30,
+        alias="PROFILE_AFFINITY_TTL_DAYS",
         ge=1,
-        le=1440,
+        le=365,
     )
-    profile_max_attempts: int = Field(
+    profile_responses_max_attempts: int = Field(
         3,
-        alias="PROFILE_MAX_ATTEMPTS",
+        alias="PROFILE_RESPONSES_MAX_ATTEMPTS",
         ge=1,
         le=10,
     )

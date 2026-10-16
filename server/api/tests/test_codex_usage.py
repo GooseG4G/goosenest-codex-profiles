@@ -2,8 +2,8 @@ import pytest
 from integrations.codex.usage import (
     CodexAuthenticationError,
     CodexUsageError,
-    _normalize_result,
     _normalize_plan,
+    _normalize_result,
     codex_error,
 )
 

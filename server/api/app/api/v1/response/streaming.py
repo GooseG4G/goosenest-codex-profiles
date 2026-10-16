@@ -6,7 +6,8 @@ from typing import AsyncIterator
 
 import httpx
 
-_CONTENT_EVENTS = {
+_START_EVENTS = {
+    "response.created",
     "response.output_text.delta",
     "response.refusal.delta",
     "response.function_call_arguments.delta",
@@ -101,7 +102,7 @@ async def probe_stream(
             failure = classify_failure(event)
             if failure is not None:
                 return StreamProbe(bytes(buffered), iterator, failure)
-            if event.get("type") in _CONTENT_EVENTS:
+            if event.get("type") in _START_EVENTS:
                 return StreamProbe(bytes(buffered), iterator)
         if len(buffered) >= max_bytes:
             return StreamProbe(bytes(buffered), iterator)

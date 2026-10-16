@@ -8,7 +8,61 @@ x-logging: &x-logging
     max-file: "5"
 
 x-api-environment: &x-api-environment
-  # PostgreSQL Config
+  # API
+  ## Account
+  ACCOUNT_USERNAME: "${ACCOUNT_USERNAME:-administrator@example.com}"
+  ACCOUNT_NICKNAME: "${ACCOUNT_NICKNAME:-Administrator}"
+  ACCOUNT_PASSWORD: "${ACCOUNT_PASSWORD:?ACCOUNT_PASSWORD is not set}"
+
+  ## Upstream
+  ### OpenAI
+  OPENAI_RESPONSES_URL: "${OPENAI_RESPONSES_URL:-https://chatgpt.com/backend-api/codex/responses}"
+  OPENAI_REQUEST_TIMEOUT: "${OPENAI_REQUEST_TIMEOUT:-300}"
+
+  ### Gateway
+  PROFILE_RESPONSES_MAX_ATTEMPTS: "${PROFILE_RESPONSES_MAX_ATTEMPTS:-3}"
+
+  ## Profiles
+  ### Runtime
+  CODEX_EXECUTABLE: "${CODEX_EXECUTABLE:-codex}"
+
+  ### Storage
+  CODEX_PROFILES_ROOT: /data/codex-profiles
+
+  ### Scheduling
+  PROFILE_WEEKLY_RESERVE_PERCENT: "${PROFILE_WEEKLY_RESERVE_PERCENT:-25}"
+  PROFILE_SCORE_TOLERANCE: "${PROFILE_SCORE_TOLERANCE:-0.05}"
+  PROFILE_AFFINITY_TTL_DAYS: "${PROFILE_AFFINITY_TTL_DAYS:-30}"
+
+  ## Sessions
+  ### Lifetime
+  SESSION_TTL_DAYS: "${SESSION_TTL_DAYS:-30}"
+
+  ### Cookie
+  SESSION_COOKIE_SECURE: "${SESSION_COOKIE_SECURE:-true}"
+
+  # Worker
+  ## Tasks
+  ### Profiles
+  PROFILE_TASK_MAX_RETRIES: "${PROFILE_TASK_MAX_RETRIES:-2}"
+  PROFILE_TASK_MIN_RETRY_DELAY: "${PROFILE_TASK_MIN_RETRY_DELAY:-5}"
+  PROFILE_TASK_MAX_RETRY_DELAY: "${PROFILE_TASK_MAX_RETRY_DELAY:-30}"
+  PROFILE_TASK_LEASE_TTL: "${PROFILE_TASK_LEASE_TTL:-PT6H}"
+
+  # Redis
+  ## Connection
+  REDIS_HOST: "${REDIS_HOST:-redis}"
+  REDIS_PORT: "${REDIS_PORT:-6379}"
+
+  ### Databases
+  REDIS_BROKER_DATABASE: "${REDIS_BROKER_DATABASE:-0}"
+  REDIS_BACKEND_DATABASE: "${REDIS_BACKEND_DATABASE:-1}"
+
+  ## Authentication
+  REDIS_USERNAME: "${REDIS_USERNAME:-codex-profiles}"
+  REDIS_PASSWORD: "${REDIS_PASSWORD:?REDIS_PASSWORD is not set}"
+
+  # PostgreSQL
   ## Connection
   POSTGRES_HOST: "${POSTGRES_HOST:-postgres}"
   POSTGRES_PORT: "${POSTGRES_PORT:-5432}"
@@ -17,60 +71,6 @@ x-api-environment: &x-api-environment
   ## Authentication
   POSTGRES_USERNAME: "${POSTGRES_USERNAME:-codex-profiles}"
   POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is not set}"
-
-  # Redis Config
-  ## Connection
-  REDIS_HOST: "${REDIS_HOST:-redis}"
-  REDIS_PORT: "${REDIS_PORT:-6379}"
-
-  ## Authentication
-  REDIS_USERNAME: "${REDIS_USERNAME:-codex-profiles}"
-  REDIS_PASSWORD: "${REDIS_PASSWORD:?REDIS_PASSWORD is not set}"
-
-  ## Databases
-  REDIS_BROKER_DATABASE: "${REDIS_BROKER_DATABASE:-0}"
-  REDIS_BACKEND_DATABASE: "${REDIS_BACKEND_DATABASE:-1}"
-
-  # Bootstrap Administrator Config
-  ## Identity
-  BOOTSTARTUP_USERNAME: "${BOOTSTARTUP_USERNAME:-administrator@example.com}"
-  BOOTSTARTUP_NICKNAME: "${BOOTSTARTUP_NICKNAME:-Administrator}"
-
-  ## Authentication
-  BOOTSTARTUP_PASSWORD: "${BOOTSTARTUP_PASSWORD:?BOOTSTARTUP_PASSWORD is not set}"
-
-  # OpenAI Config
-  ## Connection
-  OPENAI_RESPONSES_URL: "${OPENAI_RESPONSES_URL:-https://chatgpt.com/backend-api/codex/responses}"
-
-  ## Timeouts
-  OPENAI_REQUEST_TIMEOUT: "${OPENAI_REQUEST_TIMEOUT:-300}"
-
-  # Codex Config
-  ## Runtime
-  CODEX_EXECUTABLE: "${CODEX_EXECUTABLE:-codex}"
-
-  ## Storage
-  CODEX_PROFILES_ROOT: /data/codex-profiles
-
-  ## Scheduling
-  PROFILE_WEEKLY_RESERVE_PERCENT: "${PROFILE_WEEKLY_RESERVE_PERCENT:-25}"
-  PROFILE_SCORE_TOLERANCE: "${PROFILE_SCORE_TOLERANCE:-0.05}"
-  PROFILE_AFFINITY_MINUTES: "${PROFILE_AFFINITY_MINUTES:-20}"
-  PROFILE_MAX_ATTEMPTS: "${PROFILE_MAX_ATTEMPTS:-3}"
-
-  # Session Config
-  ## Lifetime
-  SESSION_TTL_DAYS: "${SESSION_TTL_DAYS:-30}"
-
-  ## Cookie
-  SESSION_COOKIE_SECURE: "${SESSION_COOKIE_SECURE:-true}"
-
-  # Usage Task Config
-  ## Retries
-  USAGE_TASK_MAX_RETRIES: "${USAGE_TASK_MAX_RETRIES:-2}"
-  USAGE_TASK_MIN_RETRY_DELAY: "${USAGE_TASK_MIN_RETRY_DELAY:-5}"
-  USAGE_TASK_MAX_RETRY_DELAY: "${USAGE_TASK_MAX_RETRY_DELAY:-30}"
 
 x-api-service: &api-service
   build:
@@ -99,6 +99,11 @@ services:
     image: nginx:1.29-alpine
     restart: always
 
+    environment:
+      NGINX_ENVSUBST_FILTER: "^(NGINX_CLIENT_MAX_BODY_SIZE|NGINX_PROXY_READ_TIMEOUT)$$"
+      NGINX_CLIENT_MAX_BODY_SIZE: "${NGINX_CLIENT_MAX_BODY_SIZE:-64m}"
+      NGINX_PROXY_READ_TIMEOUT: "${NGINX_PROXY_READ_TIMEOUT:-300s}"
+
     depends_on:
       api:
         condition: service_healthy
@@ -111,12 +116,12 @@ services:
       - "${HTTPS_PORT:-443}:443"
 
     volumes:
-      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./nginx/default.conf.template:/etc/nginx/templates/default.conf.template:ro
       - ./letsencrypt/etc:/etc/letsencrypt:ro
       - ./letsencrypt/www:/var/www/certbot:ro
       - web-root:/srv/web:ro
 
-    mem_limit: 64m
+    mem_limit: "${NGINX_MEMORY_LIMIT:-64m}"
 
     logging: *x-logging
 
@@ -147,7 +152,7 @@ services:
     volumes:
       - web-root:/srv/web
 
-    mem_limit: 64m
+    mem_limit: "${WEB_MEMORY_LIMIT:-64m}"
     logging: *x-logging
 
   api:
@@ -169,7 +174,7 @@ services:
       retries: 30
       start_period: 5s
 
-    mem_limit: 192m
+    mem_limit: "${API_MEMORY_LIMIT:-384m}"
 
   worker:
     <<: *api-service
@@ -179,11 +184,11 @@ services:
       "--loglevel=info",
       "--prefetch-multiplier=1",
       "--queues=default,codex",
-      "--concurrency=1",
-      "--max-tasks-per-child=25",
+      "--concurrency=${WORKER_CONCURRENCY:-2}",
+      "--max-tasks-per-child=${WORKER_MAX_TASKS_PER_CHILD:-24}",
     ]
 
-    mem_limit: 384m
+    mem_limit: "${WORKER_MEMORY_LIMIT:-1024m}"
 
   beat:
     <<: *api-service
@@ -191,13 +196,12 @@ services:
       "celery",
       "-A", "worker.worker:app", "beat",
       "--loglevel=info",
-      "--schedule", "/data/celerybeat-schedule",
     ]
 
-    mem_limit: 96m
+    mem_limit: "${BEAT_MEMORY_LIMIT:-96m}"
 
   redis:
-    image: redis:7-alpine
+    image: redis:8.10.2-alpine
     restart: always
 
     entrypoint: [
@@ -208,13 +212,12 @@ services:
     command: [
       "--appendonly", "yes",
       "--appendfsync", "everysec",
-      "--maxmemory", "48mb",
+      "--maxmemory", "${REDIS_MAXMEMORY:-128mb}",
       "--maxmemory-policy", "noeviction",
       "--save", "900", "1",
       "--save", "300", "10",
       "--save", "60", "10000",
       "--stop-writes-on-bgsave-error", "yes",
-      "--dir", "/data",
     ]
 
     environment:
@@ -235,7 +238,7 @@ services:
       - redis-data:/data
       - ./redis/entrypoint.sh:/usr/local/bin/entrypoint.sh:ro
 
-    mem_limit: 64m
+    mem_limit: "${REDIS_MEMORY_LIMIT:-192m}"
 
     logging: *x-logging
 
@@ -250,10 +253,10 @@ services:
 
     command: [
       "postgres",
-      "-c", "shared_buffers=64MB",
-      "-c", "work_mem=1MB",
-      "-c", "maintenance_work_mem=32MB",
-      "-c", "max_connections=30",
+      "-c", "shared_buffers=${POSTGRES_SHARED_BUFFERS:-128MB}",
+      "-c", "work_mem=${POSTGRES_WORK_MEM:-1MB}",
+      "-c", "maintenance_work_mem=${POSTGRES_MAINTENANCE_WORK_MEM:-32MB}",
+      "-c", "max_connections=${POSTGRES_MAX_CONNECTIONS:-30}",
     ]
 
     healthcheck:
@@ -270,7 +273,7 @@ services:
       - postgres-data:/var/lib/postgresql/data
       - ./postgres/scheme.sql:/docker-entrypoint-initdb.d/001-scheme.sql:ro
 
-    mem_limit: 192m
+    mem_limit: "${POSTGRES_MEMORY_LIMIT:-192m}"
 
     logging: *x-logging
 

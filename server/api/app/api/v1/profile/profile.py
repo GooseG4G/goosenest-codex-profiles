@@ -16,8 +16,8 @@ from .models import (
     ProfileRuntime,
     ProfileUpdate,
 )
-from .usage.usage import router as usage_router
 from .plan import router as plan_router
+from .usage.usage import router as usage_router
 
 router = APIRouter(prefix="/profiles", tags=["profiles"])
 router.include_router(usage_router)
@@ -29,7 +29,7 @@ FIELDS = """jsonb_build_object(
                 'href', '/api/v1/profiles/' || profile_id
             ) AS meta,
             profile_id, name, enabled, auth_status, usage, usage_updated_at,
-            subscription_expires_at, plan_type, plan_updated_at, created_at, updated_at, last_used_at"""
+            plan_type, plan_updated_at, created_at, updated_at, last_used_at"""
 
 
 @router.get("")
@@ -66,14 +66,12 @@ async def update_profile(
             ProfileEntity,
             f"""UPDATE profiles
             SET name=COALESCE($2,name), enabled=COALESCE($3,enabled),
-                subscription_expires_at=COALESCE($4,subscription_expires_at),
                 updated_at=now()
             WHERE profile_id=$1
             RETURNING {FIELDS}""",
             profile_id,
             body.name,
             body.enabled,
-            body.subscription_expires_at,
         )
     except UniqueViolationError as error:
         raise HTTPException(

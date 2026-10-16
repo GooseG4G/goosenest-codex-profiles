@@ -31,7 +31,7 @@ FIELDS = """jsonb_build_object(
                 'href', '/api/v1/profiles/' || profile_id
             ) AS meta,
             profile_id, name, enabled, auth_status, usage, usage_updated_at,
-            subscription_expires_at, created_at, updated_at, last_used_at"""
+            created_at, updated_at, last_used_at"""
 
 
 async def _profile(profile_id: UUID, session: PostgresSession) -> ProfileEntity:

@@ -25,10 +25,6 @@ class ProfileUpdate(BaseModel):
         default=None,
     )
 
-    subscription_expires_at: Optional[datetime] = Field(
-        default=None,
-    )
-
 
 class ProfileEntity(Entity[ProfileMeta]):
     profile_id: UUID = Field(
@@ -58,10 +54,6 @@ class ProfileEntity(Entity[ProfileMeta]):
     plan_type: Optional[str] = Field(default=None)
 
     plan_updated_at: Optional[datetime] = Field(default=None)
-
-    subscription_expires_at: Optional[datetime] = Field(
-        default=None,
-    )
 
     created_at: datetime = Field(
         ...,

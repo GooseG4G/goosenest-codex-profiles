@@ -1,3 +1,1 @@
-from .worker import app
-
-__all__ = ["app"]
+"""Celery worker infrastructure."""

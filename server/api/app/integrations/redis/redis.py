@@ -12,6 +12,27 @@ class RedisStreamEntry(BaseModel):
 
 
 class RedisContext:
+    _ACQUIRE_LEASE = """
+        local current = redis.call('GET', KEYS[1])
+        if current then
+            return current
+        end
+        redis.call('SET', KEYS[1], ARGV[1], 'EX', ARGV[2])
+        return ARGV[1]
+    """
+    _RENEW_LEASE = """
+        if redis.call('GET', KEYS[1]) == ARGV[1] then
+            return redis.call('EXPIRE', KEYS[1], ARGV[2])
+        end
+        return 0
+    """
+    _RELEASE_LEASE = """
+        if redis.call('GET', KEYS[1]) == ARGV[1] then
+            return redis.call('DEL', KEYS[1])
+        end
+        return 0
+    """
+
     def __init__(self, settings: RedisSettings) -> None:
         self._settings = settings
         self._client: Redis | None = None
@@ -48,17 +69,35 @@ class RedisContext:
         model: BaseModel,
         *,
         max_length: int,
+        producer_id: str | None = None,
+        idempotency_id: str | None = None,
     ) -> str:
-        stream_id = await self._require_client().xadd(
-            stream,
-            {
-                "payload": json.dumps(
-                    model.model_dump(mode="json"), separators=(",", ":")
-                )
-            },
-            maxlen=max_length,
-            approximate=True,
+        payload = json.dumps(
+            model.model_dump(mode="json"),
+            separators=(",", ":"),
         )
+        client = self._require_client()
+        if producer_id and idempotency_id:
+            stream_id = await client.execute_command(
+                "XADD",
+                stream,
+                "IDMP",
+                producer_id,
+                idempotency_id,
+                "MAXLEN",
+                "~",
+                max_length,
+                "*",
+                "payload",
+                payload,
+            )
+        else:
+            stream_id = await client.xadd(
+                stream,
+                {"payload": payload},
+                maxlen=max_length,
+                approximate=True,
+            )
         return str(stream_id)
 
     async def claim(self, key: str, value: str, *, ttl_seconds: int) -> bool:
@@ -69,6 +108,35 @@ class RedisContext:
             nx=True,
         )
         return bool(claimed)
+
+    async def acquire_lease(self, key: str, owner: str, *, ttl_seconds: int) -> str:
+        current = await self._require_client().eval(
+            self._ACQUIRE_LEASE,
+            1,
+            key,
+            owner,
+            ttl_seconds,
+        )
+        return str(current)
+
+    async def renew_lease(self, key: str, owner: str, *, ttl_seconds: int) -> bool:
+        renewed = await self._require_client().eval(
+            self._RENEW_LEASE,
+            1,
+            key,
+            owner,
+            ttl_seconds,
+        )
+        return bool(renewed)
+
+    async def release_lease(self, key: str, owner: str) -> bool:
+        released = await self._require_client().eval(
+            self._RELEASE_LEASE,
+            1,
+            key,
+            owner,
+        )
+        return bool(released)
 
     async def read_stream(
         self,
