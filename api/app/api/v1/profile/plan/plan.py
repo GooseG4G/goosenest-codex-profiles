@@ -9,7 +9,6 @@ from integrations.postgres import PostgresSession
 from integrations.postgres.providers import get_postgres_session
 
 from .models import ProfilePlan
-from .tasks import enqueue_profile_plan_refresh
 
 router = APIRouter(prefix="/{profile_id}/plan", tags=["profile plan"])
 Session = Annotated[PostgresSession, Depends(get_postgres_session)]
@@ -41,6 +40,8 @@ async def read_plan(
     )
     refreshing = age >= 60
     if refreshing and profile.enabled and profile.auth_status == "authorized":
+        from worker.tasks import enqueue_profile_plan_refresh
+
         await enqueue_profile_plan_refresh(profile_id)
     return ProfilePlan(
         plan_type=profile.plan_type,

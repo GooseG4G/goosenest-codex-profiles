@@ -141,8 +141,10 @@ async def _finalize(flow: DeviceFlow, session: PostgresSession) -> None:
                 flow_id=flow.uid,
             )
         )
-        from api.v1.profile.plan.tasks import enqueue_profile_plan_refresh
-        from api.v1.profile.usage.tasks import enqueue_profile_usage_refresh
+        from worker.tasks import (
+            enqueue_profile_plan_refresh,
+            enqueue_profile_usage_refresh,
+        )
 
         await enqueue_profile_usage_refresh(profile.profile_id)
         await enqueue_profile_plan_refresh(profile.profile_id)
