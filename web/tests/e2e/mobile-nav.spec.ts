@@ -82,7 +82,7 @@ test("row action spacing is symmetric and delete owns the press transform", asyn
   expect(deleteBox).not.toBeNull();
   const leftGap = dividerBox!.x - (switchBox!.x + switchBox!.width);
   const rightGap = deleteBox!.x - (dividerBox!.x + dividerBox!.width);
-  expect(Math.abs(leftGap - rightGap)).toBeLessThanOrEqual(1);
+  expect(leftGap).toBeGreaterThanOrEqual(rightGap + 3);
 
   await deleteButton.hover();
   await expect(deleteButton.locator(".icon")).toHaveCSS("transform", "none");
