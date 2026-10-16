@@ -175,6 +175,7 @@ test("usage reset badge keeps its color while stale and summary has no pressed s
   await page.clock.fastForward(180_000);
   await expect(badge).toHaveClass(/is-stale/);
   await expect(badge).toHaveCSS("background-color", green);
+  await expect(badge).toHaveCSS("color", "rgba(0, 0, 0, 0)");
   const animation = await badge.evaluate(
     (element) => getComputedStyle(element, "::after").animationName,
   );
@@ -213,6 +214,7 @@ test("empty usage reset badge shimmers over its gray base", async ({
     (element) => getComputedStyle(element).backgroundColor,
   );
   await expect(badge).toHaveCSS("background-color", gray);
+  await expect(badge).toHaveCSS("color", "rgba(0, 0, 0, 0)");
   const animation = await badge.evaluate(
     (element) => getComputedStyle(element, "::after").animationName,
   );
