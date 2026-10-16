@@ -6,20 +6,20 @@ redis_settings = get_redis_settings()
 app = Celery(
     "goosenest-codex-profiles",
     broker=redis_settings.broker_url,
-    backend=redis_settings.backend_url,
 )
 app.conf.update(
     task_serializer="json",
     accept_content=["json"],
     result_serializer="json",
     task_acks_late=True,
-    task_track_started=True,
+    task_ignore_result=True,
     task_reject_on_worker_lost=True,
     worker_prefetch_multiplier=1,
     imports=(
         "api.v1.profile.plan.tasks",
         "api.v1.profile.usage.tasks",
         "api.v1.response.tasks",
+        "api.v1.session.tasks",
     ),
     task_default_queue="default",
     task_queues=(Queue("default"), Queue("codex")),
@@ -28,12 +28,18 @@ app.conf.update(
         "profiles.plan.refresh": {"queue": "codex"},
         "profiles.usage.reset.consume": {"queue": "codex"},
         "responses.state.cleanup": {"queue": "default"},
+        "sessions.expired.cleanup": {"queue": "default"},
     },
     beat_schedule={
         "cleanup-expired-response-state": {
             "task": "responses.state.cleanup",
             "schedule": 900.0,
             "options": {"expires": 840},
+        },
+        "cleanup-expired-sessions": {
+            "task": "sessions.expired.cleanup",
+            "schedule": 3600.0,
+            "options": {"expires": 3540},
         },
     },
 )

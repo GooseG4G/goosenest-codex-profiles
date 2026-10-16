@@ -89,9 +89,7 @@ async def read_limits(
     return UsageLimitsEntity(
         meta=UsageLimitsMeta(href=f"/api/v1/profiles/{profile_id}/usage/limits"),
         plan_type=(
-            usage["planType"]
-            if isinstance(usage.get("planType"), str)
-            else None
+            usage["planType"] if isinstance(usage.get("planType"), str) else None
         ),
         primary=_window(usage.get("primary")),
         secondary=_window(usage.get("secondary")),

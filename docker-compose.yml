@@ -56,7 +56,6 @@ x-api-environment: &x-api-environment
 
   ### Databases
   REDIS_BROKER_DATABASE: "${REDIS_BROKER_DATABASE:-0}"
-  REDIS_BACKEND_DATABASE: "${REDIS_BACKEND_DATABASE:-1}"
 
   ## Authentication
   REDIS_USERNAME: "${REDIS_USERNAME:-codex-profiles}"

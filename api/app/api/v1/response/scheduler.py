@@ -224,29 +224,32 @@ async def reserve_profile(
 
         candidate = ordered[0]
         lease_id = uuid4()
-        reserved = await session.fetchrow(
-            ProfileRuntime,
-            """
-            UPDATE profiles
-            SET last_used_at=now()
-            WHERE profile_id=$1
-              AND last_used_at IS NOT DISTINCT FROM $2
-              AND enabled=true AND auth_status='authorized'
-              AND (cooldown_until IS NULL OR cooldown_until <= now())
-            RETURNING profile_id, name, codex_home, enabled, auth_status, usage,
-                      jsonb_build_object(
-                          'type', 'profile',
-                          'href', '/api/v1/profiles/' || profile_id
-                      ) AS meta,
-                      usage_updated_at, plan_type, plan_updated_at,
-                      created_at,
-                      updated_at, last_used_at, $3::int AS active_requests
-            """,
-            candidate.profile_id,
-            candidate.last_used_at,
-            candidate.active_requests + 1,
-        )
-        if reserved is not None:
+        async with session.transaction():
+            reserved = await session.fetchrow(
+                ProfileRuntime,
+                """
+                UPDATE profiles
+                SET last_used_at=now()
+                WHERE profile_id=$1
+                  AND last_used_at IS NOT DISTINCT FROM $2
+                  AND enabled=true AND auth_status='authorized'
+                  AND (cooldown_until IS NULL OR cooldown_until <= now())
+                RETURNING profile_id, name, codex_home, enabled, auth_status,
+                          usage,
+                          jsonb_build_object(
+                              'type', 'profile',
+                              'href', '/api/v1/profiles/' || profile_id
+                          ) AS meta,
+                          usage_updated_at, plan_type, plan_updated_at,
+                          created_at, updated_at, last_used_at,
+                          $3::int AS active_requests
+                """,
+                candidate.profile_id,
+                candidate.last_used_at,
+                candidate.active_requests + 1,
+            )
+            if reserved is None:
+                continue
             await session.execute(
                 """INSERT INTO profile_leases (lease_id, profile_id, expires_at)
                 VALUES ($1, $2, now() + interval '10 minutes')""",

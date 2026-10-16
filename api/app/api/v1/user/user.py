@@ -19,7 +19,7 @@ from .models import (
 router = APIRouter(prefix="/users", tags=["users"])
 Session = Annotated[PostgresSession, Depends(get_postgres_session)]
 CurrentUser = Annotated[Principal, Depends(get_principal)]
-Admin = Annotated[Principal, Depends(require_admin)]
+Administrator = Annotated[Principal, Depends(require_admin)]
 
 
 async def _read_user(session: PostgresSession, user_id: UUID) -> UserEntity:
@@ -60,7 +60,9 @@ async def read_users(_: CurrentUser, session: Session) -> UserEntities:
 
 
 @router.post("", status_code=status.HTTP_201_CREATED)
-async def create_user(body: UserCreate, _: Admin, session: Session) -> UserEntity:
+async def create_user(
+    body: UserCreate, _: Administrator, session: Session
+) -> UserEntity:
     try:
         user = await session.fetchrow(
             UserEntity,
@@ -95,7 +97,7 @@ async def read_user(user_id: UUID, _: CurrentUser, session: Session) -> UserEnti
 async def update_user(
     user_id: UUID,
     body: UserUpdate,
-    _: Admin,
+    _: Administrator,
     session: Session,
 ) -> UserEntity:
     current = await _read_user(session, user_id)
@@ -126,7 +128,9 @@ async def update_user(
 
 
 @router.delete("/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_user(user_id: UUID, principal: Admin, session: Session) -> Response:
+async def delete_user(
+    user_id: UUID, principal: Administrator, session: Session
+) -> Response:
     if principal.user_id == user_id:
         raise HTTPException(
             status_code=409, detail="Administrator cannot delete own account"

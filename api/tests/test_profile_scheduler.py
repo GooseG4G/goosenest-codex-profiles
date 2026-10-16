@@ -1,10 +1,13 @@
+from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
 from uuid import UUID, uuid4
 
+import pytest
 from api.v1.profile.models import ProfileMeta, ProfileRuntime
 from api.v1.response.scheduler import (
     order_profiles,
     profile_score,
+    reserve_profile,
     window_state,
 )
 
@@ -153,3 +156,49 @@ def test_chat_affinity_keeps_an_eligible_profile_selected() -> None:
     )
 
     assert ordered[0].profile_id == preferred.profile_id
+
+
+class ReservationSession:
+    def __init__(self, candidate: ProfileRuntime) -> None:
+        self.candidate = candidate
+        self.in_transaction = False
+        self.lease_inserted = False
+
+    async def fetch(self, *_args, **_kwargs):
+        return [self.candidate]
+
+    @asynccontextmanager
+    async def transaction(self):
+        self.in_transaction = True
+        try:
+            yield self
+        finally:
+            self.in_transaction = False
+
+    async def fetchrow(self, *_args, **_kwargs):
+        assert self.in_transaction
+        return self.candidate
+
+    async def execute(self, *_args, **_kwargs):
+        assert self.in_transaction
+        self.lease_inserted = True
+
+
+@pytest.mark.asyncio
+async def test_profile_update_and_lease_insert_share_a_transaction() -> None:
+    candidate = profile("candidate", usage(20, 20), NOW)
+    session = ReservationSession(candidate)
+
+    reservation = await reserve_profile(
+        session,  # type: ignore[arg-type]
+        excluded=set(),
+        weekly_reserve_percent=25,
+        score_tolerance=0.05,
+        preferred_profile_id=None,
+        model="gpt-5",
+    )
+
+    assert reservation is not None
+    assert reservation.profile is candidate
+    assert session.lease_inserted
+    assert not session.in_transaction

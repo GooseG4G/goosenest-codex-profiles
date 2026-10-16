@@ -19,7 +19,6 @@ class RedisSettings(BaseSettings):
     username: str = Field(alias="REDIS_USERNAME", min_length=1, max_length=128)
     password: str = Field(alias="REDIS_PASSWORD", min_length=1, max_length=1024)
     broker_database: int = Field(0, alias="REDIS_BROKER_DATABASE", ge=0)
-    backend_database: int = Field(1, alias="REDIS_BACKEND_DATABASE", ge=0)
 
     @property
     def url(self) -> str:
@@ -30,7 +29,3 @@ class RedisSettings(BaseSettings):
     @property
     def broker_url(self) -> str:
         return f"{self.url.rstrip('/')}/{self.broker_database}"
-
-    @property
-    def backend_url(self) -> str:
-        return f"{self.url.rstrip('/')}/{self.backend_database}"

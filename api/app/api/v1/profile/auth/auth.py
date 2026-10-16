@@ -28,6 +28,7 @@ router = APIRouter(prefix="/device/auth", tags=["device-auth"])
 Session = Annotated[PostgresSession, Depends(get_postgres_session)]
 Administrator = Annotated[Principal, Depends(require_admin)]
 completion_tasks: set[asyncio.Task[None]] = set()
+TERMINAL_FLOW_RETENTION_SECONDS = 300
 
 
 def _status(flow: DeviceFlow) -> DeviceAuthStatus:
@@ -149,23 +150,43 @@ async def _finalize(flow: DeviceFlow, session: PostgresSession) -> None:
 
 async def _complete(flow: DeviceFlow) -> None:
     try:
-        await asyncio.wait_for(flow.completion_event.wait(), timeout=900)
-    except asyncio.TimeoutError:
-        async with flow.lock:
-            if flow.result_status == "pending":
-                flow.result_status = "expired"
-        await device_auth.cancel(flow)
-        shutil.rmtree(flow.codex_home, ignore_errors=True)
-        return
-    try:
-        async with get_postgres_context().acquire() as session:
-            await _finalize(flow, session)
-    except Exception as error:
-        if not flow.committed:
-            flow.result_status = "failed"
-            flow.result_detail = f"Could not save Codex profile: {error}"
-            await device_auth.stop(flow)
+        try:
+            await asyncio.wait_for(flow.completion_event.wait(), timeout=900)
+        except asyncio.TimeoutError:
+            async with flow.lock:
+                if flow.result_status == "pending":
+                    flow.result_status = "expired"
+            await device_auth.cancel(flow)
             shutil.rmtree(flow.codex_home, ignore_errors=True)
+            return
+        try:
+            async with get_postgres_context().acquire() as session:
+                await _finalize(flow, session)
+        except Exception as error:
+            if not flow.committed:
+                flow.result_status = "failed"
+                flow.result_detail = f"Could not save Codex profile: {error}"
+                await device_auth.stop(flow)
+                shutil.rmtree(flow.codex_home, ignore_errors=True)
+    finally:
+        task = asyncio.current_task()
+        if task is not None and task.cancelling():
+            device_auth.remove(flow.uid)
+        else:
+            try:
+                await asyncio.sleep(TERMINAL_FLOW_RETENTION_SECONDS)
+            finally:
+                device_auth.remove(flow.uid)
+
+
+async def shutdown_device_auth() -> None:
+    tasks = list(completion_tasks)
+    for task in tasks:
+        task.cancel()
+    await device_auth.close()
+    if tasks:
+        await asyncio.gather(*tasks, return_exceptions=True)
+    completion_tasks.clear()
 
 
 @router.post("", response_model=DeviceAuthStarted, status_code=status.HTTP_201_CREATED)

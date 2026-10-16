@@ -145,6 +145,14 @@ class CodexDeviceAuth:
     def remove(self, uid: UUID) -> None:
         self._flows.pop(uid, None)
 
+    async def close(self) -> None:
+        flows = list(self._flows.values())
+        self._flows.clear()
+        await asyncio.gather(
+            *(self.stop(flow) for flow in flows),
+            return_exceptions=True,
+        )
+
     async def cancel(self, flow: DeviceFlow) -> None:
         async with flow.lock:
             if flow.process.returncode is None and flow.login_id and not flow.completed:
