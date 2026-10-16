@@ -154,12 +154,12 @@ select:focus {
   display: grid;
   place-content: center;
 }
-@media (max-width: 760px) {
+@media (max-width: 900px), (pointer: coarse) {
   .app-shell {
     display: block;
   }
   .workspace {
     width: calc(100% - 28px);
-    padding: 24px 0;
+    padding: 24px 0 calc(96px + env(safe-area-inset-bottom));
   }
 }

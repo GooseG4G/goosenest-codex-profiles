@@ -57,9 +57,54 @@ describe("UISwitch", () => {
 
     document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
     await nextTick();
-    await new Promise((resolve) => setTimeout(resolve, 100));
+    await new Promise((resolve) => setTimeout(resolve, 520));
 
     expect(document.body.querySelector('[role="tooltip"]')).toBeNull();
     wrapper.unmount();
+  });
+
+  it("uses the action tooltip without changing its accessible name", async () => {
+    const wrapper = mount(UISwitch, {
+      props: {
+        modelValue: true,
+        accessibleLabel: "Disable profile@example.com",
+        tooltip: "Disable",
+      },
+    });
+    const control = wrapper.get('[role="switch"]');
+
+    expect(control.attributes("aria-label")).toBe("Disable profile@example.com");
+    await control.trigger("mouseenter");
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    expect(document.body.textContent).toContain("Disable");
+    expect(document.body.textContent).not.toContain("Disable profile@example.com");
+    wrapper.unmount();
+  });
+
+  it("does not open a tooltip for disabled or pending controls", async () => {
+    const cases: Array<{
+      modelValue: boolean;
+      accessibleLabel: string;
+      disabled?: boolean;
+      pending?: boolean;
+    }> = [
+      {
+        modelValue: false,
+        accessibleLabel: "Enable profile@example.com",
+        disabled: true,
+      },
+      {
+        modelValue: false,
+        accessibleLabel: "Enable profile@example.com",
+        pending: true,
+      },
+    ];
+    for (const props of cases) {
+      const wrapper = mount(UISwitch, { props });
+      await wrapper.get('[role="switch"]').trigger("mouseenter");
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      expect(document.body.querySelector('[role="tooltip"]')).toBeNull();
+      wrapper.unmount();
+    }
   });
 });

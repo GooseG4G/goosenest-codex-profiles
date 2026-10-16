@@ -134,10 +134,13 @@ defineEmits<{ logout: [] }>();
   background: var(--color-bg-control-hover);
 }
 .sidebar nav a:hover svg {
-  transform: scale(1.08);
+  transform: none;
 }
 .sidebar nav a:active {
   background: var(--color-bg-control-pressed);
+  transform: translateY(1px);
+}
+.sidebar nav a:active svg {
   transform: none;
 }
 .sidebar nav a:focus-visible {
@@ -185,6 +188,10 @@ defineEmits<{ logout: [] }>();
 .account-trigger[aria-expanded="true"] {
   color: var(--color-text-primary);
   background: var(--color-bg-control-hover);
+}
+.account-trigger:active {
+  background: var(--color-bg-control-pressed);
+  transform: scale(0.98);
 }
 .account-trigger:focus-visible {
   border-color: var(--color-focus);
@@ -246,6 +253,7 @@ defineEmits<{ logout: [] }>();
 }
 .account-action:active {
   background: var(--color-bg-control-pressed);
+  transform: scale(0.98);
 }
 @media (prefers-reduced-motion: reduce) {
   .sidebar nav a,
@@ -254,29 +262,45 @@ defineEmits<{ logout: [] }>();
     transition: none;
   }
   .sidebar nav a:hover svg,
-  .sidebar nav a:active {
+  .sidebar nav a:active,
+  .account-action:active {
+    transform: none;
+  }
+  .account-trigger:active {
+    transform: none;
+  }
+  .sidebar nav a:active svg {
     transform: none;
   }
 }
-@media (max-width: 760px) {
+@media (max-width: 900px), (pointer: coarse) {
   .sidebar {
-    position: static;
-    height: auto;
-    padding: 12px 14px;
+    position: fixed;
+    top: auto;
+    right: 0;
+    bottom: 0;
+    inset-block-end: 0;
+    left: 0;
+    z-index: 20;
+    height: 72px;
+    padding: 8px max(14px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(14px, env(safe-area-inset-left));
     display: grid;
-    grid-template-columns: auto 1fr auto;
+    grid-template-columns: 1fr auto 1fr;
     align-items: center;
+    border-top: 1px solid var(--color-border-default);
+    border-right: 0;
   }
   .brand {
-    padding: 0;
+    display: none;
   }
   .brand span {
     display: none;
   }
   .sidebar nav {
     display: flex;
-    gap: 6px;
+    gap: 8px;
     justify-content: center;
+    grid-column: 2;
   }
   .admin-links {
     display: contents;
@@ -285,8 +309,9 @@ defineEmits<{ logout: [] }>();
     display: none;
   }
   .sidebar nav a {
-    width: 38px;
-    height: 36px;
+    width: 44px;
+    height: 44px;
+    flex: 0 0 44px;
     padding: 0;
     justify-content: center;
   }
@@ -301,9 +326,12 @@ defineEmits<{ logout: [] }>();
     margin: 0;
     padding: 0;
     border: 0;
+    grid-column: 3;
+    justify-self: end;
   }
   .account-trigger {
-    width: 38px;
+    width: 44px;
+    height: 44px;
     grid-template-columns: 16px;
     justify-content: center;
     padding: 0;

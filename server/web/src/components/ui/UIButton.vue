@@ -115,6 +115,9 @@ function handleClick(event: MouseEvent) {
   background: var(--color-bg-button-pressed);
   transform: translateY(0) scale(0.98);
 }
+.ui-button:active:not(:disabled):not([aria-disabled="true"]) .content :deep(svg) {
+  transform: scale(0.96);
+}
 .ui-button:focus-visible {
   border-color: var(--color-focus);
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-focus) 24%, transparent);

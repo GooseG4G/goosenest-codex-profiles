@@ -162,7 +162,7 @@ onBeforeUnmount(() => {
     </div>
     <div class="table-card">
       <div class="list-header">
-        Profile <span>{{ items.length }}</span>
+        Profile
       </div>
       <div v-if="!visible.length" class="profiles-empty">No profiles found</div>
       <article
@@ -219,6 +219,7 @@ onBeforeUnmount(() => {
             ><UISwitch
               :model-value="profile.enabled"
               :accessible-label="`${profile.enabled ? 'Disable' : 'Enable'} ${profile.name}`"
+              :tooltip="profile.enabled ? 'Disable' : 'Enable'"
               :pending="enabledPendingProfileIds.has(profile.profile_id)"
               @change="emit('enabledChange', profile.profile_id, $event)"
             /><i /><UIIconButton
@@ -228,6 +229,7 @@ onBeforeUnmount(() => {
               size="small"
               surface-motion="none"
               icon-motion="none"
+              motion-preset="surface"
               @click="emit('delete', profile.profile_id)"
               ><template #icon><Trash2 /></template
             ></UIIconButton>
@@ -274,7 +276,7 @@ onBeforeUnmount(() => {
 .toolbar {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 46px;
-  gap: 10px;
+  gap: 12px;
 }
 .table-card {
   overflow: hidden;
@@ -309,7 +311,13 @@ onBeforeUnmount(() => {
 .profile-row:has(.row-hit:hover) {
   background: var(--color-bg-row-hover);
 }
+.profile-row:has(.actions:hover) {
+  background: var(--color-bg-row-hover);
+}
 .profile-item:has(.row-hit:hover) .usage-wrap {
+  background: var(--color-bg-row-hover);
+}
+.profile-item:has(.actions:hover) .usage-wrap {
   background: var(--color-bg-row-hover);
 }
 .row-hit {
@@ -387,13 +395,19 @@ onBeforeUnmount(() => {
 }
 .actions {
   z-index: 2;
-  display: flex;
+  display: grid;
+  grid-template-columns: 28px 36px 1px 28px;
   align-items: center;
-  gap: 10px;
+  gap: 16px;
+  pointer-events: none;
+}
+.actions > :deep(.ui-switch),
+.actions > :deep(.icon-button) {
+  pointer-events: auto;
 }
 .actions i {
   height: 22px;
-  margin: 0 2px;
+  width: 1px;
   border-left: 1px solid var(--color-border-default);
 }
 .chevron {
@@ -410,6 +424,27 @@ onBeforeUnmount(() => {
   justify-content: center;
   color: var(--color-icon);
   pointer-events: none;
+  transform: translateZ(0);
+  transform-origin: center;
+  transition: color var(--duration-fast) var(--ease-standard);
+}
+.profile-row:has(.row-hit:hover) .row-indicator {
+  color: var(--color-text-primary);
+}
+.profile-row:has(.row-hit:active) .row-indicator {
+  color: var(--color-text-primary);
+}
+.profile-row:has(.row-hit:hover) .row-indicator:not(.expanded) .chevron {
+  transform: scale(1.06);
+}
+.profile-row:has(.row-hit:hover) .row-indicator.expanded .chevron {
+  transform: rotate(180deg) scale(1.06);
+}
+.profile-row:has(.row-hit:active) .row-indicator:not(.expanded) .chevron {
+  transform: scale(0.96);
+}
+.profile-row:has(.row-hit:active) .row-indicator.expanded .chevron {
+  transform: rotate(180deg) scale(0.96);
 }
 .row-indicator.expanded .chevron {
   transform: rotate(180deg);

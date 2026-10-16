@@ -73,7 +73,7 @@ watch(
     </div>
     <div class="table">
       <div class="table-head">
-        User <span>{{ items.length }}</span>
+        User
       </div>
       <div v-if="!visible.length" class="empty">No users found</div>
       <article v-for="user in visible" :key="user.user_id">
@@ -87,6 +87,7 @@ watch(
             title="Edit"
             size="small"
             icon-motion="none"
+            motion-preset="surface"
             @click="openEdit(user)"
             ><template #icon><Pencil /></template></UIIconButton
         ></span>
