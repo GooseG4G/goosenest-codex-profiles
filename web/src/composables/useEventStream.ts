@@ -69,15 +69,21 @@ export function useEventStream<T extends StreamEnvelope>(
       }, 25_000);
     });
     next.addEventListener("message", (message) => {
+      let envelope: T;
       try {
-        const envelope = JSON.parse(String(message.data)) as T;
-        if (!envelope.stream_id) return;
-        lastStreamId = envelope.stream_id;
-        writeCursor(options.storageKey, lastStreamId);
+        envelope = JSON.parse(String(message.data)) as T;
+      } catch {
+        return;
+      }
+      if (!envelope.stream_id) return;
+      try {
         options.onEvent(envelope);
       } catch {
-        // Invalid events are ignored; REST remains the authoritative snapshot.
+        next.close(1011, "Event handling failed");
+        return;
       }
+      lastStreamId = envelope.stream_id;
+      writeCursor(options.storageKey, lastStreamId);
     });
     next.addEventListener("close", () => {
       if (socket !== next) return;
