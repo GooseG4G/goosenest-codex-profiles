@@ -52,9 +52,9 @@ def _age(profile: ProfileEntity) -> float:
 async def _revalidate_if_due(profile: ProfileEntity) -> bool:
     if _age(profile) < 60:
         return False
-    from worker.tasks.profile.usage.usage import _enqueue_profile_usage_refresh
+    from worker.tasks.profile.usage.usage import _schedule_profile_usage_refresh
 
-    await _enqueue_profile_usage_refresh(profile.profile_id)
+    await _schedule_profile_usage_refresh(profile.profile_id)
     return True
 
 
@@ -153,9 +153,9 @@ async def consume_reset(
 ) -> UsageResetEntity:
     await _profile(profile_id, session)
     key = idempotency_key or str(uuid4())
-    from worker.tasks.profile.usage.resets import _enqueue_profile_usage_reset
+    from worker.tasks.profile.usage.resets import _schedule_profile_usage_reset
 
-    task_id = await _enqueue_profile_usage_reset(profile_id, reset_id, key)
+    task_id = await _schedule_profile_usage_reset(profile_id, reset_id, key)
     return UsageResetEntity(
         meta=UsageResetMeta(
             href=f"/api/v1/profiles/{profile_id}/usage/resets/{reset_id}"

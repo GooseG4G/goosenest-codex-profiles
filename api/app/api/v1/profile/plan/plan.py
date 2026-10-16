@@ -40,9 +40,9 @@ async def read_plan(
     )
     refreshing = age >= 60
     if refreshing and profile.enabled and profile.auth_status == "authorized":
-        from worker.tasks.profile.plan import _enqueue_profile_plan_refresh
+        from worker.tasks.profile.plan import _schedule_profile_plan_refresh
 
-        await _enqueue_profile_plan_refresh(profile_id)
+        await _schedule_profile_plan_refresh(profile_id)
     return ProfilePlan(
         plan_type=profile.plan_type,
         updated_at=profile.plan_updated_at,
