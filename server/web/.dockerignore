@@ -1,2 +1,8 @@
 node_modules
 dist
+.playwright-cli
+test-results
+tests
+playwright.config.ts
+UI_AUDIT.md
+*.tsbuildinfo

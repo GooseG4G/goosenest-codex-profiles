@@ -2,7 +2,7 @@ services:
   nginx:
     restart: unless-stopped
     volumes:
-      - ../server/nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ../server/nginx/default.conf.template:/etc/nginx/templates/default.conf.template:ro
       - certbot-certs:/etc/letsencrypt:ro
       - certbot-webroot:/var/www/certbot:ro
       - web-root:/srv/web:ro

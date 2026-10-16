@@ -1,5 +1,3 @@
-# syntax=docker/dockerfile:1
-
 FROM node:24-slim AS codex
 
 RUN --mount=type=cache,target=/root/.npm,id=codex-profiles-npm-cache \
@@ -19,11 +17,13 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=codex-profiles-ap
 COPY --from=codex \
     /usr/local/lib/node_modules/@openai/codex/node_modules/@openai/codex-linux-x64 \
     /opt/codex
+
 RUN ln -s \
     /opt/codex/vendor/x86_64-unknown-linux-musl/bin/codex \
     /usr/local/bin/codex
 
 COPY requirements.txt .
+
 RUN --mount=type=cache,target=/root/.cache/pip,id=codex-profiles-pip-cache \
     pip install -r requirements.txt
 
