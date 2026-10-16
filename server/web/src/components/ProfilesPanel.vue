@@ -396,7 +396,7 @@ onBeforeUnmount(() => {
 .actions {
   z-index: 2;
   display: grid;
-  grid-template-columns: 28px 36px 1px 28px;
+  grid-template-columns: 28px 40px 1px 28px;
   align-items: center;
   gap: 16px;
   pointer-events: none;
@@ -404,6 +404,9 @@ onBeforeUnmount(() => {
 .actions > :deep(.ui-switch),
 .actions > :deep(.icon-button) {
   pointer-events: auto;
+}
+.actions > :deep(.ui-switch) {
+  justify-self: start;
 }
 .actions i {
   height: 22px;
