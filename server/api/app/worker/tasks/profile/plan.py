@@ -64,11 +64,12 @@ async def _refresh_plan(profile_id: UUID) -> None:
                 f"SELECT {FIELDS} FROM profiles WHERE profile_id=$1",
                 profile_id,
             )
-        if (
-            profile is None
-            or not profile.enabled
-            or profile.auth_status != "authorized"
-        ):
+        profile_available = (
+            profile is not None
+            and profile.enabled
+            and profile.auth_status == "authorized"
+        )
+        if not profile_available:
             return
         if profile.plan_updated_at is not None:
             age = datetime.now(profile.plan_updated_at.tzinfo) - profile.plan_updated_at
