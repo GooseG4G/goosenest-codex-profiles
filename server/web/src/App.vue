@@ -81,6 +81,7 @@ async function login(username: string, password: string) {
   }
 }
 async function logout() {
+  profiles.disconnectEvents();
   try {
     await session.logout();
     users.value = [];
@@ -89,6 +90,7 @@ async function logout() {
     devices.reset();
     await router.replace({ name: "sign-in" });
   } catch (reason) {
+    profiles.connectEvents();
     notifications.error(reason, "Could not sign out");
   }
 }

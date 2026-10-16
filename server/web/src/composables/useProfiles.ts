@@ -39,11 +39,12 @@ export function useProfiles() {
     usageAbort: AbortController | undefined,
     planRequests = new Map<string, Promise<void>>(),
     resetSequence = 0;
-  const { connect: connectEvents } = useEventStream<StreamEvent>({
-    path: "/api/v1/events",
-    storageKey: "goosenest:event-stream:last-id",
-    onEvent: handleServerEvent,
-  });
+  const { connect: connectEvents, disconnect: disconnectEvents } =
+    useEventStream<StreamEvent>({
+      path: "/api/v1/events",
+      storageKey: "goosenest:event-stream:last-id",
+      onEvent: handleServerEvent,
+    });
   async function load() {
     profiles.value = (await api<ProfileEntities>("/profiles")).items;
     const profileIds = new Set(profiles.value.map((profile) => profile.profile_id));
@@ -365,6 +366,8 @@ export function useProfiles() {
     resetPending: readonly(resetPending),
     resetCompleted: readonly(resetCompleted),
     load,
+    connectEvents,
+    disconnectEvents,
     setEnabled,
     setHotProfile,
     startAuth,

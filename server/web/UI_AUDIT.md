@@ -13,6 +13,7 @@ This document is the working contract for the control panel UI. Components may c
 | `UIPopover`    | Lightweight contextual actions             | Anchored to trigger                       | Does not change page layout                     | Arrow-key navigation when menu-like    | Closes after selection           | Trigger communicates disabled state   |
 | `UIField`      | Login and edit/create forms                | Label, control, optional hint             | Border increases contrast                       | Focus border and optional error clears | N/A                              | Muted surface                         |
 | `UISearchField` | Collection filtering                      | One icon/input surface                    | Outer border increases contrast                  | Ring belongs to the complete search surface | N/A                           | Entire surface is muted               |
+| `UISelect`     | Closed-set choices such as user role       | One custom trigger surface                | Border changes only for pointer hover             | One ring around the complete trigger   | Menu opens without a pressed fill | Muted trigger; menu cannot open       |
 
 ### Button state matrix
 
@@ -75,7 +76,7 @@ The matrix keeps background, icon and surface motion independently configurable.
 - Clicking the identity region expands/collapses usage when usage exists.
 - Chevron reflects expansion and animates only rotation.
 - Delete remains a distinct danger action with confirmation.
-- Add profile opens a confirmation dialog without touching the backend. `Sign in` starts device auth in-place; only then does the dialog reveal the one-time code and `Open ChatGPT` action.
+- Add and reauthorize profile both open a confirmation dialog without touching the backend. `Sign in` starts device auth in-place; only then does the dialog reveal the one-time code and `OpenAI` action.
 - Usage details mount lazily when a row expands; persisted limits refresh through normal gateway traffic.
 - Usage bars show remaining capacity and relative reset time (`Resets in 5d 14h`).
 - Only the currently expanded profile is hot. Opening it queues an immediate idempotent Celery refresh; while it remains open and visible, another refresh is requested at most once a minute. Collapsing it, navigating away, or hiding the document stops new requests.

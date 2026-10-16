@@ -73,4 +73,36 @@ describe("useEventStream", () => {
     wrapper.unmount();
     expect(socket.close).toHaveBeenCalledWith(1000);
   });
+
+  it("does not advance the cursor when the event handler fails", () => {
+    sessionStorage.setItem("events.cursor", "12-0");
+    const wrapper = mount(
+      defineComponent({
+        setup() {
+          const stream = useEventStream({
+            path: "/api/v1/events",
+            storageKey: "events.cursor",
+            onEvent: () => {
+              throw new Error("handler failed");
+            },
+          });
+          stream.connect();
+          return {};
+        },
+        template: "<div />",
+      }),
+    );
+
+    FakeWebSocket.instances[0].emitMessage({
+      stream_id: "13-0",
+      type: "profile.usage.updated",
+    });
+
+    expect(sessionStorage.getItem("events.cursor")).toBe("12-0");
+    expect(FakeWebSocket.instances[0].close).toHaveBeenCalledWith(
+      1011,
+      "Event handling failed",
+    );
+    wrapper.unmount();
+  });
 });
