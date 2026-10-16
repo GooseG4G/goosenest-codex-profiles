@@ -160,6 +160,6 @@ select:focus {
   }
   .workspace {
     width: calc(100% - 28px);
-    padding: 24px 0 calc(96px + env(safe-area-inset-bottom));
+    padding: 24px 0 calc(80px + env(safe-area-inset-bottom));
   }
 }

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ChevronDown, RefreshCw, Trash2, UserRoundPlus } from "@lucide/vue";
-import { computed, onBeforeUnmount, onMounted, shallowRef, watch } from "vue";
+import { computed, onBeforeUnmount, shallowRef, watch } from "vue";
 import type { Profile, UsageResets } from "../api";
 import { useEscapeLayer } from "../composables/useEscapeLayer";
 import { useRouteQuery } from "../composables/useRouteQuery";
@@ -36,10 +36,8 @@ const emit = defineEmits<{
   enabledChange: [profileId: string, enabled: boolean];
 }>();
 const expanded = shallowRef<string>();
-const now = shallowRef(Date.now());
 const planShimmerIds = shallowRef(new Set<string>());
 const planShimmerTimers = new Map<string, ReturnType<typeof setTimeout>>();
-let clock: ReturnType<typeof setInterval> | undefined;
 useEscapeLayer(
   () => Boolean(expanded.value),
   () => {
@@ -62,26 +60,11 @@ function planPending(profile: Profile): boolean {
 }
 function expiryLabel(profile: Profile): string {
   const plan = planLabel(profile);
-  if (!profile.subscription_expires_at) {
-    if (!profile.last_used_at) return plan;
-    const lastUsedAt = new Date(profile.last_used_at).getTime();
-    return Number.isFinite(lastUsedAt)
-      ? `${plan}, last used ${formatDateTime(lastUsedAt)}`
-      : plan;
-  }
-  const expiresAt = new Date(profile.subscription_expires_at).getTime();
-  if (!Number.isFinite(expiresAt)) return plan;
-  const remainingMinutes = Math.ceil((expiresAt - now.value) / 60_000);
-  if (remainingMinutes <= 0) return `${plan}, expired`;
-  const days = Math.floor(remainingMinutes / 1_440);
-  const hours = Math.floor((remainingMinutes % 1_440) / 60);
-  const minutes = remainingMinutes % 60;
-  const duration = days
-    ? `${days}d${hours ? ` ${hours}h` : ""}`
-    : hours
-      ? `${hours}h${minutes ? ` ${minutes}m` : ""}`
-      : `${minutes}m`;
-  return `${plan}, expires in ${duration}`;
+  if (!profile.last_used_at) return plan;
+  const lastUsedAt = new Date(profile.last_used_at).getTime();
+  return Number.isFinite(lastUsedAt)
+    ? `${plan}, last used ${formatDateTime(lastUsedAt)}`
+    : plan;
 }
 function toggle(profile: Profile) {
   expanded.value =
@@ -98,15 +81,13 @@ function activate(profile: Profile) {
   }
   toggle(profile);
 }
-onMounted(() => {
-  clock = setInterval(() => {
-    now.value = Date.now();
-  }, 60_000);
-});
 watch(
   () => ({
     pendingIds: props.planPendingProfileIds,
-    plans: props.items.map((profile) => [profile.profile_id, profile.plan_type]),
+    plans: props.items.map((profile) => [
+      profile.profile_id,
+      profile.plan_type,
+    ]),
   }),
   ({ pendingIds }) => {
     for (const profile of props.items) {
@@ -125,7 +106,11 @@ watch(
         }
       } else if (pendingIds.has(id)) {
         planShimmerIds.value = new Set(planShimmerIds.value).add(id);
-      } else if (!pendingIds.has(id) && planShimmerIds.value.has(id) && !planShimmerTimers.has(id)) {
+      } else if (
+        !pendingIds.has(id) &&
+        planShimmerIds.value.has(id) &&
+        !planShimmerTimers.has(id)
+      ) {
         const timer = setTimeout(() => {
           const next = new Set(planShimmerIds.value);
           next.delete(id);
@@ -139,7 +124,6 @@ watch(
   { immediate: true, deep: true },
 );
 onBeforeUnmount(() => {
-  clearInterval(clock);
   for (const timer of planShimmerTimers.values()) clearTimeout(timer);
   planShimmerTimers.clear();
   emit("hotProfileChange", undefined);
@@ -161,9 +145,7 @@ onBeforeUnmount(() => {
       ></UIIconButton>
     </div>
     <div class="table-card">
-      <div class="list-header">
-        Profile
-      </div>
+      <div class="list-header">Profile</div>
       <div v-if="!visible.length" class="profiles-empty">No profiles found</div>
       <article
         v-for="profile in visible"
@@ -198,8 +180,7 @@ onBeforeUnmount(() => {
                 warning: needsAuthentication(profile),
               },
             ]"
-          /><span
-            class="copy"
+          /><span class="copy"
             ><strong>{{ profile.name }}</strong
             ><small
               v-if="planPending(profile)"
@@ -212,10 +193,11 @@ onBeforeUnmount(() => {
               class="row-indicator"
               :class="{ expanded: expanded === profile.profile_id }"
               aria-hidden="true"
-            ><RefreshCw v-if="needsAuthentication(profile)" class="reauth-icon" /><ChevronDown
+              ><RefreshCw
+                v-if="needsAuthentication(profile)"
+                class="reauth-icon" /><ChevronDown
                 v-else
-                class="chevron"
-              /></span
+                class="chevron" /></span
             ><UISwitch
               :model-value="profile.enabled"
               :accessible-label="`${profile.enabled ? 'Disable' : 'Enable'} ${profile.name}`"
@@ -238,8 +220,7 @@ onBeforeUnmount(() => {
         <Transition name="usage"
           ><div
             v-if="
-              !needsAuthentication(profile) &&
-              expanded === profile.profile_id
+              !needsAuthentication(profile) && expanded === profile.profile_id
             "
             :id="`usage-${profile.profile_id}`"
             class="usage-collapse"
@@ -276,7 +257,7 @@ onBeforeUnmount(() => {
 .toolbar {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 46px;
-  gap: 12px;
+  gap: 10px;
 }
 .table-card {
   overflow: hidden;
@@ -329,7 +310,8 @@ onBeforeUnmount(() => {
 }
 .row-hit:focus-visible {
   outline: none;
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-focus) 76%, transparent);
+  box-shadow: inset 0 0 0 1px
+    color-mix(in srgb, var(--color-focus) 76%, transparent);
 }
 .dot {
   z-index: 1;
@@ -458,7 +440,9 @@ onBeforeUnmount(() => {
   animation: profile-reauth-spin 0.9s linear infinite;
 }
 @keyframes profile-reauth-spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 .usage-collapse {
   display: grid;

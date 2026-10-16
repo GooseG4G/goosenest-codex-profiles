@@ -11,6 +11,7 @@ defineProps<{
   flow?: DeviceFlow;
   pending: boolean;
   authOpened: boolean;
+  profileName?: string;
 }>();
 defineEmits<{ close: []; start: []; authOpened: [] }>();
 </script>
@@ -18,10 +19,14 @@ defineEmits<{ close: []; start: []; authOpened: [] }>();
 <template>
   <UIDialog
     :open="open"
-    :title="flow ? 'Sign in to Codex' : 'Add profile'"
+    :title="
+      flow ? 'Sign in to Codex' : profileName ? 'Sign in again' : 'Add profile'
+    "
     :description="
       flow
         ? 'Continue in OpenAI and enter this one-time code.'
+        : profileName
+          ? `Sign in to reconnect ${profileName}.`
         : 'Start Codex sign-in to connect another profile.'
     "
     :close-disabled="pending"

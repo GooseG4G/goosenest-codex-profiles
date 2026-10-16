@@ -27,7 +27,6 @@ export interface Profile {
   usage_updated_at: string | null;
   plan_type: string | null;
   plan_updated_at: string | null;
-  subscription_expires_at: string | null;
   last_used_at: string | null;
 }
 export interface ProfileEntities {
@@ -79,33 +78,38 @@ export type UsageResetOutcome =
   | "nothingToReset"
   | "noCredit"
   | "alreadyRedeemed";
-export type ServerEvent =
-  | {
-      version: 1;
+export interface EventAudience {
+  roles: readonly Role[];
+  user_ids: readonly string[];
+}
+interface EventBase {
+  version: 1;
+  event_id: string;
+  occurred_at: string;
+  audience: EventAudience;
+}
+export type ServerEvent = EventBase &
+  (
+    | {
       type: "profile.usage.updated";
       profile_id: string;
-      occurred_at: string;
     }
-  | {
-      version: 1;
+    | {
       type: "profile.plan.updated";
       profile_id: string;
-      occurred_at: string;
     }
-  | {
-      version: 1;
+    | {
       type: "profile.usage.reset.completed";
       profile_id: string;
-      occurred_at: string;
       outcome: UsageResetOutcome;
     }
-  | {
-      version: 1;
+    | {
       type: "profile.auth.changed";
       profile_id: string;
       auth_status: "authorized" | "expired";
       flow_id?: string | null;
-    };
+    }
+  );
 export interface StreamEvent {
   stream_id: string;
   event: ServerEvent;

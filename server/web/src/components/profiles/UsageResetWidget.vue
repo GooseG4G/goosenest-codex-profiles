@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ChevronDown } from "@lucide/vue";
-import { computed, shallowRef, useId } from "vue";
+import { computed, onBeforeUnmount, onMounted, shallowRef, useId } from "vue";
 import type { UsageResetCredit, UsageResets } from "../../api";
 import { useEscapeLayer } from "../../composables/useEscapeLayer";
 import UIButton from "../ui/UIButton.vue";
@@ -13,7 +13,17 @@ const props = defineProps<{
 const emit = defineEmits<{ useReset: [resetId: string] }>();
 const expanded = shallowRef(false);
 const requestedReset = shallowRef<UsageResetCredit>();
+const now = shallowRef(Date.now());
 const creditsId = useId();
+let clock: ReturnType<typeof setInterval> | undefined;
+
+onMounted(() => {
+  clock = setInterval(() => {
+    now.value = Date.now();
+  }, 60_000);
+});
+onBeforeUnmount(() => clearInterval(clock));
+
 const available = computed(() =>
   (props.resets?.credits ?? []).filter(
     (credit) => credit.status === "available",
@@ -23,6 +33,17 @@ const count = computed(() =>
   Math.max(props.resets?.available_count ?? 0, available.value.length),
 );
 const hasAvailable = computed(() => count.value > 0);
+const isStale = computed(() => {
+  if (!props.resets) return true;
+  const updatedAt = props.resets.updated_at
+    ? new Date(props.resets.updated_at).getTime()
+    : Number.NaN;
+  return (
+    props.resets.stale ||
+    !Number.isFinite(updatedAt) ||
+    now.value - updatedAt >= 180_000
+  );
+});
 useEscapeLayer(
   () => expanded.value,
   () => {
@@ -52,7 +73,10 @@ function confirmReset() {
 </script>
 
 <template>
-  <section class="reset-widget" :class="{ 'reset-widget-empty': !hasAvailable }">
+  <section
+    class="reset-widget"
+    :class="{ 'reset-widget-empty': !hasAvailable }"
+  >
     <button
       v-if="hasAvailable"
       class="reset-summary"
@@ -63,23 +87,25 @@ function confirmReset() {
       @click="expanded = !expanded"
     >
       <strong>Usage limit resets</strong>
-      <span class="available">{{ count }} available</span>
+      <span :class="['available', { 'is-stale': isStale }]">
+        {{ count }} available
+      </span>
       <ChevronDown
         v-if="count > 0"
         :class="['chevron', { expanded }]"
         aria-hidden="true"
       />
     </button>
-    <div v-else class="reset-summary" aria-label="No usage limit resets available">
+    <div
+      v-else
+      class="reset-summary"
+      aria-label="No usage limit resets available"
+    >
       <strong>Usage limit resets</strong>
-      <span class="available">0 available</span>
+      <span :class="['available', { 'is-stale': isStale }]">0 available</span>
     </div>
     <Transition name="credits">
-      <div
-        v-if="expanded && hasAvailable"
-        :id="creditsId"
-        class="credits"
-      >
+      <div v-if="expanded && hasAvailable" :id="creditsId" class="credits">
         <div class="credits-clip">
           <div class="credits-list">
             <article
@@ -97,7 +123,9 @@ function confirmReset() {
                 :disabled="Boolean(pendingResetId)"
                 @click="requestedReset = credit"
               >
-                {{ pendingResetId === credit.reset_id ? "Using…" : "Use reset" }}
+                {{
+                  pendingResetId === credit.reset_id ? "Using…" : "Use reset"
+                }}
               </UIButton>
             </article>
           </div>
@@ -141,10 +169,6 @@ function confirmReset() {
 .reset-summary:hover {
   background: var(--color-bg-control-hover);
 }
-.reset-summary:active {
-  background: var(--color-bg-control-pressed);
-  transform: scale(0.995);
-}
 .reset-summary:focus-visible {
   outline: none;
   box-shadow: inset 0 0 0 1px var(--color-focus);
@@ -156,7 +180,9 @@ function confirmReset() {
   line-height: 16px;
 }
 .available {
+  position: relative;
   justify-self: stretch;
+  overflow: hidden;
   padding: 4px 9px;
   border-radius: 999px;
   color: var(--color-text-success);
@@ -165,6 +191,21 @@ function confirmReset() {
   line-height: 14px;
   text-align: center;
   background: var(--color-bg-success-subtle);
+}
+.available.is-stale::after {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    100deg,
+    transparent 15%,
+    var(--color-shimmer-light) 50%,
+    transparent 85%
+  );
+  content: "";
+  pointer-events: none;
+  transform: translateX(-100%);
+  animation: available-shimmer 1.35s linear infinite;
+  will-change: transform;
 }
 .reset-widget-empty .reset-summary {
   grid-template-columns: minmax(0, 1fr) auto;
@@ -233,11 +274,20 @@ function confirmReset() {
   grid-template-rows: 0fr;
   opacity: 0;
 }
+@keyframes available-shimmer {
+  to {
+    transform: translateX(100%);
+  }
+}
 @media (prefers-reduced-motion: reduce) {
   .chevron,
   .credits-enter-active,
   .credits-leave-active {
     transition: none;
+  }
+  .available.is-stale::after {
+    animation: none;
+    transform: none;
   }
 }
 </style>
