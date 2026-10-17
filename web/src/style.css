@@ -16,7 +16,7 @@
   --color-text-badge: #c5c5c5;
   --color-text-info: #9eb7e9;
   --color-text-accent: #b9d2ff;
-  --color-text-success: #8de1b0;
+  --color-text-success: #9ad8b2;
   --color-text-inverse: #171717;
   --color-text-on-emphasis: #fff;
   --color-bg-canvas: #101112;
@@ -31,7 +31,7 @@
   --color-bg-code: #111212;
   --color-bg-badge: #292a2b;
   --color-bg-accent-subtle: #162033;
-  --color-bg-success-subtle: #14241b;
+  --color-bg-success-subtle: #203229;
   --color-bg-table-header: #1c1d1e;
   --color-bg-row-hover: #1c1d1e;
   --color-bg-control-hover: #ffffff0a;
@@ -44,7 +44,7 @@
   --color-bg-danger-hover: #913b36;
   --color-bg-progress-track: #3b3b3b;
   --color-bg-progress-fill: #aaa;
-  --color-bg-skeleton: #383939;
+  --color-bg-skeleton: #48494a;
   --color-border-default: #303132;
   --color-border-strong: #414243;
   --color-border-overlay: #343638;
