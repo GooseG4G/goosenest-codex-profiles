@@ -52,9 +52,18 @@ def _age(profile: ProfileEntity) -> float:
 async def _revalidate_if_due(profile: ProfileEntity) -> bool:
     if _age(profile) < 60:
         return False
-    from worker.tasks.profile.usage.usage import _schedule_profile_usage_refresh
+    from api.v1.profile.task_settings import get_profile_task_settings
+    from worker.lease import Lease
+    from worker.tasks.profile.usage import refresh_profile_usage
 
-    await _schedule_profile_usage_refresh(profile.profile_id)
+    await Lease(
+        lease_ttl=get_profile_task_settings().lease_ttl,
+    ).publish(
+        refresh_profile_usage,
+        str(profile.profile_id),
+        args=[str(profile.profile_id)],
+        task_id=str(uuid4()),
+    )
     return True
 
 
@@ -153,9 +162,19 @@ async def consume_reset(
 ) -> UsageResetEntity:
     await _profile(profile_id, session)
     key = idempotency_key or str(uuid4())
-    from worker.tasks.profile.usage.resets import _schedule_profile_usage_reset
+    from api.v1.profile.task_settings import get_profile_task_settings
+    from worker.lease import Lease
+    from worker.tasks.profile.usage import consume_profile_usage_reset
 
-    task_id = await _schedule_profile_usage_reset(profile_id, reset_id, key)
+    task_id = str(uuid4())
+    await Lease(
+        lease_ttl=get_profile_task_settings().lease_ttl,
+    ).publish(
+        consume_profile_usage_reset,
+        f"{profile_id}:{reset_id}",
+        args=[str(profile_id), reset_id, key],
+        task_id=task_id,
+    )
     return UsageResetEntity(
         meta=UsageResetMeta(
             href=f"/api/v1/profiles/{profile_id}/usage/resets/{reset_id}"

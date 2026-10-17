@@ -1,9 +1,9 @@
 import asyncio
 import logging
 
-from celery import shared_task
 from integrations.postgres import PostgresContext
 from integrations.postgres.providers import get_postgres_settings
+from worker import app
 
 logger = logging.getLogger(__name__)
 CLEANUP_TASK = "sessions.expired.cleanup"
@@ -43,6 +43,6 @@ async def cleanup_expired_sessions() -> None:
         await context.close()
 
 
-@shared_task(name=CLEANUP_TASK)
+@app.task(name=CLEANUP_TASK)
 def cleanup_sessions() -> None:
     asyncio.run(cleanup_expired_sessions())

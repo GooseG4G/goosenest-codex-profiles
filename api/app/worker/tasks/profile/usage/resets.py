@@ -1,16 +1,16 @@
 import asyncio
 import logging
-from uuid import UUID, uuid4
+from uuid import UUID
 
 from api.v1.event.models import ProfileUsageResetCompleted
 from api.v1.event.service import publish_event
 from api.v1.profile.models import ProfileRuntime
 from api.v1.profile.task_settings import get_profile_task_settings
-from celery import shared_task
 from integrations.codex.usage import consume_codex_usage_reset, read_codex_usage
 from integrations.postgres import PostgresContext
 from integrations.postgres.providers import get_postgres_settings
-from worker.singleflight import claim_execution, enqueue_once, release_execution
+from worker import app
+from worker.lease import claim_execution, release_execution
 
 logger = logging.getLogger(__name__)
 FIELDS = """jsonb_build_object(
@@ -32,32 +32,6 @@ def _release_execution_safely(resource_id: str, task_id: str) -> None:
             "Failed to release usage reset task lease for %s",
             resource_id,
         )
-
-
-async def _schedule_profile_usage_reset(
-    profile_id: UUID,
-    credit_id: str,
-    idempotency_key: str,
-) -> str:
-    task_id = str(uuid4())
-
-    async def dispatch() -> None:
-        from worker import app
-
-        await asyncio.to_thread(
-            app.send_task,
-            "profiles.usage.reset.consume",
-            args=[str(profile_id), credit_id, idempotency_key],
-            task_id=task_id,
-        )
-
-    return await enqueue_once(
-        "profiles.usage.reset.consume",
-        f"{profile_id}:{credit_id}",
-        task_id,
-        dispatch,
-        lease_ttl=get_profile_task_settings().lease_ttl,
-    )
 
 
 async def _consume_reset(
@@ -113,7 +87,7 @@ async def _consume_reset(
         await context.close()
 
 
-@shared_task(
+@app.task(
     name="profiles.usage.reset.consume",
     bind=True,
 )

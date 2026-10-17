@@ -1,8 +1,9 @@
 from datetime import datetime, timezone
 from typing import Annotated
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from api.v1.profile.models import ProfileEntity
+from api.v1.profile.task_settings import get_profile_task_settings
 from api.v1.session.auth import Principal, require_admin
 from fastapi import APIRouter, Depends, HTTPException
 from integrations.postgres import PostgresSession
@@ -40,9 +41,17 @@ async def read_plan(
     )
     refreshing = age >= 60
     if refreshing and profile.enabled and profile.auth_status == "authorized":
-        from worker.tasks.profile.plan import _schedule_profile_plan_refresh
+        from worker.lease import Lease
+        from worker.tasks.profile.plan import refresh_profile_plan
 
-        await _schedule_profile_plan_refresh(profile_id)
+        await Lease(
+            lease_ttl=get_profile_task_settings().lease_ttl,
+        ).publish(
+            refresh_profile_plan,
+            str(profile_id),
+            args=[str(profile_id)],
+            task_id=str(uuid4()),
+        )
     return ProfilePlan(
         plan_type=profile.plan_type,
         updated_at=profile.plan_updated_at,
