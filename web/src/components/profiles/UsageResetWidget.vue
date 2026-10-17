@@ -183,12 +183,12 @@ function confirmReset() {
   position: relative;
   justify-self: stretch;
   overflow: hidden;
-  padding: 4px 9px;
+  padding: 3px 8px;
   border-radius: 999px;
   color: var(--color-text-success);
   font-size: 11px;
   font-weight: 650;
-  line-height: 14px;
+  line-height: 13px;
   text-align: center;
   background: var(--color-bg-success-subtle);
 }
