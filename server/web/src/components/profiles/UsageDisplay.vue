@@ -192,12 +192,12 @@ function resetLabel(timestamp: number): string {
 }
 .skeleton-reset {
   width: 76px;
-  height: 14px;
+  height: 12px;
 }
 .skeleton-percent {
   justify-self: end;
-  width: 44px;
-  height: 14px;
+  width: 40px;
+  height: 12px;
 }
 .remaining {
   text-align: right;
