@@ -2,7 +2,7 @@ import asyncio
 import shutil
 from pathlib import Path
 from typing import Annotated
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from api.v1.event.models import ProfileAuthChanged
 from api.v1.event.service import publish_event
@@ -141,11 +141,25 @@ async def _finalize(flow: DeviceFlow, session: PostgresSession) -> None:
                 flow_id=flow.uid,
             )
         )
-        from worker.tasks.profile.plan import _schedule_profile_plan_refresh
-        from worker.tasks.profile.usage.usage import _schedule_profile_usage_refresh
+        from api.v1.profile.task_settings import get_profile_task_settings
+        from worker.lease import Lease
+        from worker.tasks.profile.plan import refresh_profile_plan
+        from worker.tasks.profile.usage import refresh_profile_usage
 
-        await _schedule_profile_usage_refresh(profile.profile_id)
-        await _schedule_profile_plan_refresh(profile.profile_id)
+        lease_ttl = get_profile_task_settings().lease_ttl
+        lease = Lease(lease_ttl=lease_ttl)
+        await lease.publish(
+            refresh_profile_usage,
+            str(profile.profile_id),
+            args=[str(profile.profile_id)],
+            task_id=str(uuid4()),
+        )
+        await lease.publish(
+            refresh_profile_plan,
+            str(profile.profile_id),
+            args=[str(profile.profile_id)],
+            task_id=str(uuid4()),
+        )
 
 
 async def _complete(flow: DeviceFlow) -> None:

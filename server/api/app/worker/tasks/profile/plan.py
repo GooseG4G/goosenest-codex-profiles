@@ -1,18 +1,18 @@
 import asyncio
 import logging
 from datetime import datetime
-from uuid import UUID, uuid4
+from uuid import UUID
 
 from api.v1.event.models import ProfilePlanUpdated
 from api.v1.event.service import publish_event
 from api.v1.profile.auth.status import expire_profile_authentication
 from api.v1.profile.models import ProfileRuntime
 from api.v1.profile.task_settings import get_profile_task_settings
-from celery import shared_task
 from integrations.codex.usage import CodexAuthenticationError, read_codex_plan
 from integrations.postgres import PostgresContext
 from integrations.postgres.providers import get_postgres_settings
-from worker.singleflight import claim_execution, enqueue_once, release_execution
+from worker import app
+from worker.lease import claim_execution, release_execution
 
 logger = logging.getLogger(__name__)
 PLAN_REFRESH_TASK = "profiles.plan.refresh"
@@ -30,28 +30,6 @@ def _release_execution_safely(resource_id: str, task_id: str) -> None:
         asyncio.run(release_execution(PLAN_REFRESH_TASK, resource_id, task_id))
     except Exception:
         logger.exception("Failed to release plan task lease for %s", resource_id)
-
-
-async def _schedule_profile_plan_refresh(profile_id: UUID) -> str:
-    task_id = str(uuid4())
-
-    async def dispatch() -> None:
-        from worker import app
-
-        await asyncio.to_thread(
-            app.send_task,
-            PLAN_REFRESH_TASK,
-            args=[str(profile_id)],
-            task_id=task_id,
-        )
-
-    return await enqueue_once(
-        PLAN_REFRESH_TASK,
-        str(profile_id),
-        task_id,
-        dispatch,
-        lease_ttl=get_profile_task_settings().lease_ttl,
-    )
 
 
 async def _refresh_plan(profile_id: UUID) -> None:
@@ -95,7 +73,7 @@ async def _refresh_plan(profile_id: UUID) -> None:
         await context.close()
 
 
-@shared_task(name=PLAN_REFRESH_TASK, bind=True)
+@app.task(name=PLAN_REFRESH_TASK, bind=True)
 def refresh_profile_plan(self, profile_id: str) -> None:
     settings = get_profile_task_settings()
     task_id = str(self.request.id)
