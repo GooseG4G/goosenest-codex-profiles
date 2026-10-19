@@ -161,7 +161,7 @@ function confirmReset() {
   transition: background-color var(--duration-fast) var(--ease-standard);
 }
 .reset-widget:not(.reset-widget-empty):hover {
-  background: var(--color-bg-control-hover);
+  background: var(--color-bg-button-hover);
 }
 .reset-summary {
   width: 100%;
@@ -278,7 +278,7 @@ function confirmReset() {
 }
 .credit :deep(.ui-button) {
   flex: 0 0 auto;
-  height: 32px;
+  height: 30px;
   border-color: var(--color-bg-accent);
   border-radius: 999px;
   color: var(--color-text-inverse);

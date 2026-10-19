@@ -166,7 +166,7 @@ test("usage reset badge keeps its color while stale and summary has no pressed s
   expect(summaryBox).not.toBeNull();
   await page.mouse.move(summaryBox!.x + 20, summaryBox!.y + 20);
   const widget = page.locator(".reset-widget");
-  await expect(widget).toHaveCSS("background-color", "rgba(255, 255, 255, 0.04)");
+  await expect(widget).toHaveCSS("background-color", "rgb(41, 42, 43)");
   await expect(summary).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
   const chevron = summary.locator(".chevron");
   await expect(chevron).toHaveCSS(
@@ -200,7 +200,7 @@ test("usage reset badge keeps its color while stale and summary has no pressed s
   expect(badgeBox!.height).toBeCloseTo(24, 0);
   expect(resetButtonBox!.width).toBeGreaterThanOrEqual(72);
   expect(resetButtonBox!.width).toBeLessThan(100);
-  expect(resetButtonBox!.height).toBeCloseTo(32, 0);
+  expect(resetButtonBox!.height).toBeCloseTo(30, 0);
   const widgetBox = await widget.boundingBox();
   expect(widgetBox).not.toBeNull();
   expect(
