@@ -31,6 +31,7 @@ def upstream_headers(
         "Authorization": f"Bearer {token}",
         "Content-Type": request.headers.get("content-type", "application/json"),
         "Accept": request.headers.get("accept", "text/event-stream"),
+        "Accept-Encoding": "identity",
         "User-Agent": "codex-cli",
     }
     if account_id:

@@ -374,6 +374,8 @@ async def create_response(
             raise
 
         response_headers = downstream_headers(upstream.headers)
+        response_headers["Cache-Control"] = "no-cache"
+        response_headers["X-Accel-Buffering"] = "no"
 
         async def stream_body(
             response: httpx.Response = upstream,
