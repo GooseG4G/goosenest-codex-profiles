@@ -186,9 +186,9 @@ function confirmReset() {
   line-height: 16px;
 }
 .available {
-  --available-background: #2b3831;
-  --available-foreground: #b1c8b8;
-  --available-shimmer: rgb(177 200 184 / 18%);
+  --available-background: #303331;
+  --available-foreground: #9fc5aa;
+  --available-shimmer: rgb(159 197 170 / 16%);
   position: relative;
   justify-self: stretch;
   overflow: hidden;
@@ -236,7 +236,23 @@ function confirmReset() {
   width: 16px;
   height: 16px;
   color: var(--color-text-secondary);
-  transition: transform var(--duration-normal) var(--ease-standard);
+  transition:
+    color var(--duration-fast) var(--ease-standard),
+    transform var(--duration-normal) var(--ease-standard);
+}
+.reset-summary:not(:disabled):hover .chevron {
+  color: var(--color-text-primary);
+  transform: scale(1.06);
+}
+.reset-summary:not(:disabled):hover .chevron.expanded {
+  transform: rotate(180deg) scale(1.06);
+}
+.reset-summary:not(:disabled):active .chevron {
+  color: var(--color-text-primary);
+  transform: scale(0.96);
+}
+.reset-summary:not(:disabled):active .chevron.expanded {
+  transform: rotate(180deg) scale(0.96);
 }
 .chevron.expanded {
   transform: rotate(180deg);

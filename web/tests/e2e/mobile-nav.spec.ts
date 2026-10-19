@@ -163,6 +163,12 @@ test("usage reset badge keeps its color while stale and summary has no pressed s
   const summaryBox = await summary.boundingBox();
   expect(summaryBox).not.toBeNull();
   await page.mouse.move(summaryBox!.x + 20, summaryBox!.y + 20);
+  const chevron = summary.locator(".chevron");
+  await expect(chevron).toHaveCSS(
+    "transform",
+    "matrix(1.06, 0, 0, 1.06, 0, 0)",
+  );
+  await expect(chevron).toHaveCSS("color", "rgb(237, 237, 237)");
   const beforePress = await summary.evaluate(
     (element) => getComputedStyle(element).backgroundColor,
   );
@@ -179,6 +185,32 @@ test("usage reset badge keeps its color while stale and summary has no pressed s
     (element) => getComputedStyle(element, "::after").animationName,
   );
   expect(animation).toContain("available-shimmer");
+});
+
+test("closing the current usage panel only decreases the row height", async ({
+  page,
+}) => {
+  await page.goto("/profiles");
+  const toggle = page.getByRole("button", {
+    name: "Show usage for profile@example.com",
+  });
+  const item = page.locator(".profile-item");
+  await toggle.click();
+  await expect(page.locator(".usage-collapse")).toBeVisible();
+  await page
+    .getByRole("button", { name: "Hide usage for profile@example.com" })
+    .click();
+
+  const heights: number[] = [];
+  for (let sample = 0; sample < 10; sample += 1) {
+    heights.push(
+      await item.evaluate((element) => element.getBoundingClientRect().height),
+    );
+    await page.waitForTimeout(25);
+  }
+  for (let index = 1; index < heights.length; index += 1) {
+    expect(heights[index]).toBeLessThanOrEqual(heights[index - 1]! + 0.5);
+  }
 });
 
 test("empty usage reset badge shimmers over its gray base", async ({
@@ -329,19 +361,26 @@ test("row action spacing is symmetric and delete owns the press transform", asyn
 }) => {
   await page.goto("/profiles");
   const row = page.locator(".profile-row");
+  const indicator = row.locator(".row-indicator");
+  const statusDot = row.locator(".dot");
   const switchControl = row.locator('[role="switch"]');
   const divider = row.locator(".actions > i");
   const deleteButton = row.locator('button[aria-label^="Delete"]');
-  const [switchBox, dividerBox, deleteBox] = await Promise.all([
+  const [indicatorBox, statusBox, switchBox, dividerBox, deleteBox] = await Promise.all([
+    indicator.boundingBox(),
+    statusDot.boundingBox(),
     switchControl.boundingBox(),
     divider.boundingBox(),
     deleteButton.boundingBox(),
   ]);
+  expect(indicatorBox).not.toBeNull();
+  expect(statusBox).not.toBeNull();
   expect(switchBox).not.toBeNull();
   expect(dividerBox).not.toBeNull();
   expect(deleteBox).not.toBeNull();
   const leftGap = dividerBox!.x - (switchBox!.x + switchBox!.width);
   const rightGap = deleteBox!.x - (dividerBox!.x + dividerBox!.width);
+  expect(indicatorBox!.x).toBeLessThan(statusBox!.x);
   expect(leftGap).toBeGreaterThanOrEqual(rightGap + 3);
 
   await deleteButton.hover();

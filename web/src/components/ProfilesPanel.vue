@@ -100,6 +100,7 @@ function animateUsage(
         ? 0
         : 160,
       easing: "ease",
+      fill: "forwards",
     },
   );
   usageAnimations.set(target, animation);
@@ -109,6 +110,7 @@ function animateUsage(
     finished = true;
     usageAnimations.delete(target);
     done();
+    if (opening) animation.cancel();
   };
   animation.addEventListener("finish", finish, { once: true });
   animation.addEventListener("cancel", finish, { once: true });
@@ -207,7 +209,16 @@ onBeforeUnmount(() => {
             "
             @mousedown.prevent
             @click="activate(profile)"
-          /><span
+          />
+          <span
+            class="row-indicator"
+            :class="{ expanded: expanded === profile.profile_id }"
+            aria-hidden="true"
+            ><RefreshCw
+              v-if="needsAuthentication(profile)"
+              class="reauth-icon" /><ChevronDown v-else class="chevron"
+          /></span>
+          <span
             :class="[
               'dot',
               {
@@ -223,14 +234,6 @@ onBeforeUnmount(() => {
               aria-label="Loading plan"
             /><small v-else>{{ expiryLabel(profile) }}</small></span
           >
-          <span
-            class="row-indicator"
-            :class="{ expanded: expanded === profile.profile_id }"
-            aria-hidden="true"
-            ><RefreshCw
-              v-if="needsAuthentication(profile)"
-              class="reauth-icon" /><ChevronDown v-else class="chevron"
-          /></span>
           <div class="actions">
             <UISwitch
               :model-value="profile.enabled"
@@ -321,7 +324,7 @@ onBeforeUnmount(() => {
 .profile-row {
   position: relative;
   display: grid;
-  grid-template-columns: 10px minmax(0, 1fr) 28px auto;
+  grid-template-columns: 28px 10px minmax(0, 1fr) auto;
   align-items: center;
   gap: 13px;
   min-height: 68px;
