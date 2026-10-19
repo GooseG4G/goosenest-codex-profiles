@@ -279,7 +279,7 @@ async def create_response(
                         session,
                         profile.profile_id,
                         upstream.headers,
-                        fallback_seconds=settings.error_cooldown,
+                        fallback_seconds=max(1, int(settings.error_cooldown.total_seconds())),
                     )
                 elif upstream.status_code >= 500:
                     await _cool_down(
@@ -287,7 +287,7 @@ async def create_response(
                         profile.profile_id,
                         upstream.headers,
                         model=model,
-                        fallback_seconds=settings.error_cooldown,
+                        fallback_seconds=max(1, int(settings.error_cooldown.total_seconds())),
                     )
                 await upstream.aclose()
                 await clear_affinity(session, session_key)
@@ -326,7 +326,7 @@ async def create_response(
                         profile.profile_id,
                         upstream.headers,
                         model=None if account_wide else model,
-                        fallback_seconds=settings.error_cooldown,
+                        fallback_seconds=max(1, int(settings.error_cooldown.total_seconds())),
                     )
                     await upstream.aclose()
                     await clear_affinity(session, session_key)
@@ -354,7 +354,7 @@ async def create_response(
                 profile.profile_id,
                 upstream.headers if upstream is not None else httpx.Headers(),
                 model=model,
-                fallback_seconds=settings.error_cooldown,
+                fallback_seconds=max(1, int(settings.error_cooldown.total_seconds())),
             )
             await clear_affinity(session, session_key)
             await release_profile(session, reservation.lease_id)
