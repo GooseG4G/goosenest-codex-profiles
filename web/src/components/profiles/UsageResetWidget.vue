@@ -180,17 +180,20 @@ function confirmReset() {
   line-height: 16px;
 }
 .available {
+  --available-background: #183c32;
+  --available-foreground: #8fd8b4;
+  --available-shimmer: rgb(143 216 180 / 20%);
   position: relative;
   justify-self: stretch;
   overflow: hidden;
   padding: 3px 8px;
   border-radius: 999px;
-  color: var(--color-text-success);
+  color: var(--available-foreground);
   font-size: 11px;
   font-weight: 650;
   line-height: 13px;
   text-align: center;
-  background: var(--color-bg-success-subtle);
+  background: var(--available-background);
 }
 .available.is-stale::after {
   position: absolute;
@@ -198,7 +201,7 @@ function confirmReset() {
   background: linear-gradient(
     100deg,
     transparent 15%,
-    var(--color-shimmer-light) 50%,
+    var(--available-shimmer) 50%,
     transparent 85%
   );
   content: "";
