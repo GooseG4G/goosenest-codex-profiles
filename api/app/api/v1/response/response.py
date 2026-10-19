@@ -25,7 +25,6 @@ from .affinity import (
     clear_affinity,
     find_affinity,
     request_affinity_key,
-    response_affinity_keys,
 )
 from .models import DeviceIdentity
 from .scheduler import release_profile, reserve_profile
@@ -208,7 +207,12 @@ async def create_response(
 ) -> StreamingResponse:
     user_id, _device_id = await _authorize_device(credentials, session)
     body = await request.body()
-    session_key = request_affinity_key(request, body)
+    session_key = request_affinity_key(request)
+    if session_key is None:
+        raise HTTPException(
+            status_code=400,
+            detail="One of thread-id, session-id, x-chat-id, or x-session-id is required",
+        )
     preferred_profile_id = await find_affinity(session, session_key)
     model = _requested_model(body)
     settings = get_responses_settings()
@@ -340,13 +344,6 @@ async def create_response(
                     profile.profile_id,
                     settings.affinity_ttl_days,
                 )
-                for affinity_key in response_affinity_keys(probe.prefix):
-                    await bind_affinity(
-                        session,
-                        affinity_key,
-                        profile.profile_id,
-                        settings.affinity_ttl_days,
-                    )
         except (OSError, ValueError, httpx.HTTPError) as error:
             last_error = f"Profile {profile.profile_id} failed: {type(error).__name__}"
             await _cool_down(
@@ -375,9 +372,6 @@ async def create_response(
             prefix: bytes = probe.prefix,
             selected_profile_id: UUID = profile.profile_id,
             selected_lease_id: UUID = reservation.lease_id,
-            bind_response_affinity: bool = (
-                upstream.is_success and probe.failure is None
-            ),
         ) -> AsyncGenerator[bytes, None]:
             captured = bytearray()
             try:
@@ -389,11 +383,6 @@ async def create_response(
                     yield chunk
             finally:
                 response_usage = _response_usage_from_sse(bytes(captured))
-                affinity_keys = (
-                    response_affinity_keys(bytes(captured))
-                    if bind_response_affinity
-                    else set()
-                )
                 with anyio.CancelScope(shield=True):
                     await response.aclose()
                     await _finalize_stream(
@@ -401,7 +390,7 @@ async def create_response(
                         selected_lease_id,
                         response.headers,
                         response_usage,
-                        affinity_keys,
+                        set(),
                         settings.affinity_ttl_days,
                     )
 

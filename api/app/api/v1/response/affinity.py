@@ -1,5 +1,4 @@
 import hashlib
-import json
 from uuid import UUID
 
 from fastapi import Request
@@ -15,7 +14,7 @@ def affinity_key(source: str, value: str) -> str:
     return hashlib.sha256(f"{source}:{value}".encode()).hexdigest()
 
 
-def request_affinity_key(request: Request, body: bytes) -> str | None:
+def request_affinity_key(request: Request) -> str | None:
     for name in (
         "thread-id",
         "session-id",
@@ -25,57 +24,7 @@ def request_affinity_key(request: Request, body: bytes) -> str | None:
         value = request.headers.get(name)
         if value and len(value) <= 512:
             return affinity_key(f"header:{name}", value)
-    try:
-        payload = json.loads(body)
-    except (json.JSONDecodeError, UnicodeDecodeError):
-        return None
-    if not isinstance(payload, dict):
-        return None
-    for key in ("conversation_id",):
-        value = payload.get(key)
-        if isinstance(value, str) and value and len(value) <= 512:
-            return affinity_key(f"body:{key}", value)
-    conversation = payload.get("conversation")
-    if isinstance(conversation, str) and conversation:
-        return affinity_key("body:conversation", conversation[:512])
-    if isinstance(conversation, dict):
-        value = conversation.get("id")
-        if isinstance(value, str) and value:
-            return affinity_key("body:conversation", value[:512])
-    value = payload.get("previous_response_id")
-    if isinstance(value, str) and value and len(value) <= 512:
-        return affinity_key("body:previous_response_id", value)
-    metadata = payload.get("metadata")
-    if isinstance(metadata, dict):
-        value = metadata.get("session_id") or metadata.get("conversation_id")
-        if isinstance(value, str) and value and len(value) <= 512:
-            return affinity_key("metadata", value)
     return None
-
-
-def response_affinity_keys(payload: bytes) -> set[str]:
-    keys: set[str] = set()
-    for raw_line in payload.splitlines():
-        line = raw_line.decode("utf-8", errors="ignore")
-        if not line.startswith("data:"):
-            continue
-        try:
-            event = json.loads(line[5:].strip())
-        except json.JSONDecodeError:
-            continue
-        response = event.get("response") if isinstance(event, dict) else None
-        response_id = response.get("id") if isinstance(response, dict) else None
-        if isinstance(response_id, str) and response_id:
-            keys.add(affinity_key("body:previous_response_id", response_id))
-        conversation = (
-            response.get("conversation") if isinstance(response, dict) else None
-        )
-        conversation_id = (
-            conversation.get("id") if isinstance(conversation, dict) else None
-        )
-        if isinstance(conversation_id, str) and conversation_id:
-            keys.add(affinity_key("body:conversation", conversation_id))
-    return keys
 
 
 async def find_affinity(
