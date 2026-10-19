@@ -186,9 +186,9 @@ function confirmReset() {
   line-height: 16px;
 }
 .available {
-  --available-background: #303331;
-  --available-foreground: #9fc5aa;
-  --available-shimmer: rgb(159 197 170 / 16%);
+  --available-background: var(--color-bg-reset-available);
+  --available-foreground: var(--color-text-reset-available);
+  --available-shimmer: var(--color-shimmer-strong);
   position: relative;
   justify-self: stretch;
   overflow: hidden;
@@ -268,7 +268,6 @@ function confirmReset() {
 }
 .credits-list {
   display: grid;
-  border-top: 1px solid var(--color-border-default);
 }
 .credit {
   min-height: 60px;
@@ -282,8 +281,15 @@ function confirmReset() {
   grid-column: 2 / 4;
   width: 100%;
 }
-.credit + .credit {
-  border-top: 1px solid var(--color-border-default);
+.credit :deep(.ui-button) {
+  border-color: var(--color-bg-accent);
+  border-radius: 999px;
+  color: var(--color-text-inverse);
+  background: var(--color-bg-accent);
+}
+.credit :deep(.ui-button:hover:not(:disabled)) {
+  border-color: var(--color-bg-accent-hover);
+  background: var(--color-bg-accent-hover);
 }
 .credit-copy {
   display: grid;

@@ -156,6 +156,8 @@ test("usage reset badge keeps its color while stale and summary has no pressed s
   const badge = summary.locator(".available");
   await expect(badge).toHaveText("1 available");
   await expect(badge).not.toHaveClass(/is-stale/);
+  await expect(badge).toHaveCSS("background-color", "rgb(0, 107, 44)");
+  await expect(badge).toHaveCSS("color", "rgb(240, 255, 244)");
   const green = await badge.evaluate(
     (element) => getComputedStyle(element).backgroundColor,
   );
@@ -177,6 +179,19 @@ test("usage reset badge keeps its color while stale and summary has no pressed s
   await expect(summary).toHaveCSS("background-color", beforePress);
   await page.mouse.up();
 
+  await summary.click();
+  const resetButton = page.getByRole("button", { name: "Use reset" });
+  await expect(resetButton).toHaveCSS("border-radius", "999px");
+  await expect(resetButton).toHaveCSS(
+    "background-color",
+    "rgb(237, 237, 237)",
+  );
+  await expect(resetButton).toHaveCSS("color", "rgb(23, 23, 23)");
+  await expect(page.locator(".credits-list")).toHaveCSS(
+    "border-top-width",
+    "0px",
+  );
+
   await page.clock.fastForward(180_000);
   await expect(badge).toHaveClass(/is-stale/);
   await expect(badge).toHaveCSS("background-color", green);
@@ -187,7 +202,7 @@ test("usage reset badge keeps its color while stale and summary has no pressed s
   expect(animation).toContain("available-shimmer");
 });
 
-test("closing the current usage panel only decreases the row height", async ({
+test("closing the current usage panel has no rebound on animation frames", async ({
   page,
 }) => {
   await page.goto("/profiles");
@@ -197,20 +212,95 @@ test("closing the current usage panel only decreases the row height", async ({
   const item = page.locator(".profile-item");
   await toggle.click();
   await expect(page.locator(".usage-collapse")).toBeVisible();
-  await page
-    .getByRole("button", { name: "Hide usage for profile@example.com" })
-    .click();
-
-  const heights: number[] = [];
-  for (let sample = 0; sample < 10; sample += 1) {
-    heights.push(
-      await item.evaluate((element) => element.getBoundingClientRect().height),
-    );
-    await page.waitForTimeout(25);
-  }
+  const heights = await item.evaluate(async (element) => {
+    const values: number[] = [];
+    const toggle = element.querySelector<HTMLButtonElement>(".row-hit");
+    toggle?.click();
+    const startedAt = performance.now();
+    await new Promise<void>((resolve) => {
+      const sample = () => {
+        values.push(element.getBoundingClientRect().height);
+        if (performance.now() - startedAt < 260) requestAnimationFrame(sample);
+        else resolve();
+      };
+      requestAnimationFrame(sample);
+    });
+    return values;
+  });
+  expect(heights.length).toBeGreaterThan(8);
   for (let index = 1; index < heights.length; index += 1) {
-    expect(heights[index]).toBeLessThanOrEqual(heights[index - 1]! + 0.5);
+    expect(heights[index]).toBeLessThanOrEqual(heights[index - 1]! + 0.25);
   }
+  expect(heights.at(-1)).toBeCloseTo(68, 0);
+});
+
+test("switching expanded profiles keeps opposing animations monotonic", async ({
+  page,
+}) => {
+  await page.route("**/api/v1/profiles", async (route) => {
+    const profile = (id: string, name: string) => ({
+      meta: { type: "profile", href: `/profiles/${id}` },
+      profile_id: id,
+      name,
+      enabled: true,
+      auth_status: "authorized",
+      usage: null,
+      usage_updated_at: null,
+      plan_type: "free",
+      plan_updated_at: null,
+      last_used_at: null,
+    });
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        meta: { type: "profiles", href: "/profiles", total: 2 },
+        items: [
+          profile("profile-1", "profile@example.com"),
+          profile("profile-2", "second@example.com"),
+        ],
+      }),
+    });
+  });
+  await page.goto("/profiles");
+  await page
+    .getByRole("button", { name: "Show usage for profile@example.com" })
+    .click();
+  await expect(page.locator(".usage-collapse")).toBeVisible();
+  await page.waitForTimeout(180);
+
+  const frames = await page.locator(".profile-item").first().evaluate(
+    async (first) => {
+      const items = [...document.querySelectorAll<HTMLElement>(".profile-item")];
+      const second = items[1]!;
+      const values: Array<{ closing: number; opening: number }> = [];
+      second.querySelector<HTMLButtonElement>(".row-hit")?.click();
+      const startedAt = performance.now();
+      await new Promise<void>((resolve) => {
+        const sample = () => {
+          values.push({
+            closing: first.getBoundingClientRect().height,
+            opening: second.getBoundingClientRect().height,
+          });
+          if (performance.now() - startedAt < 260) requestAnimationFrame(sample);
+          else resolve();
+        };
+        requestAnimationFrame(sample);
+      });
+      return values;
+    },
+  );
+  expect(frames.length).toBeGreaterThan(8);
+  for (let index = 1; index < frames.length; index += 1) {
+    expect(frames[index]!.closing).toBeLessThanOrEqual(
+      frames[index - 1]!.closing + 0.25,
+    );
+    expect(frames[index]!.opening).toBeGreaterThanOrEqual(
+      frames[index - 1]!.opening - 0.25,
+    );
+  }
+  expect(frames.at(-1)!.closing).toBeCloseTo(68, 0);
+  expect(frames.at(-1)!.opening).toBeGreaterThan(68);
 });
 
 test("empty usage reset badge shimmers over its gray base", async ({

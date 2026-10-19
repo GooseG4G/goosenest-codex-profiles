@@ -99,21 +99,30 @@ function animateUsage(
       duration: window.matchMedia("(prefers-reduced-motion: reduce)").matches
         ? 0
         : 160,
-      easing: "ease",
-      fill: "forwards",
+      easing: opening
+        ? "cubic-bezier(0, 0, 0.2, 1)"
+        : "cubic-bezier(0.4, 0, 1, 1)",
+      fill: "none",
     },
   );
   usageAnimations.set(target, animation);
-  let finished = false;
-  const finish = () => {
-    if (finished) return;
-    finished = true;
-    usageAnimations.delete(target);
-    done();
-    if (opening) animation.cancel();
-  };
-  animation.addEventListener("finish", finish, { once: true });
-  animation.addEventListener("cancel", finish, { once: true });
+  void animation.finished
+    .then(() => {
+      // Freeze the final frame as inline styles before releasing the animation
+      // effect. Otherwise a leave can briefly snap back to its natural height
+      // between the animation finishing and Vue removing the element.
+      animation.commitStyles();
+      animation.cancel();
+      usageAnimations.delete(target);
+      if (opening) {
+        target.style.removeProperty("height");
+        target.style.removeProperty("opacity");
+      }
+      done();
+    })
+    .catch(() => {
+      // Vue owns cancellation and removes the interrupted transition node.
+    });
 }
 function cancelUsageAnimation(element: Element) {
   usageAnimations.get(element as HTMLElement)?.cancel();
@@ -324,9 +333,9 @@ onBeforeUnmount(() => {
 .profile-row {
   position: relative;
   display: grid;
-  grid-template-columns: 28px 10px minmax(0, 1fr) auto;
+  grid-template-columns: 24px 10px minmax(0, 1fr) auto;
   align-items: center;
-  gap: 13px;
+  gap: 10px;
   min-height: 68px;
   padding: 11px 15px;
   transition: background-color var(--duration-fast) var(--ease-standard);
@@ -357,8 +366,8 @@ onBeforeUnmount(() => {
 }
 .dot {
   z-index: 1;
-  width: 9px;
-  height: 9px;
+  width: 10px;
+  height: 10px;
   border-radius: 50%;
   background: var(--color-success);
   pointer-events: none;
@@ -445,7 +454,7 @@ onBeforeUnmount(() => {
 .row-indicator {
   z-index: 1;
   display: inline-flex;
-  width: 28px;
+  width: 24px;
   height: 28px;
   align-items: center;
   justify-content: center;

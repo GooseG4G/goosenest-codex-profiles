@@ -17,6 +17,7 @@
   --color-text-info: #9eb7e9;
   --color-text-accent: #b9d2ff;
   --color-text-success: #9ad8b2;
+  --color-text-reset-available: #f0fff4;
   --color-text-inverse: #171717;
   --color-text-on-emphasis: #fff;
   --color-bg-canvas: #101112;
@@ -32,6 +33,7 @@
   --color-bg-badge: #292a2b;
   --color-bg-accent-subtle: #162033;
   --color-bg-success-subtle: #294034;
+  --color-bg-reset-available: #006b2c;
   --color-bg-table-header: #1c1d1e;
   --color-bg-row-hover: #1c1d1e;
   --color-bg-control-hover: #ffffff0a;
