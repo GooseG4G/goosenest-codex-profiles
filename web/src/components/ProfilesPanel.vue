@@ -337,7 +337,7 @@ onBeforeUnmount(() => {
   align-items: center;
   gap: 10px;
   min-height: 68px;
-  padding: 11px 15px 11px 1px;
+  padding: 11px 15px 11px 5px;
   transition: background-color var(--duration-fast) var(--ease-standard);
 }
 .profile-row:has(.row-hit:hover) {

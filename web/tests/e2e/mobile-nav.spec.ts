@@ -523,13 +523,9 @@ test("row action spacing is symmetric and delete owns the press transform", asyn
   const statusToCopyGap = copyBox!.x - (statusBox!.x + statusBox!.width);
   expect(indicatorBox!.x).toBeLessThan(statusBox!.x);
   expect(indicatorToStatusGap).toBeCloseTo(6, 1);
-  expect(Math.abs(borderToChevronGap - 10)).toBeLessThanOrEqual(1);
-  expect(
-    Math.abs(chevronToStatusGap - borderToChevronGap),
-  ).toBeLessThanOrEqual(1);
-  expect(
-    Math.abs(statusToCopyGap - borderToChevronGap),
-  ).toBeLessThanOrEqual(1);
+  expect(Math.abs(borderToChevronGap - 14)).toBeLessThanOrEqual(1);
+  expect(Math.abs(chevronToStatusGap - 10)).toBeLessThanOrEqual(1);
+  expect(Math.abs(statusToCopyGap - 10)).toBeLessThanOrEqual(1);
   expect(leftGap).toBeGreaterThanOrEqual(rightGap + 3);
 
   await deleteButton.hover();
