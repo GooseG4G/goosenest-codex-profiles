@@ -5,14 +5,29 @@ from fastapi import Request
 
 from .settings import get_responses_settings
 
+# Client transport context understood by the Responses upstream.  This is
+# deliberately explicit: credentials, cookies and hop-by-hop state never
+# cross the gateway boundary.
 _FORWARDED_HEADERS = (
     "idempotency-key",
     "x-client-request-id",
     "x-session-id",
+    "session-id",
+    "thread-id",
+    "x-codex-window-id",
+    "x-codex-turn-metadata",
+    "x-codex-routing-hint",
+    "x-codex-beta-features",
+    "x-openai-internal-codex-responses-lite",
+    "originator",
+    "version",
     "openai-beta",
     "origin",
     "referer",
 )
+_LONG_CONTEXT_HEADERS = {
+    "x-codex-turn-metadata",
+}
 _RESPONSE_HEADERS_TO_STRIP = {
     "connection",
     "content-length",
@@ -45,7 +60,8 @@ def upstream_headers(
         headers["ChatGPT-Account-Id"] = account_id
     for name in _FORWARDED_HEADERS:
         value = request.headers.get(name)
-        if value and len(value) <= 512 and value.isascii():
+        max_length = 4096 if name in _LONG_CONTEXT_HEADERS else 512
+        if value and len(value) <= max_length and value.isascii():
             headers[name] = value
     return headers
 

@@ -1,10 +1,7 @@
-import asyncio
-import json
-import os
 from pathlib import Path
 from typing import Any
 
-from .providers import get_codex_settings
+from .app_server_pool import get_codex_app_server_pool
 
 
 class CodexUsageError(RuntimeError):
@@ -93,94 +90,22 @@ async def _call_codex(
     method: str,
     params: dict[str, Any],
 ) -> object:
-    settings = get_codex_settings()
     home = Path(codex_home).resolve()
     if not (home / "auth.json").is_file():
         raise CodexAuthenticationError("Codex profile is not authenticated")
 
-    environment = os.environ.copy()
-    environment["CODEX_HOME"] = str(home)
-    process = await asyncio.create_subprocess_exec(
-        settings.executable,
-        "app-server",
-        "--stdio",
-        stdin=asyncio.subprocess.PIPE,
-        stdout=asyncio.subprocess.PIPE,
-        stderr=asyncio.subprocess.PIPE,
-        env=environment,
-    )
-    assert process.stdin is not None
-    assert process.stdout is not None
-    assert process.stderr is not None
-
-    async def send(message: dict[str, Any]) -> None:
-        process.stdin.write(
-            (json.dumps(message, separators=(",", ":")) + "\n").encode()
-        )
-        await process.stdin.drain()
-
+    pool = get_codex_app_server_pool()
     try:
-        await send(
-            {
-                "id": 1,
-                "method": "initialize",
-                "params": {
-                    "clientInfo": {
-                        "name": "goosenest-codex-profiles",
-                        "title": "Goosenest Codex Profiles",
-                        "version": "0.1.0",
-                    },
-                    "capabilities": {"experimentalApi": True},
-                },
-            }
-        )
-        async with asyncio.timeout(20):
-            initialized = False
-            while line := await process.stdout.readline():
-                try:
-                    message = json.loads(line)
-                except json.JSONDecodeError:
-                    continue
-                if message.get("id") == 1 and not initialized:
-                    if message.get("error"):
-                        raise codex_error(
-                            message["error"].get(
-                                "message", "Codex initialization failed"
-                            )
-                        )
-                    initialized = True
-                    await send({"method": "initialized"})
-                    await send(
-                        {
-                            "id": 2,
-                            "method": method,
-                            "params": params,
-                        }
-                    )
-                elif message.get("id") == 2:
-                    if message.get("error"):
-                        raise codex_error(
-                            message["error"].get(
-                                "message", "Could not read usage limits"
-                            )
-                        )
-                    return message.get("result")
-            stderr = (await process.stderr.read()).decode(errors="replace").strip()
-            raise codex_error(
-                stderr[-1000:] or "Codex app-server stopped before returning usage"
-            )
+        async with pool.session(str(home)) as app_server:
+            return await app_server.call(method, params)
     except TimeoutError as error:
         raise CodexUsageError("Timed out while reading Codex usage limits") from error
+    except RuntimeError as error:
+        raise codex_error(str(error)) from error
     finally:
-        if not process.stdin.is_closing():
-            process.stdin.close()
-        if process.returncode is None:
-            process.terminate()
-            try:
-                await asyncio.wait_for(process.wait(), timeout=2)
-            except asyncio.TimeoutError:
-                process.kill()
-                await process.wait()
+        # Celery currently wraps each task in asyncio.run(); do not leave
+        # subprocesses attached to a loop that is about to be destroyed.
+        await pool.close()
 
 
 async def read_codex_usage(codex_home: str) -> dict[str, Any]:
