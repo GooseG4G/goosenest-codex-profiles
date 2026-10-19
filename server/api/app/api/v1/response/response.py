@@ -79,7 +79,7 @@ async def _save_usage(
             usage["lastResponseUsage"] = response_usage
         await session.execute(
             """UPDATE profiles
-            SET usage=$2, usage_updated_at=now(), updated_at=now(),
+            SET usage=COALESCE(usage, '{}'::jsonb) || $2, usage_updated_at=now(), updated_at=now(),
                 cooldown_until=NULL, consecutive_failures=0,
                 last_failure_at=NULL
             WHERE profile_id=$1""",

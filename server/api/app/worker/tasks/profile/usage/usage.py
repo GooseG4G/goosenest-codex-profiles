@@ -52,7 +52,6 @@ async def _refresh(profile_id: UUID) -> None:
             )
         profile_available = (
             profile is not None
-            and profile.enabled
             and profile.auth_status == "authorized"
         )
         if not profile_available:
