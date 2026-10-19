@@ -17,7 +17,6 @@ from api.v1.user.user import router as users_router
 from fastapi import FastAPI
 from integrations.postgres.providers import get_postgres_context
 from integrations.redis.providers import get_redis_context
-from integrations.codex.app_server_pool import get_codex_app_server_pool
 
 
 @asynccontextmanager
@@ -34,7 +33,6 @@ async def lifespan(_: FastAPI):
         stack.push_async_callback(redis.close)
         await upstream.open()
         stack.push_async_callback(upstream.close)
-        stack.push_async_callback(get_codex_app_server_pool().close)
         yield
 
 

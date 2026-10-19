@@ -30,61 +30,14 @@ from .affinity import (
 from .models import DeviceIdentity
 from .scheduler import release_profile, reserve_profile
 from .settings import get_responses_settings
-from .streaming import _event_payload, classify_failure, probe_stream
+from .streaming import probe_stream
 from .upstream import downstream_headers, get_responses_upstream
-from .app_server_stdio import StdioAppServerTransport
-from .app_server_transport import ResponsesAppServerSession, responses_to_app_server_params
-from integrations.codex.app_server_pool import get_codex_app_server_pool
 
 router = APIRouter(tags=["responses"])
 logger = logging.getLogger(__name__)
 bearer = HTTPBearer(auto_error=False)
 Session = Annotated[PostgresSession, Depends(get_postgres_session)]
 Credentials = Annotated[HTTPAuthorizationCredentials | None, Depends(bearer)]
-
-
-@router.post("/responses")
-async def create_native_response(
-    request: Request, credentials: Credentials, session: Session
-) -> StreamingResponse:
-    """Experimental app-server-backed Responses transport."""
-    user_id, _device_id = await _authorize_device(credentials, session)
-    body = await request.body()
-    model = _requested_model(body)
-    settings = get_responses_settings()
-    reservation = await reserve_profile(
-        session,
-        excluded=set(),
-        weekly_reserve_percent=settings.weekly_reserve_percent,
-        score_tolerance=settings.score_tolerance,
-        preferred_profile_id=None,
-        model=model,
-    )
-    if reservation is None:
-        raise HTTPException(status_code=503, detail="No Codex profile available")
-    profile = reservation.profile
-    pool = get_codex_app_server_pool()
-    thread_params, turn_params = responses_to_app_server_params(body)
-    async def stream():
-        try:
-            async with pool.session(profile.codex_home) as app_session:
-                native = ResponsesAppServerSession(StdioAppServerTransport(app_session))
-                await native.start_thread(thread_params)
-                async for frame in native.turn_sse(turn_params):
-                    yield frame
-        finally:
-            await release_profile(session, reservation.lease_id)
-
-    try:
-        return StreamingResponse(
-            stream(),
-            media_type="text/event-stream",
-            headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
-        )
-    except BaseException:
-        await release_profile(session, reservation.lease_id)
-        logger.exception("native responses failed user_id=%s", user_id)
-        raise
 
 
 def _requested_model(body: bytes) -> str:
@@ -152,18 +105,6 @@ def _response_usage_from_sse(payload: bytes) -> dict[str, Any] | None:
         if isinstance(value, dict):
             latest = value
     return latest
-
-
-def _stream_failures_from_sse(payload: bytes) -> list[tuple[str, str, str]]:
-    failures: list[tuple[str, str, str]] = []
-    for raw_frame in payload.replace(b"\r\n", b"\n").split(b"\n\n"):
-        event = _event_payload(raw_frame)
-        if event is None:
-            continue
-        failure = classify_failure(event)
-        if failure is not None:
-            failures.append((failure.kind, failure.code or "", failure.message))
-    return failures
 
 
 async def _cool_down(
@@ -260,7 +201,7 @@ async def _finalize_stream(
             await release_profile(session, lease_id)
 
 
-@router.post("/responses/legacy")
+@router.post("/responses")
 async def create_response(
     request: Request, credentials: Credentials, session: Session
 ) -> StreamingResponse:
@@ -444,15 +385,6 @@ async def create_response(
                     yield chunk
             finally:
                 response_usage = _response_usage_from_sse(bytes(captured))
-                for kind, code, message in _stream_failures_from_sse(bytes(captured)):
-                    logger.warning(
-                        "responses upstream terminal stream failure profile_id=%s "
-                        "kind=%s code=%s message=%s",
-                        selected_profile_id,
-                        kind,
-                        code or "-",
-                        message,
-                    )
                 affinity_keys = (
                     response_affinity_keys(bytes(captured))
                     if bind_response_affinity
