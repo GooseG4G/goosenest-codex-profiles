@@ -84,6 +84,8 @@ def test_send_uses_a_stable_upstream_header_contract() -> None:
             "ChatGPT-Account-Id": "client-account",
             "OpenAI-Beta": "responses=v1",
             "X-Session-Id": "chat-7",
+            "Origin": "vscode://codex",
+            "Referer": "vscode://codex/session",
             "Connection": "keep-alive",
             "Cookie": "private=value",
             "X-Client-Request-Id": "request-7",
@@ -97,8 +99,10 @@ def test_send_uses_a_stable_upstream_header_contract() -> None:
     assert headers["chatgpt-account-id"] == "pool-account"
     assert headers["x-client-request-id"] == "request-7"
     assert headers["idempotency-key"] == "operation-7"
-    assert "openai-beta" not in headers
-    assert "x-session-id" not in headers
+    assert headers["openai-beta"] == "responses=v1"
+    assert headers["x-session-id"] == "chat-7"
+    assert headers["origin"] == "vscode://codex"
+    assert headers["referer"] == "vscode://codex/session"
     assert "cookie" not in headers
     assert "connection" not in headers
     assert headers["user-agent"] == "codex-cli"
