@@ -19,6 +19,12 @@ class ResponsesSettings(BaseSettings):
         alias="OPENAI_RESPONSES_URL",
     )
     request_timeout: float = Field(300.0, alias="OPENAI_REQUEST_TIMEOUT", gt=0)
+    error_cooldown: int = Field(
+        60,
+        alias="PROFILE_ERROR_COOLDOWN",
+        ge=1,
+        le=7 * 24 * 60 * 60,
+    )
     score_tolerance: float = Field(
         0.05,
         alias="PROFILE_SCORE_TOLERANCE",

@@ -113,8 +113,9 @@ async def _cool_down(
     headers: httpx.Headers,
     *,
     model: str | None = None,
+    fallback_seconds: int = 60,
 ) -> None:
-    seconds = _retry_after_seconds(headers.get("retry-after"))
+    seconds = _retry_after_seconds(headers.get("retry-after"), fallback_seconds)
     if model is None:
         await session.execute(
             """UPDATE profiles
@@ -141,10 +142,10 @@ async def _cool_down(
     )
 
 
-def _retry_after_seconds(value: str | None) -> int:
+def _retry_after_seconds(value: str | None, fallback_seconds: int = 60) -> int:
     maximum = 7 * 24 * 60 * 60
     if value is None:
-        return 60
+        return fallback_seconds
     try:
         return max(1, min(int(float(value)), maximum))
     except ValueError:
@@ -152,7 +153,7 @@ def _retry_after_seconds(value: str | None) -> int:
     try:
         retry_at = parsedate_to_datetime(value)
     except (TypeError, ValueError, OverflowError):
-        return 60
+        return fallback_seconds
     if retry_at.tzinfo is None:
         retry_at = retry_at.replace(tzinfo=timezone.utc)
     delay = int((retry_at - datetime.now(timezone.utc)).total_seconds())
@@ -278,6 +279,7 @@ async def create_response(
                         session,
                         profile.profile_id,
                         upstream.headers,
+                        fallback_seconds=settings.error_cooldown,
                     )
                 elif upstream.status_code >= 500:
                     await _cool_down(
@@ -285,6 +287,7 @@ async def create_response(
                         profile.profile_id,
                         upstream.headers,
                         model=model,
+                        fallback_seconds=settings.error_cooldown,
                     )
                 await upstream.aclose()
                 await clear_affinity(session, session_key)
@@ -323,6 +326,7 @@ async def create_response(
                         profile.profile_id,
                         upstream.headers,
                         model=None if account_wide else model,
+                        fallback_seconds=settings.error_cooldown,
                     )
                     await upstream.aclose()
                     await clear_affinity(session, session_key)
@@ -350,6 +354,7 @@ async def create_response(
                 profile.profile_id,
                 upstream.headers if upstream is not None else httpx.Headers(),
                 model=model,
+                fallback_seconds=settings.error_cooldown,
             )
             await clear_affinity(session, session_key)
             await release_profile(session, reservation.lease_id)
