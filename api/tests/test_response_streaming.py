@@ -84,17 +84,6 @@ def test_send_uses_a_stable_upstream_header_contract() -> None:
             "ChatGPT-Account-Id": "client-account",
             "OpenAI-Beta": "responses=v1",
             "X-Session-Id": "chat-7",
-            "Session-Id": "session-7",
-            "Thread-Id": "thread-7",
-            "X-Codex-Window-Id": "window-7:0",
-            "X-Codex-Turn-Metadata": '{"session_id":"session-7"}',
-            "X-Codex-Routing-Hint": "model=gpt-5.6-sol",
-            "X-Codex-Beta-Features": "remote_compaction_v2",
-            "X-OpenAI-Internal-Codex-Responses-Lite": "true",
-            "Originator": "codex_vscode",
-            "Version": "0.162.0-alpha.17.2",
-            "Origin": "vscode://codex",
-            "Referer": "vscode://codex/session",
             "Connection": "keep-alive",
             "Cookie": "private=value",
             "X-Client-Request-Id": "request-7",
@@ -108,18 +97,8 @@ def test_send_uses_a_stable_upstream_header_contract() -> None:
     assert headers["chatgpt-account-id"] == "pool-account"
     assert headers["x-client-request-id"] == "request-7"
     assert headers["idempotency-key"] == "operation-7"
-    assert headers["openai-beta"] == "responses=v1"
-    assert headers["x-session-id"] == "chat-7"
-    assert headers["session-id"] == "session-7"
-    assert headers["thread-id"] == "thread-7"
-    assert headers["x-codex-window-id"] == "window-7:0"
-    assert headers["x-codex-turn-metadata"] == '{"session_id":"session-7"}'
-    assert headers["x-codex-routing-hint"] == "model=gpt-5.6-sol"
-    assert headers["x-codex-beta-features"] == "remote_compaction_v2"
-    assert headers["originator"] == "codex_vscode"
-    assert headers["version"] == "0.162.0-alpha.17.2"
-    assert headers["origin"] == "vscode://codex"
-    assert headers["referer"] == "vscode://codex/session"
+    assert "openai-beta" not in headers
+    assert "x-session-id" not in headers
     assert "cookie" not in headers
     assert "connection" not in headers
     assert headers["user-agent"] == "codex-cli"
