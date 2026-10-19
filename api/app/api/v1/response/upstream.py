@@ -5,7 +5,14 @@ from fastapi import Request
 
 from .settings import get_responses_settings
 
-_FORWARDED_HEADERS = ("idempotency-key", "x-client-request-id")
+_FORWARDED_HEADERS = (
+    "idempotency-key",
+    "x-client-request-id",
+    "x-session-id",
+    "openai-beta",
+    "origin",
+    "referer",
+)
 _RESPONSE_HEADERS_TO_STRIP = {
     "connection",
     "content-length",
