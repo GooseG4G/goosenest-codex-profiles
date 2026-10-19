@@ -7,6 +7,8 @@ export interface NotificationItem {
   tone: NotificationTone;
 }
 
+const MAX_VISIBLE_NOTIFICATIONS = 5;
+
 export function useNotifications() {
   const items = shallowRef<NotificationItem[]>([]);
   const timers = new Map<number, number>();
@@ -25,6 +27,11 @@ export function useNotifications() {
     timeout = 5000,
   ) {
     const id = nextId++;
+    const overflow = Math.max(
+      0,
+      items.value.length + 1 - MAX_VISIBLE_NOTIFICATIONS,
+    );
+    for (const item of items.value.slice(0, overflow)) dismiss(item.id);
     items.value = [...items.value, { id, message, tone }];
     timers.set(
       id,
