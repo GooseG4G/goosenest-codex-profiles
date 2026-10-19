@@ -5,7 +5,7 @@ from fastapi import Request
 
 from .settings import get_responses_settings
 
-_FORWARDED_HEADERS = ("idempotency-key", "x-client-request-id")
+_FORWARDED_HEADERS = ("thread-id", "session-id", "x-chat-id", "x-session-id")
 _RESPONSE_HEADERS_TO_STRIP = {
     "connection",
     "content-length",
