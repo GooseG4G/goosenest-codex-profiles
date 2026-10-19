@@ -182,7 +182,9 @@ test("usage reset badge keeps its color while stale and summary has no pressed s
   await expect(summary).toHaveCSS("background-color", beforePress);
   await page.mouse.up();
 
-  await summary.click();
+  if ((await summary.getAttribute("aria-expanded")) === "false") {
+    await summary.click();
+  }
   const resetButton = page.getByRole("button", { name: "Use reset" });
   await expect(resetButton).toHaveCSS("border-radius", "999px");
   await expect(resetButton).toHaveCSS(
@@ -211,6 +213,14 @@ test("usage reset badge keeps its color while stale and summary has no pressed s
     "border-top-width",
     "0px",
   );
+
+  await page.locator(".credit-copy").click();
+  await expect(page.locator(".credits")).toBeHidden();
+  await summary.click();
+  await resetButton.click();
+  await expect(page.getByRole("dialog")).toBeVisible();
+  await expect(page.locator(".credits")).toBeVisible();
+  await page.getByRole("button", { name: "Cancel" }).click();
 
   await page.clock.fastForward(180_000);
   await expect(badge).toHaveClass(/is-stale/);

@@ -80,12 +80,19 @@ function confirmReset() {
   emit("useReset", requestedReset.value.reset_id);
   requestedReset.value = undefined;
 }
+function toggleExpanded(event: MouseEvent) {
+  if (!hasAvailable.value) return;
+  const target = event.target;
+  if (target instanceof Element && target.closest(".ui-button")) return;
+  expanded.value = !expanded.value;
+}
 </script>
 
 <template>
   <section
     class="reset-widget"
     :class="{ 'reset-widget-empty': !hasAvailable }"
+    @click="toggleExpanded"
   >
     <button
       class="reset-summary"
@@ -99,7 +106,6 @@ function confirmReset() {
       "
       :disabled="!hasAvailable"
       @mousedown.prevent
-      @click="expanded = !expanded"
     >
       <strong>Usage limit resets</strong>
       <span :class="['available', { 'is-stale': isStale }]">
@@ -162,6 +168,12 @@ function confirmReset() {
 }
 .reset-widget:not(.reset-widget-empty):hover {
   background: var(--color-bg-button-hover);
+}
+.reset-widget:not(.reset-widget-empty) {
+  cursor: pointer;
+}
+.reset-widget :deep(.ui-button) {
+  cursor: pointer;
 }
 .reset-summary {
   width: 100%;
