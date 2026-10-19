@@ -303,12 +303,12 @@ onBeforeUnmount(() => {
   width: min(620px, 100%);
   display: grid;
   align-content: start;
-  gap: 12px;
+  column-gap: 10px;
 }
 .toolbar {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 46px;
-  gap: 10px;
+  gap: 12px;
 }
 .table-card {
   overflow: hidden;
@@ -337,7 +337,7 @@ onBeforeUnmount(() => {
   align-items: center;
   gap: 10px;
   min-height: 68px;
-  padding: 11px 15px 11px 5px;
+  padding: 11px 15px 11px 12px;
   transition: background-color var(--duration-fast) var(--ease-standard);
 }
 .profile-row:has(.row-hit:hover) {
@@ -460,7 +460,7 @@ onBeforeUnmount(() => {
   justify-content: center;
   color: var(--color-profile-disclosure-icon);
   pointer-events: none;
-  transform: translate3d(4px, 0, 0);
+  transform: none;
   transform-origin: center;
   transition: color var(--duration-fast) var(--ease-standard);
 }
