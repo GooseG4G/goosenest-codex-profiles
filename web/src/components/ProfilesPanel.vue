@@ -447,8 +447,8 @@ onBeforeUnmount(() => {
   border-left: 1px solid var(--color-border-default);
 }
 .chevron {
-  width: 17px;
-  height: 17px;
+  width: 16px;
+  height: 16px;
   transition: transform var(--duration-normal) var(--ease-standard);
 }
 .row-indicator {
