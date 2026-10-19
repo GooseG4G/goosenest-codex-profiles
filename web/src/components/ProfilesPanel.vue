@@ -219,7 +219,8 @@ onBeforeUnmount(() => {
             @mousedown.prevent
             @click="activate(profile)"
           />
-          <span
+          <div class="profile-meta">
+            <span
             class="row-indicator"
             :class="{ expanded: expanded === profile.profile_id }"
             aria-hidden="true"
@@ -243,6 +244,7 @@ onBeforeUnmount(() => {
               aria-label="Loading plan"
             /><small v-else>{{ expiryLabel(profile) }}</small></span
           >
+          </div>
           <div class="actions">
             <UISwitch
               :model-value="profile.enabled"
@@ -333,11 +335,11 @@ onBeforeUnmount(() => {
 .profile-row {
   position: relative;
   display: grid;
-  grid-template-columns: 16px 10px minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: 10px;
   min-height: 68px;
-  padding: 11px 15px 11px 12px;
+  padding: 11px 15px 11px 10px;
   transition: background-color var(--duration-fast) var(--ease-standard);
 }
 .profile-row:has(.row-hit:hover) {
@@ -378,11 +380,19 @@ onBeforeUnmount(() => {
 .dot.warning {
   background: var(--color-profile-status-auth-required);
 }
-.copy {
+.profile-meta {
   z-index: 1;
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 6px;
+  pointer-events: none;
+}
+.copy {
   display: grid;
   min-width: 0;
   gap: 3px;
+  margin-left: 4px;
   pointer-events: none;
 }
 .copy strong {
