@@ -207,10 +207,10 @@ function close() {
   width: 9px;
   height: 9px;
   border-radius: 50%;
-  background: var(--color-success);
+  background: var(--color-device-status-online);
 }
 .device-row i.off {
-  background: var(--color-status-inactive);
+  background: var(--color-device-status-offline);
 }
 .device-copy {
   display: grid;

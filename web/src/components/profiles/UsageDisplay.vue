@@ -124,7 +124,7 @@ function resetLabel(timestamp: number): string {
   padding: 12px 14px;
   border: 1px solid var(--color-border-default);
   border-radius: 7px;
-  background: var(--color-bg-widget);
+  background: var(--color-usage-card-background);
 }
 .copy {
   display: grid;
@@ -138,7 +138,7 @@ function resetLabel(timestamp: number): string {
 .copy small,
 .remaining {
   min-height: 14px;
-  color: var(--color-text-usage);
+  color: var(--color-usage-secondary-text);
   font-size: 11px;
   line-height: 14px;
 }

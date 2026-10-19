@@ -91,8 +91,8 @@ defineEmits<{ logout: [] }>();
   width: 31px;
   height: 31px;
   border-radius: 8px;
-  background: var(--color-bg-accent);
-  color: var(--color-text-inverse);
+  background: var(--color-sidebar-avatar-background);
+  color: var(--color-sidebar-avatar-foreground);
   font-size: 14px;
 }
 .sidebar nav {
@@ -153,7 +153,7 @@ defineEmits<{ logout: [] }>();
 }
 .sidebar nav a.router-link-active {
   color: var(--color-text-primary);
-  background: var(--color-bg-button-hover);
+  background: var(--color-sidebar-account-hover-background);
 }
 .sidebar nav hr {
   width: 100%;

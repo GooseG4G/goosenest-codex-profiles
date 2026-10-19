@@ -113,9 +113,9 @@ onUnmounted(() => {
 }
 .copy-field:hover,
 .copy-field:focus-visible {
-  border-color: var(--color-border-accent);
-  background: var(--color-bg-accent-subtle);
-  color: var(--color-text-accent);
+  border-color: var(--color-copy-info-border);
+  background: var(--color-copy-info-background);
+  color: var(--color-copy-info-foreground);
 }
 .copy-field:focus-visible {
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-border-accent) 20%, transparent);
@@ -124,9 +124,9 @@ onUnmounted(() => {
   transform: scale(0.995);
 }
 .copy-field.copied {
-  border-color: var(--color-border-success);
-  color: var(--color-text-success);
-  background: var(--color-bg-success-subtle);
+  border-color: var(--color-copy-success-border);
+  color: var(--color-copy-success-foreground);
+  background: var(--color-copy-success-background);
 }
 .copy-field code {
   overflow: hidden;

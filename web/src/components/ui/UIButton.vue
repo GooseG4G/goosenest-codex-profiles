@@ -65,10 +65,10 @@ function handleClick(event: MouseEvent) {
   min-width: 72px;
   height: 34px;
   padding: 0 13px;
-  border: 1px solid var(--color-border-strong);
+  border: 1px solid var(--color-button-secondary-border);
   border-radius: 6px;
   outline: none;
-  background: var(--color-bg-raised);
+  background: var(--color-button-secondary-background);
   color: var(--color-text-primary);
   font-weight: 600;
   line-height: 1;
@@ -104,15 +104,15 @@ function handleClick(event: MouseEvent) {
   transition: transform 150ms ease;
 }
 .ui-button:hover:not(:disabled):not([aria-disabled="true"]) {
-  background: var(--color-bg-button-hover);
-  border-color: var(--color-border-button-hover);
+  background: var(--color-button-secondary-hover-background);
+  border-color: var(--color-button-secondary-hover-border);
   transform: translateY(-1px);
 }
 .ui-button:hover:not(:disabled):not([aria-disabled="true"]) .content :deep(svg) {
   transform: scale(1.08);
 }
 .ui-button:active:not(:disabled):not([aria-disabled="true"]) {
-  background: var(--color-bg-button-pressed);
+  background: var(--color-button-secondary-pressed-background);
   transform: translateY(0) scale(0.98);
 }
 .ui-button:active:not(:disabled):not([aria-disabled="true"]) .content :deep(svg) {
@@ -127,7 +127,7 @@ function handleClick(event: MouseEvent) {
   box-shadow: none;
 }
 .is-primary[data-focus-restored]:focus-visible {
-  border-color: var(--color-bg-accent);
+  border-color: var(--color-button-primary-border);
 }
 .is-danger[data-focus-restored]:focus-visible {
   border-color: var(--color-border-danger);
@@ -137,22 +137,22 @@ function handleClick(event: MouseEvent) {
 }
 .is-primary {
   --pending-shimmer: var(--color-shimmer-dark);
-  border-color: var(--color-bg-accent);
-  background: var(--color-bg-accent);
-  color: var(--color-text-inverse);
+  border-color: var(--color-button-primary-border);
+  background: var(--color-button-primary-background);
+  color: var(--color-button-primary-foreground);
 }
 .is-primary:hover:not(:disabled):not([aria-disabled="true"]) {
-  border-color: var(--color-bg-accent-hover);
-  background: var(--color-bg-accent-hover);
+  border-color: var(--color-button-primary-hover-border);
+  background: var(--color-button-primary-hover-background);
 }
 .is-danger {
-  border-color: var(--color-border-danger);
-  background: var(--color-bg-danger);
-  color: var(--color-text-on-emphasis);
+  border-color: var(--color-button-danger-border);
+  background: var(--color-button-danger-background);
+  color: var(--color-button-danger-foreground);
 }
 .is-danger:hover:not(:disabled):not([aria-disabled="true"]) {
-  border-color: var(--color-border-danger-hover);
-  background: var(--color-bg-danger-hover);
+  border-color: var(--color-button-danger-hover-border);
+  background: var(--color-button-danger-hover-background);
 }
 .is-ghost {
   border-color: transparent;

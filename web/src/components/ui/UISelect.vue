@@ -247,7 +247,7 @@ onBeforeUnmount(() =>
 .select-option svg {
   width: 15px;
   height: 15px;
-  color: var(--color-success);
+  color: var(--color-select-option-selected);
   stroke-width: 2;
 }
 .select-option:disabled,

@@ -337,7 +337,7 @@ onBeforeUnmount(() => {
   align-items: center;
   gap: 10px;
   min-height: 68px;
-  padding: 11px 15px;
+  padding: 11px 15px 11px 1px;
   transition: background-color var(--duration-fast) var(--ease-standard);
 }
 .profile-row:has(.row-hit:hover) {
@@ -369,14 +369,14 @@ onBeforeUnmount(() => {
   width: 10px;
   height: 10px;
   border-radius: 50%;
-  background: var(--color-success);
+  background: var(--color-profile-status-active);
   pointer-events: none;
 }
 .dot.off {
-  background: var(--color-status-inactive);
+  background: var(--color-profile-status-inactive);
 }
 .dot.warning {
-  background: var(--color-status-warning);
+  background: var(--color-profile-status-auth-required);
 }
 .copy {
   z-index: 1;
@@ -458,7 +458,7 @@ onBeforeUnmount(() => {
   height: 28px;
   align-items: center;
   justify-content: center;
-  color: var(--color-icon);
+  color: var(--color-profile-disclosure-icon);
   pointer-events: none;
   transform: translate3d(4px, 0, 0);
   transform-origin: center;

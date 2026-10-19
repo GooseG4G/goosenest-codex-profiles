@@ -99,7 +99,7 @@ function toastStyle(itemId: number) {
 }
 .status-icon {
   display: inline-flex;
-  color: var(--color-text-info);
+  color: var(--color-toast-info);
 }
 .status-icon svg {
   width: 16px;
@@ -111,10 +111,10 @@ function toastStyle(itemId: number) {
   stroke-linejoin: round;
 }
 .tone-error .status-icon {
-  color: var(--color-danger-emphasis);
+  color: var(--color-toast-danger);
 }
 .tone-success .status-icon {
-  color: var(--color-success);
+  color: var(--color-toast-success);
 }
 .message {
   overflow-wrap: anywhere;

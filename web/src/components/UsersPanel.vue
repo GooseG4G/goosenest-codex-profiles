@@ -173,7 +173,7 @@ watch(
   width: 9px;
   height: 9px;
   border-radius: 50%;
-  background: var(--color-success);
+  background: var(--color-user-status-active);
 }
 .user-copy {
   display: grid;
@@ -198,8 +198,8 @@ watch(
 .role {
   padding: 3px 8px;
   border-radius: 99px;
-  background: var(--color-bg-badge);
-  color: var(--color-text-badge);
+  background: var(--color-user-role-badge-background);
+  color: var(--color-user-role-badge-foreground);
   font-size: 12px;
 }
 .row-actions {

@@ -214,6 +214,13 @@ test("usage reset badge keeps its color while stale and summary has no pressed s
     "0px",
   );
 
+  await page.locator(".credit-copy").hover();
+  await expect(chevron).toHaveCSS(
+    "transform",
+    "matrix(-1.06, 0, 0, -1.06, 0, 0)",
+  );
+  await expect(chevron).toHaveCSS("color", "rgb(237, 237, 237)");
+
   await page.locator(".credit-copy").click();
   await expect(page.locator(".credits")).toBeHidden();
   await summary.click();
@@ -503,12 +510,26 @@ test("row action spacing is symmetric and delete owns the press transform", asyn
   const indicatorToStatusGap = statusBox!.x - (
     indicatorBox!.x + indicatorBox!.width
   );
+  const chevronPathBox = await indicator.locator("svg > *").boundingBox();
+  const tableBox = await page.locator(".table-card").boundingBox();
   const copyBox = await row.locator(".copy").boundingBox();
+  expect(chevronPathBox).not.toBeNull();
+  expect(tableBox).not.toBeNull();
   expect(copyBox).not.toBeNull();
+  const borderToChevronGap = chevronPathBox!.x - tableBox!.x;
+  const chevronToStatusGap = statusBox!.x - (
+    chevronPathBox!.x + chevronPathBox!.width
+  );
   const statusToCopyGap = copyBox!.x - (statusBox!.x + statusBox!.width);
   expect(indicatorBox!.x).toBeLessThan(statusBox!.x);
   expect(indicatorToStatusGap).toBeCloseTo(6, 1);
-  expect(statusToCopyGap).toBeCloseTo(indicatorToStatusGap + 4, 1);
+  expect(Math.abs(borderToChevronGap - 10)).toBeLessThanOrEqual(1);
+  expect(
+    Math.abs(chevronToStatusGap - borderToChevronGap),
+  ).toBeLessThanOrEqual(1);
+  expect(
+    Math.abs(statusToCopyGap - borderToChevronGap),
+  ).toBeLessThanOrEqual(1);
   expect(leftGap).toBeGreaterThanOrEqual(rightGap + 3);
 
   await deleteButton.hover();

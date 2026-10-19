@@ -163,11 +163,11 @@ function toggleExpanded(event: MouseEvent) {
   overflow: hidden;
   border: 1px solid var(--color-border-default);
   border-radius: 7px;
-  background: var(--color-bg-widget);
+  background: var(--color-reset-card-background);
   transition: background-color var(--duration-fast) var(--ease-standard);
 }
 .reset-widget:not(.reset-widget-empty):hover {
-  background: var(--color-bg-button-hover);
+  background: var(--color-reset-card-hover-background);
 }
 .reset-widget:not(.reset-widget-empty) {
   cursor: pointer;
@@ -199,21 +199,18 @@ function toggleExpanded(event: MouseEvent) {
   line-height: 16px;
 }
 .available {
-  --available-background: var(--color-bg-reset-available);
-  --available-foreground: var(--color-text-reset-available);
-  --available-shimmer: var(--color-shimmer-strong);
   position: relative;
   justify-self: stretch;
   overflow: hidden;
   min-height: 24px;
   padding: 4px 9px;
   border-radius: 999px;
-  color: var(--available-foreground);
+  color: var(--color-reset-badge-available-foreground);
   font-size: 11px;
   font-weight: 650;
   line-height: 14px;
   text-align: center;
-  background: var(--available-background);
+  background: var(--color-reset-badge-available-background);
 }
 .available.is-stale::after {
   position: absolute;
@@ -221,7 +218,7 @@ function toggleExpanded(event: MouseEvent) {
   background: linear-gradient(
     100deg,
     transparent 15%,
-    var(--available-shimmer) 50%,
+    var(--color-reset-badge-shimmer) 50%,
     transparent 85%
   );
   content: "";
@@ -251,18 +248,18 @@ function toggleExpanded(event: MouseEvent) {
     color var(--duration-fast) var(--ease-standard),
     transform var(--duration-normal) var(--ease-standard);
 }
-.reset-summary:not(:disabled):hover .chevron {
+.reset-widget:not(.reset-widget-empty):hover .chevron {
   color: var(--color-text-primary);
   transform: scale(1.06);
 }
-.reset-summary:not(:disabled):hover .chevron.expanded {
+.reset-widget:not(.reset-widget-empty):hover .chevron.expanded {
   transform: rotate(180deg) scale(1.06);
 }
-.reset-summary:not(:disabled):active .chevron {
+.reset-widget:not(.reset-widget-empty):active .chevron {
   color: var(--color-text-primary);
   transform: scale(0.96);
 }
-.reset-summary:not(:disabled):active .chevron.expanded {
+.reset-widget:not(.reset-widget-empty):active .chevron.expanded {
   transform: rotate(180deg) scale(0.96);
 }
 .chevron.expanded {
@@ -291,14 +288,14 @@ function toggleExpanded(event: MouseEvent) {
 .credit :deep(.ui-button) {
   flex: 0 0 auto;
   height: 30px;
-  border-color: var(--color-bg-accent);
+  border-color: var(--color-reset-action-border);
   border-radius: 999px;
-  color: var(--color-text-inverse);
-  background: var(--color-bg-accent);
+  color: var(--color-reset-action-foreground);
+  background: var(--color-reset-action-background);
 }
 .credit :deep(.ui-button:hover:not(:disabled)) {
-  border-color: var(--color-bg-accent-hover);
-  background: var(--color-bg-accent-hover);
+  border-color: var(--color-reset-action-hover-border);
+  background: var(--color-reset-action-hover-background);
 }
 .credit-copy {
   display: grid;
@@ -306,7 +303,7 @@ function toggleExpanded(event: MouseEvent) {
   gap: 5px;
 }
 .credit-copy small {
-  color: var(--color-text-usage);
+  color: var(--color-usage-secondary-text);
   font-size: 11px;
   line-height: 14px;
 }

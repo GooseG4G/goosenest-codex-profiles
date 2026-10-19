@@ -111,7 +111,7 @@ const classes = computed(() => [
 <style scoped>
 .icon-button {
   --button-background: var(--color-bg-surface);
-  --button-foreground: var(--color-icon);
+  --button-foreground: var(--color-icon-button-foreground);
   --button-hover-background: var(--color-bg-control-hover);
   --button-pressed-background: var(--color-bg-control-pressed);
   position: relative;
@@ -147,11 +147,15 @@ const classes = computed(() => [
   border-color: var(--color-border-default);
 }
 .tone-danger {
-  --button-foreground: var(--color-danger);
-  --button-hover-background: color-mix(in srgb, var(--color-danger) 10%, transparent);
+  --button-foreground: var(--color-icon-button-danger-foreground);
+  --button-hover-background: color-mix(
+    in srgb,
+    var(--color-icon-button-danger-foreground) 10%,
+    transparent
+  );
   --button-pressed-background: color-mix(
     in srgb,
-    var(--color-danger) 16%,
+    var(--color-icon-button-danger-foreground) 16%,
     transparent
   );
 }
@@ -169,7 +173,7 @@ const classes = computed(() => [
 .tone-danger.background-always:focus-visible:not(:disabled),
 .tone-danger.background-hover:hover:not(:disabled),
 .tone-danger.background-hover:focus-visible:not(:disabled) {
-  color: var(--color-danger-emphasis);
+  color: var(--color-icon-button-danger-hover-foreground);
 }
 .background-never:hover:not(:disabled),
 .background-never:focus-visible:not(:disabled) {

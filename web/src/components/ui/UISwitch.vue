@@ -72,7 +72,7 @@ function toggle() {
   border: 1px solid var(--color-border-default);
   border-radius: 999px;
   outline: none;
-  background: var(--color-bg-widget);
+  background: var(--color-switch-track-background);
   cursor: pointer;
   transition:
     background-color var(--duration-normal) var(--ease-standard),
@@ -81,7 +81,7 @@ function toggle() {
 }
 .ui-switch:hover:not(:disabled) {
   border-color: var(--color-border-button-hover);
-  background: var(--color-bg-button-hover);
+  background: var(--color-switch-track-hover-background);
 }
 .ui-switch:focus-visible {
   border-color: var(--color-focus);
@@ -89,11 +89,11 @@ function toggle() {
 }
 .ui-switch.checked {
   border-color: var(--color-border-strong);
-  background: var(--color-bg-widget);
+  background: var(--color-switch-track-background);
 }
 .ui-switch.checked:hover:not(:disabled) {
   border-color: var(--color-border-button-hover);
-  background: var(--color-bg-button-hover);
+  background: var(--color-switch-track-hover-background);
 }
 .thumb {
   position: absolute;
@@ -102,13 +102,13 @@ function toggle() {
   width: 12px;
   height: 12px;
   border-radius: 50%;
-  background: var(--color-status-inactive);
+  background: var(--color-switch-thumb-inactive);
   transition:
     transform var(--duration-normal) var(--ease-out),
     background-color var(--duration-normal) var(--ease-standard);
 }
 .checked .thumb {
-  background: var(--color-bg-accent);
+  background: var(--color-switch-thumb-active);
   transform: translateX(16px);
 }
 .ui-switch:disabled {

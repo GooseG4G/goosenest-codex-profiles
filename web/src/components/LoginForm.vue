@@ -57,8 +57,8 @@ const form = reactive({ username: "", password: "" });
   width: 34px;
   height: 34px;
   border-radius: 8px;
-  background: var(--color-bg-accent);
-  color: var(--color-text-inverse);
+  background: var(--color-login-submit-background);
+  color: var(--color-login-submit-foreground);
 }
 .login-brand > span {
   display: grid;
