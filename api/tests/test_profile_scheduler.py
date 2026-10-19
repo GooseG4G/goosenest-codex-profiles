@@ -111,6 +111,13 @@ def test_missing_weekly_window_is_not_blocked_by_weekly_reserve() -> None:
     assert profile_score(limits, NOW, weekly_reserve_percent=25) is not None
 
 
+def test_missing_primary_window_is_not_blocked() -> None:
+    limits = usage(20, 20)
+    del limits["primary"]
+
+    assert profile_score(limits, NOW, weekly_reserve_percent=25) is not None
+
+
 def test_active_request_penalizes_otherwise_equal_profile() -> None:
     idle = profile("idle", usage(20, 20), NOW, active_requests=0)
     busy = profile("busy", usage(20, 20), NOW, active_requests=2)

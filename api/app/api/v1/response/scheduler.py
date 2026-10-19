@@ -98,23 +98,18 @@ def profile_score(
     if not primary.available or (secondary.present and not secondary.available):
         return None
 
-    # Both limits are consumed by every request. Weekly pace is the long-term
-    # constraint; the five-hour pace adds deadline pressure without allowing a
-    # nearly exhausted short window to dominate selection.
+    # Window names and durations are provider metadata, not balancing policy.
+    # Rank by the observed utilization percentages of whichever limits exist.
     active_penalty = active_requests * 0.03
-    if not secondary.present:
-        return (
-            0.95 * primary.pace_deficit
-            + 0.05 * (primary.remaining / 100)
-            - active_penalty
-        )
-    headroom = min(primary.remaining / 100, secondary.remaining / 100)
-    return (
-        0.35 * primary.pace_deficit
-        + 0.65 * secondary.pace_deficit
-        + 0.02 * headroom
-        - active_penalty
-    )
+    windows = [window for window in (primary, secondary) if window.present]
+    if not windows:
+        return -active_penalty
+    utilization = [window.used / 100 for window in windows]
+    # The most constrained present limit is the primary signal; the mean keeps
+    # the secondary limit relevant without making a missing window synthetic.
+    bottleneck = max(utilization)
+    average = sum(utilization) / len(utilization)
+    return -(0.7 * bottleneck + 0.3 * average) - active_penalty
 
 
 def order_profiles(
