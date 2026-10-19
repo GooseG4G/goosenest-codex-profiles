@@ -305,7 +305,7 @@ onBeforeUnmount(() => {
   width: min(620px, 100%);
   display: grid;
   align-content: start;
-  column-gap: 10px;
+  gap: 12px 10px;
 }
 .toolbar {
   display: grid;
