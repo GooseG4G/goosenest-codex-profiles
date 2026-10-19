@@ -1,0 +1,41 @@
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Node / Vue
+node_modules/
+dist/
+coverage/
+*.tsbuildinfo
+
+# Test and tooling output
+.playwright-cli/
+test-results/
+playwright-report/
+output/
+
+# Editor and OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Build artifacts
+build/
+*.vsix
+
+# Runtime certificate data
+letsencrypt/etc/*
+!letsencrypt/etc/.gitkeep
+letsencrypt/www/*
+!letsencrypt/www/.gitkeep
