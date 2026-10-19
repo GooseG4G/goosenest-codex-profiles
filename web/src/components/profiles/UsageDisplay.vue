@@ -25,6 +25,7 @@ interface WindowInfo {
 function windowLabel(key: string, duration: number): string {
   if (key === "secondary" && duration === 7 * 24 * 60) return "Weekly usage limit";
   if (duration === 5 * 60) return "5-hour usage limit";
+  if (duration === 30 * 24 * 60) return "Monthly usage limit";
   if (duration > 0 && duration % (30 * 24 * 60) === 0)
     return `${duration / (30 * 24 * 60)}-month usage limit`;
   if (duration > 0 && duration % (7 * 24 * 60) === 0)
