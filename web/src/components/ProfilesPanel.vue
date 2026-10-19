@@ -460,7 +460,7 @@ onBeforeUnmount(() => {
   justify-content: center;
   color: var(--color-icon);
   pointer-events: none;
-  transform: translateZ(0);
+  transform: translate3d(4px, 0, 0);
   transform-origin: center;
   transition: color var(--duration-fast) var(--ease-standard);
 }
