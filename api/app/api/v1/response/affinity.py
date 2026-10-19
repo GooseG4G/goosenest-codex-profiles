@@ -17,11 +17,10 @@ def affinity_key(source: str, value: str) -> str:
 
 def request_affinity_key(request: Request, body: bytes) -> str | None:
     for name in (
-        "x-session-affinity",
-        "x-session-id",
-        "x-multi-turn-session-id",
+        "thread-id",
+        "session-id",
         "x-chat-id",
-        "x-conversation-id",
+        "x-session-id",
     ):
         value = request.headers.get(name)
         if value and len(value) <= 512:
@@ -32,7 +31,7 @@ def request_affinity_key(request: Request, body: bytes) -> str | None:
         return None
     if not isinstance(payload, dict):
         return None
-    for key in ("conversation_id", "conversationId", "session_id", "sessionId"):
+    for key in ("conversation_id",):
         value = payload.get(key)
         if isinstance(value, str) and value and len(value) <= 512:
             return affinity_key(f"body:{key}", value)

@@ -49,6 +49,50 @@ def _requested_model(body: bytes) -> str:
     return value if isinstance(value, str) and value else "unknown"
 
 
+def _body_identifier(body: bytes, name: str) -> str:
+    try:
+        payload = json.loads(body)
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        return "-"
+    value = payload.get(name) if isinstance(payload, dict) else None
+    return value if isinstance(value, str) and value else "-"
+
+
+def _diagnostic_body(body: bytes) -> dict[str, object]:
+    try:
+        payload = json.loads(body)
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        return {"format": "non-json", "bytes": len(body)}
+    if not isinstance(payload, dict):
+        return {"type": type(payload).__name__, "bytes": len(body)}
+    return {
+        "bytes": len(body),
+        "keys": sorted(payload),
+        "identifiers": {
+            key: value
+            for key, value in payload.items()
+            if any(marker in key.lower() for marker in ("session", "conversation", "response", "thread", "request"))
+            and isinstance(value, (str, int, float, bool))
+        },
+    }
+
+
+def _diagnostic_headers(request: Request) -> dict[str, str]:
+    hidden = {
+        "authorization",
+        "cookie",
+        "proxy-authorization",
+        "x-codex-turn-state",
+        "x-codex-turn-metadata",
+    }
+    return {
+        key: "<redacted>"
+        if key.lower() in hidden
+        else value[:256] + ("..." if len(value) > 256 else "")
+        for key, value in request.headers.items()
+    }
+
+
 async def _authorize_device(
     credentials: HTTPAuthorizationCredentials | None, session: PostgresSession
 ) -> tuple[UUID, UUID]:
@@ -210,6 +254,14 @@ async def create_response(
     session_key = request_affinity_key(request, body)
     preferred_profile_id = await find_affinity(session, session_key)
     model = _requested_model(body)
+    logger.warning(
+        "responses request diagnostic headers=%s body=%s affinity_key_present=%s "
+        "preferred_profile_id=%s",
+        _diagnostic_headers(request),
+        _diagnostic_body(body),
+        session_key is not None,
+        preferred_profile_id or "-",
+    )
     settings = get_responses_settings()
     upstream_client = get_responses_upstream()
     last_error = "All Codex profiles failed"
