@@ -333,7 +333,7 @@ onBeforeUnmount(() => {
 .profile-row {
   position: relative;
   display: grid;
-  grid-template-columns: 24px 10px minmax(0, 1fr) auto;
+  grid-template-columns: 16px 10px minmax(0, 1fr) auto;
   align-items: center;
   gap: 10px;
   min-height: 68px;
@@ -454,7 +454,7 @@ onBeforeUnmount(() => {
 .row-indicator {
   z-index: 1;
   display: inline-flex;
-  width: 24px;
+  width: 16px;
   height: 28px;
   align-items: center;
   justify-content: center;

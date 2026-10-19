@@ -165,6 +165,9 @@ test("usage reset badge keeps its color while stale and summary has no pressed s
   const summaryBox = await summary.boundingBox();
   expect(summaryBox).not.toBeNull();
   await page.mouse.move(summaryBox!.x + 20, summaryBox!.y + 20);
+  const widget = page.locator(".reset-widget");
+  await expect(widget).toHaveCSS("background-color", "rgba(255, 255, 255, 0.04)");
+  await expect(summary).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
   const chevron = summary.locator(".chevron");
   await expect(chevron).toHaveCSS(
     "transform",
@@ -187,6 +190,23 @@ test("usage reset badge keeps its color while stale and summary has no pressed s
     "rgb(237, 237, 237)",
   );
   await expect(resetButton).toHaveCSS("color", "rgb(23, 23, 23)");
+  const [badgeBox, resetButtonBox] = await Promise.all([
+    badge.boundingBox(),
+    resetButton.boundingBox(),
+  ]);
+  expect(badgeBox).not.toBeNull();
+  expect(resetButtonBox).not.toBeNull();
+  expect(badgeBox!.width).toBeCloseTo(84, 0);
+  expect(badgeBox!.height).toBeCloseTo(24, 0);
+  expect(resetButtonBox!.width).toBeGreaterThanOrEqual(72);
+  expect(resetButtonBox!.width).toBeLessThan(100);
+  expect(resetButtonBox!.height).toBeCloseTo(32, 0);
+  const widgetBox = await widget.boundingBox();
+  expect(widgetBox).not.toBeNull();
+  expect(
+    widgetBox!.x + widgetBox!.width -
+      (resetButtonBox!.x + resetButtonBox!.width),
+  ).toBeCloseTo(15, 0);
   await expect(page.locator(".credits-list")).toHaveCSS(
     "border-top-width",
     "0px",
@@ -470,7 +490,15 @@ test("row action spacing is symmetric and delete owns the press transform", asyn
   expect(deleteBox).not.toBeNull();
   const leftGap = dividerBox!.x - (switchBox!.x + switchBox!.width);
   const rightGap = deleteBox!.x - (dividerBox!.x + dividerBox!.width);
+  const indicatorToStatusGap = statusBox!.x - (
+    indicatorBox!.x + indicatorBox!.width
+  );
+  const copyBox = await row.locator(".copy").boundingBox();
+  expect(copyBox).not.toBeNull();
+  const statusToCopyGap = copyBox!.x - (statusBox!.x + statusBox!.width);
   expect(indicatorBox!.x).toBeLessThan(statusBox!.x);
+  expect(indicatorToStatusGap).toBeCloseTo(10, 1);
+  expect(statusToCopyGap).toBeCloseTo(indicatorToStatusGap, 1);
   expect(leftGap).toBeGreaterThanOrEqual(rightGap + 3);
 
   await deleteButton.hover();

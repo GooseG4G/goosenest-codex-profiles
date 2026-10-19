@@ -152,12 +152,16 @@ function confirmReset() {
 
 <style scoped>
 .reset-widget {
-  --reset-action-width: 80px;
+  --reset-action-width: 84px;
   align-self: start;
   overflow: hidden;
   border: 1px solid var(--color-border-default);
   border-radius: 7px;
   background: var(--color-bg-widget);
+  transition: background-color var(--duration-fast) var(--ease-standard);
+}
+.reset-widget:not(.reset-widget-empty):hover {
+  background: var(--color-bg-control-hover);
 }
 .reset-summary {
   width: 100%;
@@ -171,9 +175,6 @@ function confirmReset() {
   color: var(--color-text-primary);
   text-align: left;
   background: transparent;
-}
-.reset-summary:not(:disabled):hover {
-  background: var(--color-bg-control-hover);
 }
 .reset-summary:focus-visible {
   outline: none;
@@ -192,12 +193,13 @@ function confirmReset() {
   position: relative;
   justify-self: stretch;
   overflow: hidden;
-  padding: 3px 8px;
+  min-height: 24px;
+  padding: 4px 9px;
   border-radius: 999px;
   color: var(--available-foreground);
   font-size: 11px;
   font-weight: 650;
-  line-height: 13px;
+  line-height: 14px;
   text-align: center;
   background: var(--available-background);
 }
@@ -222,9 +224,6 @@ function confirmReset() {
 }
 .available.is-stale {
   color: transparent;
-}
-.reset-widget-empty .reset-summary:hover {
-  background: transparent;
 }
 .reset-summary:disabled {
   cursor: default;
@@ -271,17 +270,15 @@ function confirmReset() {
 }
 .credit {
   min-height: 60px;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) var(--reset-action-width) 18px;
+  display: flex;
   align-items: center;
-  gap: 10px;
+  justify-content: space-between;
+  gap: 16px;
   padding: 8px 14px;
 }
-.credit .ui-button {
-  grid-column: 2 / 4;
-  width: 100%;
-}
 .credit :deep(.ui-button) {
+  flex: 0 0 auto;
+  height: 32px;
   border-color: var(--color-bg-accent);
   border-radius: 999px;
   color: var(--color-text-inverse);
@@ -293,6 +290,7 @@ function confirmReset() {
 }
 .credit-copy {
   display: grid;
+  min-width: 0;
   gap: 5px;
 }
 .credit-copy small {
