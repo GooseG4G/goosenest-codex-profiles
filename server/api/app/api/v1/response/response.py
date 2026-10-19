@@ -30,7 +30,7 @@ from .affinity import (
 from .models import DeviceIdentity
 from .scheduler import release_profile, reserve_profile
 from .settings import get_responses_settings
-from .streaming import probe_stream
+from .streaming import _event_payload, classify_failure, probe_stream
 from .upstream import downstream_headers, get_responses_upstream
 
 router = APIRouter(tags=["responses"])
@@ -105,6 +105,18 @@ def _response_usage_from_sse(payload: bytes) -> dict[str, Any] | None:
         if isinstance(value, dict):
             latest = value
     return latest
+
+
+def _stream_failures_from_sse(payload: bytes) -> list[tuple[str, str, str]]:
+    failures: list[tuple[str, str, str]] = []
+    for raw_frame in payload.replace(b"\r\n", b"\n").split(b"\n\n"):
+        event = _event_payload(raw_frame)
+        if event is None:
+            continue
+        failure = classify_failure(event)
+        if failure is not None:
+            failures.append((failure.kind, failure.code or "", failure.message))
+    return failures
 
 
 async def _cool_down(
@@ -383,6 +395,15 @@ async def create_response(
                     yield chunk
             finally:
                 response_usage = _response_usage_from_sse(bytes(captured))
+                for kind, code, message in _stream_failures_from_sse(bytes(captured)):
+                    logger.warning(
+                        "responses upstream terminal stream failure profile_id=%s "
+                        "kind=%s code=%s message=%s",
+                        selected_profile_id,
+                        kind,
+                        code or "-",
+                        message,
+                    )
                 affinity_keys = (
                     response_affinity_keys(bytes(captured))
                     if bind_response_affinity
