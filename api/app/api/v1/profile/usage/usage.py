@@ -30,7 +30,12 @@ FIELDS = """jsonb_build_object(
             created_at, updated_at, last_used_at"""
 
 
-async def _profile(profile_id: UUID, session: PostgresSession) -> ProfileEntity:
+async def _profile(
+    profile_id: UUID,
+    session: PostgresSession,
+    *,
+    require_enabled: bool = True,
+) -> ProfileEntity:
     profile = await session.fetchrow(
         ProfileEntity,
         f"SELECT {FIELDS} FROM profiles WHERE profile_id=$1",
@@ -38,7 +43,7 @@ async def _profile(profile_id: UUID, session: PostgresSession) -> ProfileEntity:
     )
     if profile is None:
         raise HTTPException(status_code=404, detail="Profile not found")
-    if not profile.enabled or profile.auth_status != "authorized":
+    if profile.auth_status != "authorized" or (require_enabled and not profile.enabled):
         raise HTTPException(status_code=409, detail="Profile is not available")
     return profile
 
@@ -90,7 +95,7 @@ async def read_limits(
     _: Administrator,
     session: Session,
 ) -> UsageLimitsEntity:
-    profile = await _profile(profile_id, session)
+    profile = await _profile(profile_id, session, require_enabled=False)
     refreshing = await _revalidate_if_due(profile)
     usage = profile.usage or {}
     return UsageLimitsEntity(
@@ -112,7 +117,7 @@ async def read_resets(
     _: Administrator,
     session: Session,
 ) -> UsageResetsEntity:
-    profile = await _profile(profile_id, session)
+    profile = await _profile(profile_id, session, require_enabled=False)
     refreshing = await _revalidate_if_due(profile)
     summary = (profile.usage or {}).get("rateLimitResetCredits")
     if not isinstance(summary, dict):
