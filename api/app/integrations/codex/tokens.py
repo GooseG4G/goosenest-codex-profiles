@@ -110,11 +110,23 @@ def usage_from_headers(headers: httpx.Headers) -> dict[str, Any] | None:
         used = headers.get(f"x-codex-{window}-used-percent")
         if used is None:
             continue
+        try:
+            used_percent = float(used)
+        except (TypeError, ValueError):
+            continue
+        duration_value = headers.get(f"x-codex-{window}-window-minutes")
+        reset_value = headers.get(f"x-codex-{window}-reset-at")
+        try:
+            duration = int(float(duration_value)) if duration_value else None
+        except (TypeError, ValueError):
+            duration = None
+        try:
+            resets_at = int(float(reset_value)) if reset_value else None
+        except (TypeError, ValueError):
+            resets_at = None
         result[window] = {
-            "usedPercent": float(used),
-            "windowDurationMins": int(
-                headers.get(f"x-codex-{window}-window-minutes", "0")
-            ),
-            "resetsAt": int(headers.get(f"x-codex-{window}-reset-at", "0")),
+            "usedPercent": max(0, min(100, used_percent)),
+            "windowDurationMins": duration,
+            "resetsAt": resets_at,
         }
     return result or None

@@ -22,6 +22,17 @@ interface WindowInfo {
   used: number;
   reset: number;
 }
+function windowLabel(key: string, duration: number): string {
+  if (key === "secondary" && duration === 7 * 24 * 60) return "Weekly usage limit";
+  if (duration === 5 * 60) return "5-hour usage limit";
+  if (duration > 0 && duration % (30 * 24 * 60) === 0)
+    return `${duration / (30 * 24 * 60)}-month usage limit`;
+  if (duration > 0 && duration % (7 * 24 * 60) === 0)
+    return `${duration / (7 * 24 * 60)}-week usage limit`;
+  if (duration > 0 && duration % 60 === 0)
+    return `${duration / 60}-hour usage limit`;
+  return key === "secondary" ? "Secondary usage limit" : "Primary usage limit";
+}
 const isStale = computed(() => {
   if (!windows.value.length) return false;
   const updatedAt = props.updatedAt
@@ -31,16 +42,17 @@ const isStale = computed(() => {
 });
 const windows = computed<WindowInfo[]>(() =>
   [
-    ["primary", "5-hour usage limit"],
-    ["secondary", "Weekly usage limit"],
-  ].flatMap(([key, label]) => {
+    ["primary"],
+    ["secondary"],
+  ].flatMap(([key]) => {
     const value = props.usage?.[key];
     if (!value || typeof value !== "object") return [];
     const row = value as Record<string, unknown>;
     const used = Number(row.usedPercent ?? row.used_percent),
+      duration = Number(row.windowDurationMins ?? row.window_duration_minutes),
       reset = Number(row.resetsAt ?? row.resets_at);
     return Number.isFinite(used)
-      ? [{ key, label, used: Math.max(0, Math.min(100, used)), reset }]
+      ? [{ key, label: windowLabel(key, duration), used: Math.max(0, Math.min(100, used)), reset }]
       : [];
   }),
 );

@@ -4,10 +4,8 @@ from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from .plan import refresh_profile_plan
-    from .usage import (
-        consume_profile_usage_reset,
-        refresh_profile_usage,
-    )
+    from .usage import refresh_profile_usage
+    from .usage.resets import consume_profile_usage_reset
 
 __all__ = [
     "refresh_profile_plan",
@@ -28,7 +26,7 @@ def __getattr__(name: str) -> Any:
         return refresh_profile_usage
 
     if name == "consume_profile_usage_reset":
-        from .usage import consume_profile_usage_reset
+        from .usage.resets import consume_profile_usage_reset
 
         return consume_profile_usage_reset
 
