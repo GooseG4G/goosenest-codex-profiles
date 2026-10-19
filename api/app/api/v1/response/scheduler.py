@@ -85,17 +85,13 @@ def profile_score(
     usage: Optional[Dict[str, Any]],
     now: datetime,
     *,
-    weekly_reserve_percent: float,
     active_requests: int = 0,
 ) -> Optional[float]:
     primary = window_state(usage, "primary", now)
-    secondary = window_state(
-        usage,
-        "secondary",
-        now,
-        reserve_percent=weekly_reserve_percent,
-    )
-    if not primary.available or (secondary.present and not secondary.available):
+    secondary = window_state(usage, "secondary", now)
+    if (primary.present and not primary.available) or (
+        secondary.present and not secondary.available
+    ):
         return None
 
     # Window names and durations are provider metadata, not balancing policy.
@@ -116,7 +112,6 @@ def order_profiles(
     profiles: Iterable[ProfileRuntime],
     now: datetime,
     *,
-    weekly_reserve_percent: float,
     score_tolerance: float,
     preferred_profile_id: UUID | None = None,
 ) -> List[ProfileRuntime]:
@@ -126,7 +121,6 @@ def order_profiles(
             profile_score(
                 profile.usage,
                 now,
-                weekly_reserve_percent=weekly_reserve_percent,
                 active_requests=profile.active_requests,
             ),
             profile,
@@ -134,14 +128,6 @@ def order_profiles(
         for profile in profiles
     ]
     scored = [(score, profile) for score, profile in scored if score is not None]
-    if not scored and weekly_reserve_percent:
-        return order_profiles(
-            profiles,
-            now,
-            weekly_reserve_percent=0,
-            score_tolerance=score_tolerance,
-            preferred_profile_id=preferred_profile_id,
-        )
     if not scored:
         return []
 
@@ -173,7 +159,6 @@ async def reserve_profile(
     session: PostgresSession,
     *,
     excluded: Set[UUID],
-    weekly_reserve_percent: float,
     score_tolerance: float,
     preferred_profile_id: UUID | None,
     model: str,
@@ -210,7 +195,6 @@ async def reserve_profile(
         ordered = order_profiles(
             profiles,
             datetime.now(timezone.utc),
-            weekly_reserve_percent=weekly_reserve_percent,
             score_tolerance=score_tolerance,
             preferred_profile_id=preferred_profile_id,
         )

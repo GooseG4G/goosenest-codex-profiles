@@ -220,7 +220,6 @@ async def create_response(
         reservation := await reserve_profile(
             session,
             excluded=excluded,
-            weekly_reserve_percent=settings.weekly_reserve_percent,
             score_tolerance=settings.score_tolerance,
             preferred_profile_id=preferred_profile_id,
             model=model,

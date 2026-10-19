@@ -64,12 +64,12 @@ def test_expired_window_is_treated_as_restored() -> None:
 
 
 def test_weekly_reserve_removes_profile_from_normal_pool() -> None:
-    assert profile_score(usage(20, 75), NOW, weekly_reserve_percent=25) is None
+    assert profile_score(usage(20, 75), NOW) is None
 
 
 def test_profile_behind_consumption_pace_scores_higher() -> None:
-    underused = profile_score(usage(10, 20), NOW, weekly_reserve_percent=0)
-    overused = profile_score(usage(80, 80), NOW, weekly_reserve_percent=0)
+    underused = profile_score(usage(10, 20), NOW)
+    overused = profile_score(usage(80, 80), NOW)
 
     assert underused is not None
     assert overused is not None
@@ -83,7 +83,6 @@ def test_oldest_profile_wins_when_scores_are_close() -> None:
     ordered = order_profiles(
         [recent, old],
         NOW,
-        weekly_reserve_percent=25,
         score_tolerance=0.05,
     )
 
@@ -97,7 +96,6 @@ def test_weekly_reserve_is_released_when_every_profile_reaches_it() -> None:
     ordered = order_profiles(
         [first, second],
         NOW,
-        weekly_reserve_percent=25,
         score_tolerance=0.05,
     )
 
@@ -108,14 +106,14 @@ def test_missing_weekly_window_is_not_blocked_by_weekly_reserve() -> None:
     limits = usage(20, 20)
     del limits["secondary"]
 
-    assert profile_score(limits, NOW, weekly_reserve_percent=25) is not None
+    assert profile_score(limits, NOW) is not None
 
 
 def test_missing_primary_window_is_not_blocked() -> None:
     limits = usage(20, 20)
     del limits["primary"]
 
-    assert profile_score(limits, NOW, weekly_reserve_percent=25) is not None
+    assert profile_score(limits, NOW) is not None
 
 
 def test_active_request_penalizes_otherwise_equal_profile() -> None:
@@ -123,7 +121,7 @@ def test_active_request_penalizes_otherwise_equal_profile() -> None:
     busy = profile("busy", usage(20, 20), NOW, active_requests=2)
 
     ordered = order_profiles(
-        [busy, idle], NOW, weekly_reserve_percent=25, score_tolerance=0.01
+        [busy, idle], NOW, score_tolerance=0.01
     )
 
     assert ordered[0].name == "idle"
@@ -144,7 +142,7 @@ def test_profile_id_stabilizes_exact_tie() -> None:
     )
 
     ordered = order_profiles(
-        [high_id, low_id], NOW, weekly_reserve_percent=25, score_tolerance=0.05
+        [high_id, low_id], NOW, score_tolerance=0.05
     )
 
     assert [item.name for item in ordered] == ["low", "high"]
@@ -157,7 +155,6 @@ def test_chat_affinity_keeps_an_eligible_profile_selected() -> None:
     ordered = order_profiles(
         [other, preferred],
         NOW,
-        weekly_reserve_percent=25,
         score_tolerance=0.05,
         preferred_profile_id=preferred.profile_id,
     )
@@ -199,7 +196,6 @@ async def test_profile_update_and_lease_insert_share_a_transaction() -> None:
     reservation = await reserve_profile(
         session,  # type: ignore[arg-type]
         excluded=set(),
-        weekly_reserve_percent=25,
         score_tolerance=0.05,
         preferred_profile_id=None,
         model="gpt-5",

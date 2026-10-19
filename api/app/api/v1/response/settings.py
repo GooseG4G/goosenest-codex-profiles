@@ -19,12 +19,6 @@ class ResponsesSettings(BaseSettings):
         alias="OPENAI_RESPONSES_URL",
     )
     request_timeout: float = Field(300.0, alias="OPENAI_REQUEST_TIMEOUT", gt=0)
-    weekly_reserve_percent: float = Field(
-        25.0,
-        alias="PROFILE_WEEKLY_RESERVE_PERCENT",
-        ge=0,
-        lt=100,
-    )
     score_tolerance: float = Field(
         0.05,
         alias="PROFILE_SCORE_TOLERANCE",
