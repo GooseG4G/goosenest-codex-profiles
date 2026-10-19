@@ -23,16 +23,16 @@ interface WindowInfo {
   reset: number;
 }
 function windowLabel(key: string, duration: number): string {
-  if (key === "secondary" && duration === 7 * 24 * 60) return "Weekly usage limit";
-  if (duration === 5 * 60) return "5-hour usage limit";
-  if (duration === 30 * 24 * 60) return "Monthly usage limit";
+  if (key === "secondary" && duration === 7 * 24 * 60) return "Weekly limit";
+  if (duration === 5 * 60) return "5h limit";
+  if (duration === 30 * 24 * 60) return "Monthly limit";
   if (duration > 0 && duration % (30 * 24 * 60) === 0)
-    return `${duration / (30 * 24 * 60)}-month usage limit`;
+    return `${duration / (30 * 24 * 60)}-month limit`;
   if (duration > 0 && duration % (7 * 24 * 60) === 0)
-    return `${duration / (7 * 24 * 60)}-week usage limit`;
+    return `${duration / (7 * 24 * 60)}-week limit`;
   if (duration > 0 && duration % 60 === 0)
-    return `${duration / 60}-hour usage limit`;
-  return key === "secondary" ? "Secondary usage limit" : "Primary usage limit";
+    return `${duration / 60}h limit`;
+  return key === "secondary" ? "Secondary limit" : "Primary limit";
 }
 const isStale = computed(() => {
   if (!windows.value.length) return false;

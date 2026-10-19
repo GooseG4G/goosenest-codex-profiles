@@ -118,7 +118,6 @@ onUnmounted(() => restoreFocus(returnFocus));
   place-items: center;
   padding: 16px;
   background: var(--color-bg-backdrop);
-  backdrop-filter: blur(1px);
 }
 .dialog {
   width: min(408px, 100%);

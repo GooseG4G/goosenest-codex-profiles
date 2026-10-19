@@ -38,6 +38,7 @@ const emit = defineEmits<{
 const expanded = shallowRef<string>();
 const planShimmerIds = shallowRef(new Set<string>());
 const planShimmerTimers = new Map<string, ReturnType<typeof setTimeout>>();
+const usageAnimations = new WeakMap<HTMLElement, Animation>();
 useEscapeLayer(
   () => Boolean(expanded.value),
   () => {
@@ -80,6 +81,40 @@ function activate(profile: Profile) {
     return;
   }
   toggle(profile);
+}
+function animateUsage(
+  element: Element,
+  opening: boolean,
+  done: () => void,
+) {
+  const target = element as HTMLElement;
+  usageAnimations.get(target)?.cancel();
+  const height = target.scrollHeight;
+  const animation = target.animate(
+    [
+      { height: opening ? "0px" : `${height}px`, opacity: opening ? 0 : 1 },
+      { height: opening ? `${height}px` : "0px", opacity: opening ? 1 : 0 },
+    ],
+    {
+      duration: window.matchMedia("(prefers-reduced-motion: reduce)").matches
+        ? 0
+        : 160,
+      easing: "ease",
+    },
+  );
+  usageAnimations.set(target, animation);
+  let finished = false;
+  const finish = () => {
+    if (finished) return;
+    finished = true;
+    usageAnimations.delete(target);
+    done();
+  };
+  animation.addEventListener("finish", finish, { once: true });
+  animation.addEventListener("cancel", finish, { once: true });
+}
+function cancelUsageAnimation(element: Element) {
+  usageAnimations.get(element as HTMLElement)?.cancel();
 }
 watch(
   () => ({
@@ -188,17 +223,16 @@ onBeforeUnmount(() => {
               aria-label="Loading plan"
             /><small v-else>{{ expiryLabel(profile) }}</small></span
           >
+          <span
+            class="row-indicator"
+            :class="{ expanded: expanded === profile.profile_id }"
+            aria-hidden="true"
+            ><RefreshCw
+              v-if="needsAuthentication(profile)"
+              class="reauth-icon" /><ChevronDown v-else class="chevron"
+          /></span>
           <div class="actions">
-            <span
-              class="row-indicator"
-              :class="{ expanded: expanded === profile.profile_id }"
-              aria-hidden="true"
-              ><RefreshCw
-                v-if="needsAuthentication(profile)"
-                class="reauth-icon" /><ChevronDown
-                v-else
-                class="chevron" /></span
-            ><UISwitch
+            <UISwitch
               :model-value="profile.enabled"
               :accessible-label="`${profile.enabled ? 'Disable' : 'Enable'} ${profile.name}`"
               :tooltip="profile.enabled ? 'Disable' : 'Enable'"
@@ -217,7 +251,12 @@ onBeforeUnmount(() => {
             ></UIIconButton>
           </div>
         </div>
-        <Transition name="usage"
+        <Transition
+          :css="false"
+          @enter="(element, done) => animateUsage(element, true, done)"
+          @leave="(element, done) => animateUsage(element, false, done)"
+          @enter-cancelled="cancelUsageAnimation"
+          @leave-cancelled="cancelUsageAnimation"
           ><div
             v-if="
               !needsAuthentication(profile) && expanded === profile.profile_id
@@ -282,7 +321,7 @@ onBeforeUnmount(() => {
 .profile-row {
   position: relative;
   display: grid;
-  grid-template-columns: 10px minmax(0, 1fr) auto;
+  grid-template-columns: 10px minmax(0, 1fr) 28px auto;
   align-items: center;
   gap: 13px;
   min-height: 68px;
@@ -378,7 +417,7 @@ onBeforeUnmount(() => {
 .actions {
   z-index: 2;
   display: grid;
-  grid-template-columns: 28px 40px 1px 28px;
+  grid-template-columns: 40px 1px 28px;
   align-items: center;
   gap: 16px;
   pointer-events: none;
@@ -447,6 +486,7 @@ onBeforeUnmount(() => {
 .usage-collapse {
   display: grid;
   grid-template-rows: 1fr;
+  overflow: hidden;
   opacity: 1;
 }
 .usage-wrap {
@@ -465,25 +505,10 @@ onBeforeUnmount(() => {
   color: var(--color-text-secondary);
   text-align: center;
 }
-.usage-enter-active,
-.usage-leave-active {
-  transition:
-    grid-template-rows var(--duration-slow) var(--ease-out),
-    opacity var(--duration-normal) var(--ease-standard);
-}
-.usage-enter-from,
-.usage-leave-to {
-  grid-template-rows: 0fr;
-  opacity: 0;
-}
 @media (prefers-reduced-motion: reduce) {
   .chevron,
   .profile-row,
   .usage-wrap,
-  .usage-enter-active,
-  .usage-leave-active {
-    transition: none;
-  }
   .copy small.plan-pending::after {
     animation: none;
     transform: none;

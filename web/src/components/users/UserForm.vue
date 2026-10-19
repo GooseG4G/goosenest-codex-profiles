@@ -68,7 +68,14 @@ function submit() {
         "
         :required="!user"
     /></label>
-    <label>Role<UISelect v-model="form.role" :options="roleOptions" /></label>
+    <div class="form-field">
+      <span class="field-label">Role</span>
+      <UISelect
+        v-model="form.role"
+        aria-label="Role"
+        :options="roleOptions"
+      />
+    </div>
   </form>
 </template>
 
@@ -77,7 +84,8 @@ function submit() {
   display: grid;
   gap: 15px;
 }
-.user-form label {
+.user-form label,
+.form-field {
   display: grid;
   gap: 7px;
   color: var(--color-text-secondary);

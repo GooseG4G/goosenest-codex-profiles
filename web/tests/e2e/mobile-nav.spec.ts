@@ -79,10 +79,9 @@ test.beforeEach(async ({ page }) => {
 test("row hover owns the switch action context", async ({ page }) => {
   await page.goto("/profiles");
   const row = page.locator(".profile-row");
-  const actions = row.locator(".actions");
-  await actions.hover();
-  await expect(row).toHaveCSS("background-color", "rgb(28, 29, 30)");
   const switchControl = row.locator('[role="switch"]');
+  await switchControl.hover();
+  await expect(row).toHaveCSS("background-color", "rgb(28, 29, 30)");
   await expect(switchControl).toHaveCSS("background-color", "rgb(41, 42, 43)");
 });
 
@@ -209,6 +208,11 @@ test("empty usage reset badge shimmers over its gray base", async ({
 
   const badge = page.locator(".reset-widget .available");
   await expect(badge).toHaveText("0 available");
+  const summary = page.getByRole("button", {
+    name: "No usage limit resets available",
+  });
+  await expect(summary).toBeDisabled();
+  await expect(summary.locator(".chevron")).toBeVisible();
   await expect(badge).toHaveClass(/is-stale/);
   const gray = await badge.evaluate(
     (element) => getComputedStyle(element).backgroundColor,
@@ -238,6 +242,12 @@ test("role uses the custom keyboard-accessible select", async ({ page }) => {
   await expect(select).toHaveAttribute("aria-expanded", "false");
   await expect(select).toBeFocused();
   await expect(select).toHaveCSS("box-shadow", "none");
+
+  await select.click();
+  await expect(page.getByRole("listbox")).toBeVisible();
+  await page.getByText("Role", { exact: true }).click();
+  await expect(page.getByRole("listbox")).toBeHidden();
+  await expect(select).toHaveAttribute("aria-expanded", "false");
 });
 
 test("profile reauthorization waits for explicit confirmation", async ({

@@ -1,6 +1,13 @@
 <script setup lang="ts">
 import { ChevronDown } from "@lucide/vue";
-import { computed, onBeforeUnmount, onMounted, shallowRef, useId } from "vue";
+import {
+  computed,
+  onBeforeUnmount,
+  onMounted,
+  shallowRef,
+  useId,
+  watch,
+} from "vue";
 import type { UsageResetCredit, UsageResets } from "../../api";
 import { useEscapeLayer } from "../../composables/useEscapeLayer";
 import UIButton from "../ui/UIButton.vue";
@@ -33,6 +40,9 @@ const count = computed(() =>
   Math.max(props.resets?.available_count ?? 0, available.value.length),
 );
 const hasAvailable = computed(() => count.value > 0);
+watch(hasAvailable, (value) => {
+  if (!value) expanded.value = false;
+});
 const isStale = computed(() => {
   if (!props.resets) return true;
   const updatedAt = props.resets.updated_at
@@ -78,11 +88,16 @@ function confirmReset() {
     :class="{ 'reset-widget-empty': !hasAvailable }"
   >
     <button
-      v-if="hasAvailable"
       class="reset-summary"
       type="button"
-      :aria-expanded="expanded"
+      :aria-expanded="hasAvailable ? expanded : false"
       :aria-controls="creditsId"
+      :aria-label="
+        hasAvailable
+          ? 'Usage limit resets'
+          : 'No usage limit resets available'
+      "
+      :disabled="!hasAvailable"
       @mousedown.prevent
       @click="expanded = !expanded"
     >
@@ -91,19 +106,10 @@ function confirmReset() {
         {{ count }} available
       </span>
       <ChevronDown
-        v-if="count > 0"
         :class="['chevron', { expanded }]"
         aria-hidden="true"
       />
     </button>
-    <div
-      v-else
-      class="reset-summary"
-      aria-label="No usage limit resets available"
-    >
-      <strong>Usage limit resets</strong>
-      <span :class="['available', { 'is-stale': isStale }]">0 available</span>
-    </div>
     <Transition name="credits">
       <div v-if="expanded && hasAvailable" :id="creditsId" class="credits">
         <div class="credits-clip">
@@ -166,7 +172,7 @@ function confirmReset() {
   text-align: left;
   background: transparent;
 }
-.reset-summary:hover {
+.reset-summary:not(:disabled):hover {
   background: var(--color-bg-control-hover);
 }
 .reset-summary:focus-visible {
@@ -180,9 +186,9 @@ function confirmReset() {
   line-height: 16px;
 }
 .available {
-  --available-background: #183c32;
-  --available-foreground: #8fd8b4;
-  --available-shimmer: rgb(143 216 180 / 20%);
+  --available-background: #2b3831;
+  --available-foreground: #b1c8b8;
+  --available-shimmer: rgb(177 200 184 / 18%);
   position: relative;
   justify-self: stretch;
   overflow: hidden;
@@ -210,9 +216,6 @@ function confirmReset() {
   animation: available-shimmer 1.35s linear infinite;
   will-change: transform;
 }
-.reset-widget-empty .reset-summary {
-  grid-template-columns: minmax(0, 1fr) auto;
-}
 .reset-widget-empty .available {
   color: var(--color-text-secondary);
   background: var(--color-bg-control-hover);
@@ -222,6 +225,12 @@ function confirmReset() {
 }
 .reset-widget-empty .reset-summary:hover {
   background: transparent;
+}
+.reset-summary:disabled {
+  cursor: default;
+}
+.reset-summary:disabled .chevron {
+  opacity: 0.45;
 }
 .chevron {
   width: 16px;
