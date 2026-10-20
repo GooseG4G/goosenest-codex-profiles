@@ -25,8 +25,6 @@ export interface Profile {
   auth_status: string;
   usage?: Record<string, unknown> | null;
   usage_updated_at: string | null;
-  plan_type: string | null;
-  plan_updated_at: string | null;
   last_used_at: string | null;
 }
 export interface ProfileEntities {
@@ -42,12 +40,6 @@ export interface UsageLimits {
   plan_type: string | null;
   primary: UsageWindow | null;
   secondary: UsageWindow | null;
-  updated_at: string | null;
-  stale: boolean;
-  refreshing: boolean;
-}
-export interface ProfilePlan {
-  plan_type: string | null;
   updated_at: string | null;
   stale: boolean;
   refreshing: boolean;
@@ -92,10 +84,6 @@ export type ServerEvent = EventBase &
   (
     | {
       type: "profile.usage.updated";
-      profile_id: string;
-    }
-    | {
-      type: "profile.plan.updated";
       profile_id: string;
     }
     | {

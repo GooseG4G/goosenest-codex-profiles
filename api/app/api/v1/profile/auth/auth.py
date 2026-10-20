@@ -65,7 +65,7 @@ async def _finalize(flow: DeviceFlow, session: PostgresSession) -> None:
                        'href', '/api/v1/profiles/' || profile_id
                    ) AS meta,
                    profile_id, name, enabled, auth_status, usage,
-                   usage_updated_at, plan_type, plan_updated_at,
+                   usage_updated_at,
                    created_at, updated_at, last_used_at, codex_home
             FROM profiles
             WHERE ($1::uuid IS NOT NULL AND profile_id=$1)
@@ -99,7 +99,7 @@ async def _finalize(flow: DeviceFlow, session: PostgresSession) -> None:
                               'href', '/api/v1/profiles/' || profile_id
                           ) AS meta,
                           profile_id, name, enabled, auth_status, usage,
-                          usage_updated_at, plan_type, plan_updated_at,
+                          usage_updated_at,
                           created_at, updated_at, last_used_at
                 """,
                 flow.profile_id,
@@ -124,7 +124,7 @@ async def _finalize(flow: DeviceFlow, session: PostgresSession) -> None:
                               'href', '/api/v1/profiles/' || profile_id
                           ) AS meta,
                           profile_id, name, enabled, auth_status, usage,
-                          usage_updated_at, plan_type, plan_updated_at,
+                          usage_updated_at,
                           created_at, updated_at, last_used_at
                 """,
                 existing.profile_id,
@@ -143,19 +143,12 @@ async def _finalize(flow: DeviceFlow, session: PostgresSession) -> None:
         )
         from api.v1.profile.task_settings import get_profile_task_settings
         from worker.lease import Lease
-        from worker.tasks.profile.plan import refresh_profile_plan
         from worker.tasks.profile.usage import refresh_profile_usage
 
         lease_ttl = get_profile_task_settings().lease_ttl
         lease = Lease(lease_ttl=lease_ttl)
         await lease.publish(
             refresh_profile_usage,
-            str(profile.profile_id),
-            args=[str(profile.profile_id)],
-            task_id=str(uuid4()),
-        )
-        await lease.publish(
-            refresh_profile_plan,
             str(profile.profile_id),
             args=[str(profile.profile_id)],
             task_id=str(uuid4()),

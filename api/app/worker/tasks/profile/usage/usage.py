@@ -23,8 +23,7 @@ FIELDS = """jsonb_build_object(
                 'href', '/api/v1/profiles/' || profile_id
             ) AS meta,
             profile_id, name, enabled, auth_status, usage, usage_updated_at,
-            plan_type, plan_updated_at, created_at,
-            updated_at, last_used_at, codex_home"""
+            created_at, updated_at, last_used_at, codex_home"""
 
 
 async def _read_usage(codex_home: str) -> dict[str, Any]:

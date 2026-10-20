@@ -3,7 +3,6 @@ import {
   api,
   type DeviceFlow,
   type Profile,
-  type ProfilePlan,
   type ProfileEntities,
   type StreamEvent,
   type UsageLimits,
@@ -15,7 +14,6 @@ import { useEventStream } from "./useEventStream";
 
 export function useProfiles() {
   const profiles = shallowRef<Profile[]>([]),
-    planPendingProfileIds = shallowRef<ReadonlySet<string>>(new Set()),
     enabledPendingProfileIds = shallowRef<ReadonlySet<string>>(new Set()),
     resetsByProfileId = shallowRef<
       Readonly<Record<string, UsageResets | undefined>>
@@ -37,7 +35,6 @@ export function useProfiles() {
     usageGeneration = 0,
     usageRequest: Promise<void> | undefined,
     usageAbort: AbortController | undefined,
-    planRequests = new Map<string, Promise<void>>(),
     resetSequence = 0;
   const { connect: connectEvents, disconnect: disconnectEvents } =
     useEventStream<StreamEvent>({
@@ -54,17 +51,6 @@ export function useProfiles() {
       ),
     );
     connectEvents();
-    for (const profile of profiles.value) {
-      const planUpdatedAt = Date.parse(profile.plan_updated_at ?? "");
-      const planIsStale =
-        !Number.isFinite(planUpdatedAt) || Date.now() - planUpdatedAt >= 60_000;
-      if (
-        profile.enabled &&
-        profile.auth_status === "authorized" &&
-        planIsStale
-      )
-        void refreshPlan(profile.profile_id);
-    }
   }
   async function startAuth(profileId?: string) {
     busy.value = true;
@@ -208,6 +194,7 @@ export function useProfiles() {
       ...profile,
       usage: {
         ...profile.usage,
+        planType: limits.plan_type ?? profile.usage?.planType,
         primary: windowValue(limits.primary),
         secondary: windowValue(limits.secondary),
       },
@@ -220,38 +207,6 @@ export function useProfiles() {
       ...resetsByProfileId.value,
       [profileId]: stableResets,
     };
-  }
-  function setPlanPending(profileId: string, pending: boolean) {
-    const next = new Set(planPendingProfileIds.value);
-    if (pending) next.add(profileId);
-    else next.delete(profileId);
-    planPendingProfileIds.value = next;
-  }
-  function refreshPlan(profileId: string) {
-    const active = planRequests.get(profileId);
-    if (active) return active;
-    setPlanPending(profileId, true);
-    const request = api<ProfilePlan>(`/profiles/${profileId}/plan`)
-      .then((plan) => {
-        const profile = profiles.value.find(
-          (item) => item.profile_id === profileId,
-        );
-        if (!profile) return;
-        replaceProfile({
-          ...profile,
-          plan_type: plan.plan_type,
-          plan_updated_at: plan.updated_at,
-        });
-      })
-      .catch(() => {
-        // A missing plan is a stable unavailable state, not endless loading.
-      })
-      .finally(() => {
-        planRequests.delete(profileId);
-        setPlanPending(profileId, false);
-      });
-    planRequests.set(profileId, request);
-    return request;
   }
   function refreshHotProfile(profileId: string, generation: number) {
     if (
@@ -311,8 +266,6 @@ export function useProfiles() {
     } else if (payload.event.type === "profile.usage.updated") {
       if (payload.event.profile_id === hotProfileId)
         void refreshHotProfile(hotProfileId, usageGeneration);
-    } else if (payload.event.type === "profile.plan.updated") {
-      void refreshPlan(payload.event.profile_id);
     } else if (payload.event.type === "profile.usage.reset.completed") {
       if (resetPending.value?.startsWith(`${payload.event.profile_id}:`))
         resetPending.value = undefined;
@@ -359,7 +312,6 @@ export function useProfiles() {
   });
   return {
     profiles: readonly(profiles),
-    planPendingProfileIds: readonly(planPendingProfileIds),
     enabledPendingProfileIds: readonly(enabledPendingProfileIds),
     resetsByProfileId: readonly(resetsByProfileId),
     flow: readonly(flow),

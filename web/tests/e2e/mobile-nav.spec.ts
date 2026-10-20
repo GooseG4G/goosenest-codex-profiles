@@ -25,8 +25,6 @@ test.beforeEach(async ({ page }) => {
                   auth_status: "authorized",
                   usage: null,
                   usage_updated_at: null,
-                  plan_type: "free",
-                  plan_updated_at: null,
                   last_used_at: null,
                 },
               ],
@@ -311,8 +309,6 @@ test("switching expanded profiles keeps opposing animations monotonic", async ({
       auth_status: "authorized",
       usage: null,
       usage_updated_at: null,
-      plan_type: "free",
-      plan_updated_at: null,
       last_used_at: null,
     });
     await route.fulfill({
@@ -456,8 +452,6 @@ test("profile reauthorization waits for explicit confirmation", async ({
             auth_status: "expired",
             usage: null,
             usage_updated_at: null,
-            plan_type: "free",
-            plan_updated_at: null,
             last_used_at: null,
           },
         ],

@@ -15,7 +15,6 @@ import UsageResetWidget from "./UsageResetWidget.vue";
 const props = defineProps<{
   profile: Profile;
   expanded: boolean;
-  planPending: boolean;
   enabledPending: boolean;
   resets?: UsageResets;
   resetPendingId?: string;
@@ -35,7 +34,7 @@ function needsAuthentication(): boolean {
 }
 
 function planLabel(): string {
-  const value = props.profile.plan_type;
+  const value = props.profile.usage?.planType;
   if (typeof value !== "string" || !value.trim()) return "Plan unavailable";
   return value
     .trim()
@@ -87,8 +86,7 @@ function expiryLabel(): string {
         </template>
         <span class="copy">
           <strong>{{ profile.name }}</strong>
-          <small v-if="planPending" class="plan-pending" aria-label="Loading plan" />
-          <small v-else>{{ expiryLabel() }}</small>
+          <small>{{ expiryLabel() }}</small>
         </span>
       </UICollectionItemIdentity>
       <template #actions><div class="actions">

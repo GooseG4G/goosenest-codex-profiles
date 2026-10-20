@@ -16,12 +16,10 @@ from .models import (
     ProfileRuntime,
     ProfileUpdate,
 )
-from .plan import router as plan_router
 from .usage.usage import router as usage_router
 
 router = APIRouter(prefix="/profiles", tags=["profiles"])
 router.include_router(usage_router)
-router.include_router(plan_router)
 Session = Annotated[PostgresSession, Depends(get_postgres_session)]
 Administrator = Annotated[Principal, Depends(require_admin)]
 FIELDS = """jsonb_build_object(
@@ -29,7 +27,7 @@ FIELDS = """jsonb_build_object(
                 'href', '/api/v1/profiles/' || profile_id
             ) AS meta,
             profile_id, name, enabled, auth_status, usage, usage_updated_at,
-            plan_type, plan_updated_at, created_at, updated_at, last_used_at"""
+            created_at, updated_at, last_used_at"""
 
 
 @router.get("")

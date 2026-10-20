@@ -60,16 +60,6 @@ class ProfileEntity(Entity[ProfileMeta]):
         description="Time when usage was last refreshed",
     )
 
-    plan_type: Optional[str] = Field(
-        default=None,
-        description="Codex subscription plan type",
-    )
-
-    plan_updated_at: Optional[datetime] = Field(
-        default=None,
-        description="Time when the plan was last refreshed",
-    )
-
     created_at: datetime = Field(
         ...,
         description="Time when the profile was created",

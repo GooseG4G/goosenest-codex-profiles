@@ -5,7 +5,6 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from .profile import (
         consume_profile_usage_reset,
-        refresh_profile_plan,
         refresh_profile_usage,
     )
     from .response import cleanup_response_state
@@ -13,7 +12,6 @@ if TYPE_CHECKING:
 
 __all__ = [
     "consume_profile_usage_reset",
-    "refresh_profile_plan",
     "refresh_profile_usage",
     "cleanup_response_state",
     "cleanup_sessions",
@@ -25,11 +23,6 @@ def __getattr__(name: str) -> Any:
         from .profile import consume_profile_usage_reset
 
         return consume_profile_usage_reset
-
-    if name == "refresh_profile_plan":
-        from .profile import refresh_profile_plan
-
-        return refresh_profile_plan
 
     if name == "refresh_profile_usage":
         from .profile import refresh_profile_usage

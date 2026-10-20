@@ -75,13 +75,6 @@ async def read_codex_usage(codex_home: str) -> dict[str, Any]:
     )
 
 
-async def read_codex_plan(codex_home: str) -> str | None:
-    async with CodexBackendClient(codex_home) as client:
-        response = await client.get("usage")
-
-    return WhamUsageResponse.model_validate_json(response).plan_type
-
-
 async def consume_codex_usage_reset(
     codex_home: str,
     credit_id: str,

@@ -172,7 +172,7 @@ async def reserve_profile(
                        'type', 'profile',
                        'href', '/api/v1/profiles/' || profile_id
                    ) AS meta,
-                   usage_updated_at, plan_type, plan_updated_at,
+                   usage_updated_at,
                    created_at,
                    updated_at, last_used_at,
                    (SELECT count(*) FROM profile_leases lease
@@ -219,7 +219,7 @@ async def reserve_profile(
                               'type', 'profile',
                               'href', '/api/v1/profiles/' || profile_id
                           ) AS meta,
-                          usage_updated_at, plan_type, plan_updated_at,
+                          usage_updated_at,
                           created_at, updated_at, last_used_at,
                           $3::int AS active_requests
                 """,

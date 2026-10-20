@@ -52,18 +52,6 @@ class ProfileUsageUpdated(Event):
     )
 
 
-class ProfilePlanUpdated(Event):
-    type: Literal["profile.plan.updated"] = Field(
-        default="profile.plan.updated",
-        description="Event type",
-    )
-
-    profile_id: UUID = Field(
-        ...,
-        description="Updated profile identifier",
-    )
-
-
 class ProfileUsageResetCompleted(Event):
     type: Literal["profile.usage.reset.completed"] = Field(
         default="profile.usage.reset.completed",
@@ -110,7 +98,6 @@ class ProfileAuthChanged(Event):
 
 ServerEvent: TypeAlias = Annotated[
     ProfileUsageUpdated
-    | ProfilePlanUpdated
     | ProfileUsageResetCompleted
     | ProfileAuthChanged,
     Field(discriminator="type"),

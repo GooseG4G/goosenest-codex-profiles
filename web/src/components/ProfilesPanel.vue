@@ -3,7 +3,6 @@ import { UserRoundPlus } from "@lucide/vue";
 import { computed, onBeforeUnmount, shallowRef } from "vue";
 import type { Profile, UsageResets } from "../api";
 import { useEscapeLayer } from "../composables/useEscapeLayer";
-import { usePendingPlanShimmer } from "../composables/usePendingPlanShimmer";
 import { useRouteQuery } from "../composables/useRouteQuery";
 import ProfileListItem from "./profiles/ProfileListItem.vue";
 import UICollectionView from "./ui/UICollectionView.vue";
@@ -12,7 +11,6 @@ import UISearchField from "./ui/UISearchField.vue";
 
 const props = defineProps<{
   items: readonly Profile[];
-  planPendingProfileIds: ReadonlySet<string>;
   resetsByProfileId: Readonly<Record<string, UsageResets | undefined>>;
   busy: boolean;
   resetPending?: string;
@@ -38,10 +36,6 @@ const visible = computed(() => {
       )
     : props.items;
 });
-const planShimmerIds = usePendingPlanShimmer(
-  () => props.items,
-  () => props.planPendingProfileIds,
-);
 
 function closeExpanded() {
   expanded.value = undefined;
@@ -94,7 +88,6 @@ onBeforeUnmount(() => emit("hotProfileChange", undefined));
       :key="profile.profile_id"
       :profile="profile"
       :expanded="expanded === profile.profile_id"
-      :plan-pending="planShimmerIds.has(profile.profile_id)"
       :enabled-pending="enabledPendingProfileIds.has(profile.profile_id)"
       :resets="resetsByProfileId[profile.profile_id]"
       :reset-pending-id="resetPendingId(profile.profile_id)"

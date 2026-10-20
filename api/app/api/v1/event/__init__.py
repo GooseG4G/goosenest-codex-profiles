@@ -1,6 +1,5 @@
 from .models import (
     ProfileAuthChanged,
-    ProfilePlanUpdated,
     ProfileUsageResetCompleted,
     ProfileUsageUpdated,
     ServerEvent,
@@ -8,7 +7,6 @@ from .models import (
 
 __all__ = [
     "ProfileAuthChanged",
-    "ProfilePlanUpdated",
     "ProfileUsageResetCompleted",
     "ProfileUsageUpdated",
     "ServerEvent",

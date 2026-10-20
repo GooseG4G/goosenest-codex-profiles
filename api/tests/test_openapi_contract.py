@@ -107,15 +107,3 @@ def test_usage_resources_have_distinct_entity_types() -> None:
     assert components["UsageResetMeta"]["properties"]["type"]["const"] == (
         "profile-usage-reset"
     )
-
-
-def test_profile_plan_endpoint_is_available() -> None:
-    schema = app.openapi()
-
-    assert "/api/v1/profiles/{profile_id}/plan" in schema["paths"]
-    assert (
-        schema["paths"]["/api/v1/profiles/{profile_id}/plan"]["get"]["responses"][
-            "200"
-        ]["content"]["application/json"]["schema"]["$ref"]
-        == "#/components/schemas/ProfilePlan"
-    )

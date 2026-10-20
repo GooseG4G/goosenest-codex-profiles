@@ -47,8 +47,6 @@ CREATE TABLE profiles (
     auth_status varchar(32) NOT NULL DEFAULT 'pending',
     usage jsonb,
     usage_updated_at timestamptz,
-    plan_type text,
-    plan_updated_at timestamptz,
     cooldown_until timestamptz,
     consecutive_failures integer NOT NULL DEFAULT 0,
     last_failure_at timestamptz,
