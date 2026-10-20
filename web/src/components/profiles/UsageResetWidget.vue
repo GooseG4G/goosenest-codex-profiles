@@ -105,8 +105,15 @@ function toggleExpanded(event: MouseEvent) {
       @mousedown.prevent
     >
       <strong>Usage limit resets</strong>
-      <span :class="['available', { 'is-stale': isStale }]">
-        {{ count }} available
+      <span class="available-shell">
+        <span
+          class="available-skeleton"
+          :class="{ 'is-loading': isStale, 'is-available': hasAvailable }"
+          aria-hidden="true"
+        />
+        <span class="available">
+          {{ count }} available
+        </span>
       </span>
       <ChevronDown
         :class="['chevron', { expanded }]"
@@ -195,21 +202,22 @@ function toggleExpanded(event: MouseEvent) {
   font-weight: 600;
   line-height: 16px;
 }
-.available {
+.available-shell {
   position: relative;
   justify-self: stretch;
-  overflow: hidden;
   min-height: 24px;
-  padding: 4px 9px;
+}
+.available-skeleton {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
   border-radius: 999px;
-  color: var(--color-reset-badge-available-foreground);
-  font-size: 11px;
-  font-weight: 650;
-  line-height: 14px;
-  text-align: center;
+  background: var(--color-bg-control-hover);
+}
+.available-skeleton.is-available {
   background: var(--color-reset-badge-available-background);
 }
-.available.is-stale::after {
+.available-skeleton.is-loading::after {
   position: absolute;
   inset: 0;
   background: linear-gradient(
@@ -223,6 +231,19 @@ function toggleExpanded(event: MouseEvent) {
   transform: translateX(-100%);
   animation: available-shimmer 1.35s linear infinite;
   will-change: transform;
+}
+.available {
+  position: relative;
+  z-index: 1;
+  display: block;
+  min-height: 24px;
+  padding: 4px 9px;
+  border-radius: 999px;
+  color: var(--color-reset-badge-available-foreground);
+  font-size: 11px;
+  font-weight: 650;
+  line-height: 14px;
+  text-align: center;
 }
 .reset-widget-empty .available {
   color: var(--color-text-secondary);
@@ -323,7 +344,7 @@ function toggleExpanded(event: MouseEvent) {
   .credits-leave-active {
     transition: none;
   }
-  .available.is-stale::after {
+  .available-skeleton.is-loading::after {
     animation: none;
     transform: none;
   }
