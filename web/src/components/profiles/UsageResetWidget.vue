@@ -21,7 +21,6 @@ const expanded = shallowRef(false);
 const requestedReset = shallowRef<UsageResetCredit>();
 const now = useMinuteClock();
 const creditsId = useId();
-const lastFreshCount = shallowRef<number>();
 
 const available = computed(() =>
   (props.resets?.credits ?? []).filter(
@@ -42,22 +41,8 @@ const isStale = computed(() => {
     now.value - updatedAt >= 180_000
   );
 });
-watch(
-  [count, isStale],
-  ([nextCount, stale]) => {
-    if (!stale) lastFreshCount.value = nextCount;
-  },
-  { immediate: true },
-);
-const displayedCount = computed(() =>
-  isStale.value && lastFreshCount.value !== undefined
-    ? lastFreshCount.value
-    : count.value,
-);
-const displayedHasAvailable = computed(() => displayedCount.value > 0);
-const canExpand = computed(
-  () => displayedHasAvailable.value && !isStale.value,
-);
+const hasAvailable = computed(() => count.value > 0);
+const canExpand = computed(() => hasAvailable.value && !isStale.value);
 watch(canExpand, (value) => {
   if (!value) expanded.value = false;
 });
@@ -100,7 +85,7 @@ function toggleExpanded(event: MouseEvent) {
     class="reset-widget"
     :class="{
       'reset-widget-inert': !canExpand,
-      'reset-widget-empty': !displayedHasAvailable,
+      'reset-widget-empty': !hasAvailable,
     }"
     @click="toggleExpanded"
   >
@@ -121,7 +106,7 @@ function toggleExpanded(event: MouseEvent) {
     >
       <strong>Usage limit resets</strong>
       <span :class="['available', { 'is-stale': isStale }]">
-        {{ displayedCount }} available
+        {{ count }} available
       </span>
       <ChevronDown
         :class="['chevron', { expanded }]"

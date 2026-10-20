@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, shallowRef, watch } from "vue";
+import { computed } from "vue";
 import { useMinuteClock } from "../../composables/useMinuteClock";
 
 const props = defineProps<{
@@ -49,19 +49,6 @@ const windows = computed<WindowInfo[]>(() =>
       : [];
   }),
 );
-const lastFreshWindows = shallowRef<WindowInfo[]>();
-watch(
-  [windows, isStale],
-  ([nextWindows, stale]) => {
-    if (!stale) lastFreshWindows.value = nextWindows;
-  },
-  { immediate: true },
-);
-const displayedWindows = computed(() =>
-  isStale.value && lastFreshWindows.value
-    ? lastFreshWindows.value
-    : windows.value,
-);
 function resetLabel(timestamp: number): string {
   if (!timestamp) return "Reset time unavailable";
   const remainingMinutes = Math.max(
@@ -85,7 +72,7 @@ function resetLabel(timestamp: number): string {
 <template>
   <div class="usage-list">
     <section
-      v-for="window in displayedWindows"
+      v-for="window in windows"
       :key="window.key"
       class="usage-card"
       :class="{ stale: isStale }"
@@ -93,14 +80,20 @@ function resetLabel(timestamp: number): string {
     >
       <span class="copy">
         <strong>{{ window.label }}</strong>
-        <small>{{ resetLabel(window.reset) }}</small>
+        <small v-if="!isStale">{{ resetLabel(window.reset) }}</small>
+        <small v-else class="skeleton skeleton-reset" aria-hidden="true" />
       </span>
       <span class="track" :class="{ 'is-stale': isStale }">
         <i :style="{ width: `${100 - window.used}%` }" />
       </span>
-      <span class="remaining">
+      <span v-if="!isStale" class="remaining">
         {{ Math.round(100 - window.used) }}% left
       </span>
+      <span
+        v-else
+        class="remaining skeleton skeleton-percent"
+        aria-hidden="true"
+      />
     </section>
     <section v-if="!windows.length" class="usage-card unavailable">
       <span class="copy">

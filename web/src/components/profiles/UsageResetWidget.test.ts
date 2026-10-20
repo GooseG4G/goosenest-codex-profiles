@@ -4,7 +4,10 @@ import { describe, expect, it } from "vitest";
 import type { UsageResets } from "../../api";
 import UsageResetWidget from "./UsageResetWidget.vue";
 
-function resets(stale: boolean): UsageResets {
+function resets(
+  stale: boolean,
+  updatedAt = new Date().toISOString(),
+): UsageResets {
   return {
     available_count: 1,
     credits: [
@@ -18,17 +21,7 @@ function resets(stale: boolean): UsageResets {
         expires_at: null,
       },
     ],
-    updated_at: new Date().toISOString(),
-    stale,
-    refreshing: stale,
-  };
-}
-
-function unavailable(stale: boolean): UsageResets {
-  return {
-    available_count: 0,
-    credits: [],
-    updated_at: new Date().toISOString(),
+    updated_at: updatedAt,
     stale,
     refreshing: stale,
   };
@@ -64,18 +57,19 @@ describe("UsageResetWidget", () => {
     await wrapper.get(".reset-widget").trigger("click");
     expect(wrapper.find(".credits").exists()).toBe(true);
   });
-
-  it("keeps the last fresh available state while a refresh is stale", async () => {
+  it("does not show loading visuals before the 180-second stale threshold", () => {
     const wrapper = mount(UsageResetWidget, {
-      props: { resets: resets(false) },
+      props: {
+        resets: {
+          ...resets(false, new Date(Date.now() - 179_000).toISOString()),
+          refreshing: true,
+        },
+      },
     });
 
-    await wrapper.setProps({ resets: unavailable(true) });
-
+    expect(wrapper.get(".available").classes()).not.toContain("is-stale");
     expect(wrapper.get(".reset-widget").classes()).not.toContain(
-      "reset-widget-empty",
+      "reset-widget-inert",
     );
-    expect(wrapper.get(".available").text()).toBe("1 available");
-    expect(wrapper.get(".available").classes()).toContain("is-stale");
   });
 });
