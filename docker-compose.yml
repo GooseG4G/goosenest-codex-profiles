@@ -75,10 +75,6 @@ x-api-environment: &x-api-environment
   POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is not set}"
 
 x-api-service: &api-service
-  build:
-    context: ./api
-    dockerfile: .dockerfile
-
   image: goosenest/codex-profiles-api:latest
   restart: always
 
@@ -159,6 +155,10 @@ services:
 
   api:
     <<: *api-service
+    build:
+      context: ./api
+      dockerfile: .dockerfile
+
     command: [
       "uvicorn", "main:app",
       "--host", "0.0.0.0",
