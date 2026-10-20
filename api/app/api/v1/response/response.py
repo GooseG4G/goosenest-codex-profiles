@@ -219,6 +219,7 @@ async def create_response(
     upstream_client = get_responses_upstream()
     last_error = "All Codex profiles failed"
     excluded: set[UUID] = set()
+    capacity_retries = 0
 
     attempts = 0
     while attempts < settings.max_attempts and (
@@ -325,6 +326,33 @@ async def create_response(
                 )
                 if probe.failure.retryable:
                     account_wide = probe.failure.kind == "rate_limit"
+                    if (
+                        probe.failure.kind == "model_capacity"
+                        and capacity_retries < settings.capacity_max_retries
+                    ):
+                        capacity_retries += 1
+                        delay = min(
+                            settings.capacity_retry_max_delay,
+                            settings.capacity_retry_min_delay
+                            * (2 ** (capacity_retries - 1)),
+                        )
+                        logger.info(
+                            "responses capacity retry profile_id=%s model=%s "
+                            "retry=%s/%s delay=%s",
+                            profile.profile_id,
+                            model,
+                            capacity_retries,
+                            settings.capacity_max_retries,
+                            delay,
+                        )
+                        await upstream.aclose()
+                        await clear_affinity(session, session_key)
+                        await release_profile(session, reservation.lease_id)
+                        excluded.discard(profile.profile_id)
+                        attempts -= 1
+                        preferred_profile_id = profile.profile_id
+                        await anyio.sleep(delay.total_seconds())
+                        continue
                     await _cool_down(
                         session,
                         profile.profile_id,
