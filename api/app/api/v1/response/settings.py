@@ -57,6 +57,20 @@ class ResponsesSettings(BaseSettings):
         le=10,
         description="Maximum upstream attempts for a response request",
     )
+    capacity_max_retries: int = Field(
+        3,
+        alias="PROFILE_CAPACITY_MAX_RETRIES",
+        ge=0,
+        le=10,
+    )
+    capacity_retry_min_delay: timedelta = Field(
+        timedelta(seconds=1),
+        alias="PROFILE_CAPACITY_RETRY_MIN_DELAY",
+    )
+    capacity_retry_max_delay: timedelta = Field(
+        timedelta(seconds=30),
+        alias="PROFILE_CAPACITY_RETRY_MAX_DELAY",
+    )
 
 
 @lru_cache(maxsize=1)
