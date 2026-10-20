@@ -7,6 +7,9 @@ import { formatDateTime } from "../utils/date";
 import UIButton from "./ui/UIButton.vue";
 import UIDialog from "./ui/UIDialog.vue";
 import UIIconButton from "./ui/UIIconButton.vue";
+import UICollectionItemIdentity from "./ui/UICollectionItemIdentity.vue";
+import UICollectionView from "./ui/UICollectionView.vue";
+import UICollectionItem from "./ui/UICollectionItem.vue";
 import UICopyField from "./ui/UICopyField.vue";
 import UISearchField from "./ui/UISearchField.vue";
 
@@ -52,8 +55,8 @@ function close() {
 </script>
 
 <template>
-  <section class="devices-view">
-    <div class="toolbar">
+  <UICollectionView heading="Device" :empty="!visible.length" empty-text="No devices found">
+    <template #toolbar>
       <UISearchField
         v-model="query"
         accessible-label="Search devices"
@@ -64,29 +67,21 @@ function close() {
         @click="open = true"
         ><template #icon><SquarePlus /></template
       ></UIIconButton>
-    </div>
-    <div class="table-card">
-      <div class="list-header">
-        Device
-      </div>
-      <div v-if="!visible.length" class="empty">
-        No devices found
-      </div>
-      <article
+    </template>
+      <UICollectionItem
         v-for="device in visible"
         :key="device.device_id"
         class="device-row"
       >
-        <i :class="{ off: !device.enabled }" /><span class="device-copy"
+        <UICollectionItemIdentity><template #status><i :class="{ off: !device.enabled }" /></template><span class="device-copy"
           ><strong>{{ device.name }}</strong
           ><small>{{
             device.last_used_at
               ? "Last used " + formatDateTime(device.last_used_at)
               : "Never used"
-          }}</small></span
-        ><code>{{ device.device_id.slice(0, 8) }}</code
-        ><span class="row-actions"
-          ><UIIconButton
+          }}</small></span></UICollectionItemIdentity
+        ><template #aside><code>{{ device.device_id.slice(0, 8) }}</code></template>
+        <template #actions><span class="row-actions"><UIIconButton
             :accessible-label="`Delete ${device.name}`"
             title="Delete"
             tone="danger"
@@ -94,10 +89,9 @@ function close() {
             icon-motion="none"
             motion-preset="surface"
             @click="emit('delete', device.device_id)"
-            ><template #icon><Trash2 /></template></UIIconButton
-        ></span>
-      </article>
-    </div>
+            ><template #icon><Trash2 /></template></UIIconButton></span></template>
+      </UICollectionItem>
+    </UICollectionView>
     <UIDialog
       :open="dialogOpen"
       :title="dialogTitle"
@@ -155,54 +149,9 @@ function close() {
         ></template
       >
     </UIDialog>
-  </section>
 </template>
 
 <style scoped>
-.devices-view {
-  display: grid;
-  align-content: start;
-  gap: 12px;
-}
-.toolbar {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 46px;
-  gap: 10px;
-}
-.table-card {
-  overflow: hidden;
-  border: 1px solid var(--color-border-default);
-  border-radius: 7px;
-  background: var(--color-bg-sunken);
-}
-.list-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  height: 40px;
-  padding: 0 14px;
-  color: var(--color-text-secondary);
-  font-size: 12px;
-  border-bottom: 1px solid var(--color-border-default);
-  background: var(--color-bg-table-header);
-}
-.device-row {
-  display: grid;
-  grid-template-columns: 10px minmax(0, 1fr) auto 28px;
-  align-items: center;
-  gap: 13px;
-  min-height: 68px;
-  padding: 11px 15px;
-}
-.device-row:hover {
-  background: var(--color-bg-row-hover);
-}
-.device-row:has(.row-actions:hover) {
-  background: transparent;
-}
-.device-row + .device-row {
-  border-top: 1px solid var(--color-border-default);
-}
 .device-row i {
   width: 9px;
   height: 9px;
@@ -231,11 +180,6 @@ function close() {
 }
 .row-actions {
   display: inline-flex;
-}
-.empty {
-  padding: 44px 14px;
-  color: var(--color-text-secondary);
-  text-align: center;
 }
 .device-form label {
   display: grid;

@@ -76,12 +76,14 @@ test.beforeEach(async ({ page }) => {
   });
 });
 
-test("row hover owns the switch action context", async ({ page }) => {
+test("collection item owns the row hover background", async ({ page }) => {
   await page.goto("/profiles");
-  const row = page.locator(".profile-row");
+  const item = page.locator(".profile-item");
+  const row = item.locator(".collection-row");
   const switchControl = row.locator('[role="switch"]');
   await switchControl.hover();
-  await expect(row).toHaveCSS("background-color", "rgb(28, 29, 30)");
+  await expect(item).toHaveCSS("background-color", "rgb(28, 29, 30)");
+  await expect(row).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
   await expect(switchControl).toHaveCSS("background-color", "rgb(41, 42, 43)");
 });
 
@@ -127,7 +129,7 @@ test("profile and user toolbars use the same search action gap", async ({
 }) => {
   async function toolbarGap(path: string) {
     await page.goto(path);
-    const children = page.locator(".toolbar > *");
+    const children = page.locator(".collection-toolbar > *");
     const [search, action] = await Promise.all([
       children.nth(0).boundingBox(),
       children.nth(1).boundingBox(),
@@ -251,7 +253,7 @@ test("closing the current usage panel has no rebound on animation frames", async
   await expect(page.locator(".usage-collapse")).toBeVisible();
   const heights = await item.evaluate(async (element) => {
     const values: number[] = [];
-    const toggle = element.querySelector<HTMLButtonElement>(".row-hit");
+    const toggle = element.querySelector<HTMLButtonElement>(".item-action");
     toggle?.click();
     const startedAt = performance.now();
     await new Promise<void>((resolve) => {
@@ -269,6 +271,32 @@ test("closing the current usage panel has no rebound on animation frames", async
     expect(heights[index]).toBeLessThanOrEqual(heights[index - 1]! + 0.25);
   }
   expect(heights.at(-1)).toBeCloseTo(68, 0);
+});
+
+test("expanded details do not keep the collection row hovered", async ({
+  page,
+}) => {
+  await page.goto("/profiles");
+  await page
+    .getByRole("button", { name: "Show usage for profile@example.com" })
+    .click();
+
+  const item = page.locator(".profile-item");
+  const row = item.locator(".collection-row");
+  const details = page.locator(".profile-item .usage-content");
+  await expect(details).toBeVisible();
+  await page.mouse.move(0, 0);
+  await expect(item).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+
+  const restingColor = await item.evaluate(
+    (element) => getComputedStyle(element).backgroundColor,
+  );
+  await row.hover();
+  await expect(item).not.toHaveCSS("background-color", restingColor);
+  await expect(row).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+
+  await details.hover();
+  await expect(item).toHaveCSS("background-color", restingColor);
 });
 
 test("switching expanded profiles keeps opposing animations monotonic", async ({
@@ -311,7 +339,7 @@ test("switching expanded profiles keeps opposing animations monotonic", async ({
       const items = [...document.querySelectorAll<HTMLElement>(".profile-item")];
       const second = items[1]!;
       const values: Array<{ closing: number; opening: number }> = [];
-      second.querySelector<HTMLButtonElement>(".row-hit")?.click();
+      second.querySelector<HTMLButtonElement>(".item-action")?.click();
       const startedAt = performance.now();
       await new Promise<void>((resolve) => {
         const sample = () => {
@@ -487,7 +515,7 @@ test("row action spacing is symmetric and delete owns the press transform", asyn
   page,
 }) => {
   await page.goto("/profiles");
-  const row = page.locator(".profile-row");
+  const row = page.locator(".profile-item .collection-row");
   const indicator = row.locator(".row-indicator");
   const statusDot = row.locator(".dot");
   const switchControl = row.locator('[role="switch"]');
@@ -511,7 +539,7 @@ test("row action spacing is symmetric and delete owns the press transform", asyn
     indicatorBox!.x + indicatorBox!.width
   );
   const chevronPathBox = await indicator.locator("svg > *").boundingBox();
-  const tableBox = await page.locator(".table-card").boundingBox();
+  const tableBox = await page.locator(".collection-list").boundingBox();
   const copyBox = await row.locator(".copy").boundingBox();
   expect(chevronPathBox).not.toBeNull();
   expect(tableBox).not.toBeNull();
@@ -522,10 +550,10 @@ test("row action spacing is symmetric and delete owns the press transform", asyn
   );
   const statusToCopyGap = copyBox!.x - (statusBox!.x + statusBox!.width);
   expect(indicatorBox!.x).toBeLessThan(statusBox!.x);
-  expect(indicatorToStatusGap).toBeCloseTo(6, 1);
-  expect(Math.abs(borderToChevronGap - 14)).toBeLessThanOrEqual(1);
-  expect(Math.abs(chevronToStatusGap - 10)).toBeLessThanOrEqual(1);
-  expect(Math.abs(statusToCopyGap - 10)).toBeLessThanOrEqual(1);
+  expect(indicatorToStatusGap).toBeCloseTo(9, 1);
+  expect(Math.abs(borderToChevronGap - 15)).toBeLessThanOrEqual(1);
+  expect(Math.abs(chevronToStatusGap - 13)).toBeLessThanOrEqual(1);
+  expect(Math.abs(statusToCopyGap - 13)).toBeLessThanOrEqual(1);
   expect(leftGap).toBeGreaterThanOrEqual(rightGap + 3);
 
   await deleteButton.hover();

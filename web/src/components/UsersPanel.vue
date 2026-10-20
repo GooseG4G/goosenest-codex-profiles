@@ -7,9 +7,12 @@ import UserForm, { type UserFormValue } from "./users/UserForm.vue";
 import UIButton from "./ui/UIButton.vue";
 import UIDialog from "./ui/UIDialog.vue";
 import UIIconButton from "./ui/UIIconButton.vue";
+import UICollectionItemIdentity from "./ui/UICollectionItemIdentity.vue";
+import UICollectionView from "./ui/UICollectionView.vue";
+import UICollectionItem from "./ui/UICollectionItem.vue";
 import UISearchField from "./ui/UISearchField.vue";
 const props = defineProps<{
-  items: User[];
+  items: readonly User[];
   busy: boolean;
   savedVersion: number;
 }>();
@@ -58,8 +61,8 @@ watch(
 );
 </script>
 <template>
-  <section class="users-view">
-    <div class="toolbar">
+  <UICollectionView heading="User" :empty="!visible.length" empty-text="No users found">
+    <template #toolbar>
       <UISearchField
         v-model="query"
         accessible-label="Search users"
@@ -70,29 +73,22 @@ watch(
         @click="openAdd"
         ><template #icon><UserRoundPlus /></template
       ></UIIconButton>
-    </div>
-    <div class="table">
-      <div class="table-head">
-        User
-      </div>
-      <div v-if="!visible.length" class="empty">No users found</div>
-      <article v-for="user in visible" :key="user.user_id">
-        <i /><span class="user-copy"
+    </template>
+      <UICollectionItem v-for="user in visible" :key="user.user_id" class="users-view-row">
+        <UICollectionItemIdentity><template #status><i /></template><span class="user-copy"
           ><strong>{{ user.nickname }}</strong
-          ><small>{{ user.username }}</small></span
-        ><span class="role">{{ user.role }}</span
-        ><span class="row-actions"
-          ><UIIconButton
+          ><small>{{ user.username }}</small></span></UICollectionItemIdentity
+        ><template #aside><span class="role">{{ user.role }}</span></template>
+        <template #actions><span class="row-actions"><UIIconButton
             :accessible-label="`Edit ${user.nickname}`"
             title="Edit"
             size="small"
             icon-motion="none"
             motion-preset="surface"
             @click="openEdit(user)"
-            ><template #icon><Pencil /></template></UIIconButton
-        ></span>
-      </article>
-    </div>
+            ><template #icon><Pencil /></template></UIIconButton></span></template>
+      </UICollectionItem>
+    </UICollectionView>
     <UIDialog
       :open="open"
       :title="dialogTitle"
@@ -125,51 +121,9 @@ watch(
         ></template
       >
     </UIDialog>
-  </section>
 </template>
 <style scoped>
-.users-view {
-  display: grid;
-  align-content: start;
-  gap: 12px;
-}
-.toolbar {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 46px;
-  gap: 10px;
-}
-.table {
-  overflow: hidden;
-  border: 1px solid var(--color-border-default);
-  border-radius: 7px;
-  background: var(--color-bg-sunken);
-}
-.table-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  height: 40px;
-  padding: 0 14px;
-  color: var(--color-text-secondary);
-  font-size: 12px;
-  border-bottom: 1px solid var(--color-border-default);
-  background: var(--color-bg-table-header);
-}
-.table article {
-  display: grid;
-  grid-template-columns: 10px minmax(0, 1fr) auto 28px;
-  align-items: center;
-  gap: 13px;
-  min-height: 68px;
-  padding: 11px 15px;
-}
-.table article:hover {
-  background: var(--color-bg-row-hover);
-}
-.table article + article {
-  border-top: 1px solid var(--color-border-default);
-}
-.table article > i {
+.users-view-row i {
   width: 9px;
   height: 9px;
   border-radius: 50%;
@@ -204,13 +158,5 @@ watch(
 }
 .row-actions {
   display: inline-flex;
-}
-.table article:has(.row-actions:hover) {
-  background: transparent;
-}
-.empty {
-  padding: 44px 14px;
-  color: var(--color-text-secondary);
-  text-align: center;
 }
 </style>

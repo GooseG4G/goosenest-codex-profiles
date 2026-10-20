@@ -1,14 +1,15 @@
 <script setup lang="ts">
 import { computed, onMounted, shallowRef, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import { api, type User, type UserEntities } from "./api";
+import { api } from "./api";
 import { useDevices } from "./composables/useDevices";
 import { useDelayedVisibility } from "./composables/useDelayedVisibility";
 import { useNotifications } from "./composables/useNotifications";
 import { useProfiles } from "./composables/useProfiles";
 import { useSession } from "./composables/useSession";
+import { useUsers } from "./composables/useUsers";
 import AppSidebar from "./components/AppSidebar.vue";
-import DeviceAuthCard from "./components/DeviceAuthCard.vue";
+import DeviceAuthDialog from "./components/DeviceAuthDialog.vue";
 import DevicesPanel from "./components/DevicesPanel.vue";
 import LoginForm from "./components/LoginForm.vue";
 import ProfilesPanel from "./components/ProfilesPanel.vue";
@@ -20,8 +21,8 @@ const session = useSession();
 const showSessionLoading = useDelayedVisibility(session.loading);
 const profiles = useProfiles();
 const devices = useDevices(() => session.principal.value?.user_id);
+const users = useUsers();
 const notifications = useNotifications();
-const users = shallowRef<User[]>([]);
 const route = useRoute();
 const router = useRouter();
 const activeView = computed(() =>
@@ -31,8 +32,6 @@ const loginPending = shallowRef(false);
 const dashboardLoading = shallowRef(false);
 const dashboardReady = shallowRef(false);
 const showDashboardLoading = useDelayedVisibility(dashboardLoading);
-const userCreatePending = shallowRef(false);
-const userSavedVersion = shallowRef(0);
 const pendingDeleteProfileId = shallowRef<string>();
 const deletePending = shallowRef(false);
 const pendingDeleteDeviceId = shallowRef<string>();
@@ -46,16 +45,13 @@ const authProfileName = computed(
     )?.name,
 );
 
-async function loadUsers() {
-  users.value = (await api<UserEntities>("/users")).items;
-}
 async function loadDashboard() {
   dashboardLoading.value = true;
   dashboardReady.value = false;
   try {
     const jobs: Promise<unknown>[] = [devices.load()];
     if (session.principal.value?.role === "administrator")
-      jobs.push(profiles.load(), loadUsers());
+      jobs.push(profiles.load(), users.load());
     await Promise.all(jobs);
   } finally {
     dashboardLoading.value = false;
@@ -84,7 +80,7 @@ async function logout() {
   profiles.disconnectEvents();
   try {
     await session.logout();
-    users.value = [];
+    users.reset();
     dashboardReady.value = false;
     profiles.closeFlow();
     devices.reset();
@@ -95,32 +91,19 @@ async function logout() {
   }
 }
 async function addUser(body: object) {
-  userCreatePending.value = true;
   try {
-    await api("/users", { method: "POST", body: JSON.stringify(body) });
-    await loadUsers();
-    userSavedVersion.value += 1;
+    await users.create(body);
     notifications.push("User added", "success");
   } catch (reason) {
     notifications.error(reason, "Could not add user");
-  } finally {
-    userCreatePending.value = false;
   }
 }
 async function updateUser(userId: string, body: object) {
-  userCreatePending.value = true;
   try {
-    await api(`/users/${userId}`, {
-      method: "PATCH",
-      body: JSON.stringify(body),
-    });
-    await loadUsers();
-    userSavedVersion.value += 1;
+    await users.update(userId, body);
     notifications.push("User updated", "success");
   } catch (reason) {
     notifications.error(reason, "Could not update user");
-  } finally {
-    userCreatePending.value = false;
   }
 }
 async function startAuth() {
@@ -328,9 +311,9 @@ watch(
         />
         <UsersPanel
           v-else-if="activeView === 'users'"
-          :items="users"
-          :busy="userCreatePending"
-          :saved-version="userSavedVersion"
+          :items="users.users.value"
+          :busy="users.busy.value"
+          :saved-version="users.savedVersion.value"
           @create="addUser"
           @update="updateUser"
         />
@@ -346,7 +329,7 @@ watch(
       </template>
     </main>
   </div>
-  <DeviceAuthCard
+  <DeviceAuthDialog
     :open="profileDialogOpen"
     :flow="profiles.flow.value"
     :pending="profiles.busy.value"

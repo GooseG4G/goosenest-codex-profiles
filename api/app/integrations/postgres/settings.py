@@ -6,10 +6,6 @@ class PostgresSettings(BaseSettings):
     model_config = SettingsConfigDict(
         frozen=True,
         populate_by_name=True,
-        env_file=".env",
-        env_ignore_empty=True,
-        env_file_encoding="utf-8",
-        extra="ignore",
     )
 
     host: str = Field(

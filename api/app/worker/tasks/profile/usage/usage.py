@@ -1,6 +1,7 @@
 import asyncio
 import logging
 from datetime import datetime
+from typing import Any
 from uuid import UUID
 
 from api.v1.event.models import ProfileUsageUpdated
@@ -8,7 +9,8 @@ from api.v1.event.service import publish_event
 from api.v1.profile.auth.status import expire_profile_authentication
 from api.v1.profile.models import ProfileRuntime
 from api.v1.profile.task_settings import get_profile_task_settings
-from integrations.codex.usage import CodexAuthenticationError, read_codex_usage
+from integrations.codex.errors import CodexAuthenticationError
+from integrations.codex.usage import read_codex_usage
 from integrations.postgres import PostgresContext
 from integrations.postgres.providers import get_postgres_settings
 from worker import app
@@ -23,6 +25,10 @@ FIELDS = """jsonb_build_object(
             profile_id, name, enabled, auth_status, usage, usage_updated_at,
             plan_type, plan_updated_at, created_at,
             updated_at, last_used_at, codex_home"""
+
+
+async def _read_usage(codex_home: str) -> dict[str, Any]:
+    return await read_codex_usage(codex_home)
 
 
 def _release_execution_safely(
@@ -63,7 +69,7 @@ async def _refresh(profile_id: UUID) -> None:
             if age.total_seconds() < 60:
                 return
         try:
-            usage = await read_codex_usage(profile.codex_home)
+            usage = await _read_usage(profile.codex_home)
         except CodexAuthenticationError:
             async with context.acquire() as session:
                 await expire_profile_authentication(session, profile.profile_id)

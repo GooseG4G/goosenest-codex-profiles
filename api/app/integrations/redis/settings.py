@@ -14,11 +14,42 @@ class RedisSettings(BaseSettings):
         extra="ignore",
     )
 
-    host: str = Field("redis", alias="REDIS_HOST", min_length=1, max_length=253)
-    port: int = Field(6379, alias="REDIS_PORT", ge=1, le=65535)
-    username: str = Field(alias="REDIS_USERNAME", min_length=1, max_length=128)
-    password: str = Field(alias="REDIS_PASSWORD", min_length=1, max_length=1024)
-    broker_database: int = Field(0, alias="REDIS_BROKER_DATABASE", ge=0)
+    host: str = Field(
+        default="redis",
+        alias="REDIS_HOST",
+        min_length=1,
+        max_length=253,
+        description="Redis server host",
+    )
+
+    port: int = Field(
+        default=6379,
+        alias="REDIS_PORT",
+        ge=1,
+        le=65535,
+        description="Redis server port",
+    )
+
+    username: str = Field(
+        alias="REDIS_USERNAME",
+        min_length=1,
+        max_length=128,
+        description="Redis username",
+    )
+
+    password: str = Field(
+        alias="REDIS_PASSWORD",
+        min_length=1,
+        max_length=1024,
+        description="Redis password",
+    )
+
+    broker_database: int = Field(
+        default=0,
+        alias="REDIS_BROKER_DATABASE",
+        ge=0,
+        description="Redis database used by the task broker",
+    )
 
     @property
     def url(self) -> str:

@@ -8,7 +8,8 @@ from api.v1.event.service import publish_event
 from api.v1.profile.auth.status import expire_profile_authentication
 from api.v1.profile.models import ProfileRuntime
 from api.v1.profile.task_settings import get_profile_task_settings
-from integrations.codex.usage import CodexAuthenticationError, read_codex_plan
+from integrations.codex.errors import CodexAuthenticationError
+from integrations.codex.usage import read_codex_plan
 from integrations.postgres import PostgresContext
 from integrations.postgres.providers import get_postgres_settings
 from worker import app

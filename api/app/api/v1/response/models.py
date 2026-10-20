@@ -1,8 +1,15 @@
 from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class DeviceIdentity(BaseModel):
-    device_id: UUID
-    user_id: UUID
+    device_id: UUID = Field(
+        ...,
+        description="Authenticated device identifier",
+    )
+
+    user_id: UUID = Field(
+        ...,
+        description="User that owns the authenticated device",
+    )

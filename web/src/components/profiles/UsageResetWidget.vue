@@ -2,14 +2,13 @@
 import { ChevronDown } from "@lucide/vue";
 import {
   computed,
-  onBeforeUnmount,
-  onMounted,
   shallowRef,
   useId,
   watch,
 } from "vue";
 import type { UsageResetCredit, UsageResets } from "../../api";
 import { useEscapeLayer } from "../../composables/useEscapeLayer";
+import { useMinuteClock } from "../../composables/useMinuteClock";
 import UIButton from "../ui/UIButton.vue";
 import UIConfirmDialog from "../ui/UIConfirmDialog.vue";
 
@@ -20,16 +19,8 @@ const props = defineProps<{
 const emit = defineEmits<{ useReset: [resetId: string] }>();
 const expanded = shallowRef(false);
 const requestedReset = shallowRef<UsageResetCredit>();
-const now = shallowRef(Date.now());
+const now = useMinuteClock();
 const creditsId = useId();
-let clock: ReturnType<typeof setInterval> | undefined;
-
-onMounted(() => {
-  clock = setInterval(() => {
-    now.value = Date.now();
-  }, 60_000);
-});
-onBeforeUnmount(() => clearInterval(clock));
 
 const available = computed(() =>
   (props.resets?.credits ?? []).filter(

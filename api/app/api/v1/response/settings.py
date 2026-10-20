@@ -16,31 +16,46 @@ class ResponsesSettings(BaseSettings):
     )
 
     url: str = Field(
-        "https://chatgpt.com/backend-api/codex/responses",
+        default="https://chatgpt.com/backend-api/codex/responses",
         alias="OPENAI_RESPONSES_URL",
+        description="Upstream Codex responses endpoint",
     )
-    request_timeout: float = Field(300.0, alias="OPENAI_REQUEST_TIMEOUT", gt=0)
+
+    request_timeout: float = Field(
+        default=300.0,
+        alias="OPENAI_REQUEST_TIMEOUT",
+        gt=0,
+        description="Upstream response timeout in seconds",
+    )
+
     error_cooldown: timedelta = Field(
-        timedelta(seconds=60),
+        default=timedelta(seconds=60),
         alias="PROFILE_ERROR_COOLDOWN",
+        description="Cooldown applied after an upstream profile error",
     )
+
     score_tolerance: float = Field(
-        0.05,
+        default=0.05,
         alias="PROFILE_SCORE_TOLERANCE",
         ge=0,
         le=1,
+        description="Tolerance used when comparing profile scores",
     )
+
     affinity_ttl_days: int = Field(
-        30,
+        default=30,
         alias="PROFILE_AFFINITY_TTL_DAYS",
         ge=1,
         le=365,
+        description="Conversation-to-profile affinity lifetime in days",
     )
+
     max_attempts: int = Field(
-        3,
+        default=3,
         alias="PROFILE_RESPONSES_MAX_ATTEMPTS",
         ge=1,
         le=10,
+        description="Maximum upstream attempts for a response request",
     )
 
 

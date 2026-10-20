@@ -1,19 +1,56 @@
-from typing import Literal
+from typing import Literal, Optional
 from uuid import UUID
 
 from pydantic import BaseModel, Field
 
 
 class DeviceAuthStarted(BaseModel):
-    uid: UUID
-    one_time_code: str = Field(..., min_length=1)
-    verification_url: str = Field(..., min_length=1)
-    expires_in: int = Field(default=900, gt=0)
-    status: Literal["pending"] = "pending"
+    uid: UUID = Field(
+        ...,
+        description="Device authorization flow identifier",
+    )
+
+    one_time_code: str = Field(
+        ...,
+        min_length=1,
+        description="One-time device authorization code",
+    )
+
+    verification_url: str = Field(
+        ...,
+        min_length=1,
+        description="URL where the device code must be entered",
+    )
+
+    expires_in: int = Field(
+        default=900,
+        gt=0,
+        description="Number of seconds before the flow expires",
+    )
+
+    status: Literal["pending"] = Field(
+        default="pending",
+        description="Current device authorization status",
+    )
 
 
 class DeviceAuthStatus(BaseModel):
-    uid: UUID
-    status: Literal["pending", "authorized", "expired", "failed"]
-    profile_id: UUID | None = None
-    detail: str | None = None
+    uid: UUID = Field(
+        ...,
+        description="Device authorization flow identifier",
+    )
+
+    status: Literal["pending", "authorized", "expired", "failed"] = Field(
+        ...,
+        description="Current device authorization status",
+    )
+
+    profile_id: Optional[UUID] = Field(
+        default=None,
+        description="Profile created or updated by the flow",
+    )
+
+    detail: Optional[str] = Field(
+        default=None,
+        description="Failure or completion detail",
+    )

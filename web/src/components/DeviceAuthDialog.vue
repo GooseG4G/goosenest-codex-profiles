@@ -6,6 +6,8 @@ import UICopyField from "./ui/UICopyField.vue";
 import UIDialog from "./ui/UIDialog.vue";
 import UIIconButton from "./ui/UIIconButton.vue";
 
+defineOptions({ name: "DeviceAuthDialog" });
+
 defineProps<{
   open: boolean;
   flow?: DeviceFlow;

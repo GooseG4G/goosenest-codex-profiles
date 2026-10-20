@@ -1,21 +1,13 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, shallowRef } from "vue";
+import { computed } from "vue";
+import { useMinuteClock } from "../../composables/useMinuteClock";
 
 const props = defineProps<{
   usage?: Record<string, unknown> | null;
   updatedAt?: string | null;
 }>();
 
-const now = shallowRef(Date.now());
-let clock: ReturnType<typeof setInterval> | undefined;
-
-onMounted(() => {
-  clock = setInterval(() => {
-    now.value = Date.now();
-  }, 60_000);
-});
-
-onBeforeUnmount(() => clearInterval(clock));
+const now = useMinuteClock();
 interface WindowInfo {
   key: string;
   label: string;
@@ -24,7 +16,7 @@ interface WindowInfo {
 }
 function windowLabel(key: string, duration: number): string {
   if (key === "secondary" && duration === 7 * 24 * 60) return "Weekly limit";
-  if (duration === 5 * 60) return "5h limit";
+  if (duration === 5 * 60) return "5-hour limit";
   if (duration === 30 * 24 * 60) return "Monthly limit";
   if (duration > 0 && duration % (30 * 24 * 60) === 0)
     return `${duration / (30 * 24 * 60)}-month limit`;

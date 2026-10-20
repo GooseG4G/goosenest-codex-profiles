@@ -89,6 +89,12 @@ def _window(value: object) -> UsageWindow | None:
     )
 
 
+def _reset_type(value: object) -> str:
+    if value in {"codex_rate_limits", "codexRateLimits"}:
+        return "codexRateLimits"
+    return "unknown"
+
+
 @router.get("/limits")
 async def read_limits(
     profile_id: UUID,
@@ -129,7 +135,7 @@ async def read_resets(
             UsageResetCredit(
                 reset_id=str(item["id"]),
                 status=item.get("status", "unknown"),
-                reset_type=item.get("resetType", "unknown"),
+                reset_type=_reset_type(item.get("resetType")),
                 title=item.get("title"),
                 description=item.get("description"),
                 granted_at=int(item["grantedAt"]),

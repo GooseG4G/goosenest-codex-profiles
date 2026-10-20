@@ -6,15 +6,25 @@ class CodexSettings(BaseSettings):
     model_config = SettingsConfigDict(
         frozen=True,
         populate_by_name=True,
-        env_file=".env",
-        env_ignore_empty=True,
-        env_file_encoding="utf-8",
-        extra="ignore",
     )
 
-    executable: str = Field("codex", alias="CODEX_EXECUTABLE", min_length=1)
+    executable: str = Field(
+        default="codex",
+        alias="CODEX_EXECUTABLE",
+        min_length=1,
+        description="Codex executable used for app-server operations",
+    )
+
     profiles_root: str = Field(
-        "/data/codex-profiles",
+        default="/data/codex-profiles",
         alias="CODEX_PROFILES_ROOT",
         min_length=1,
+        description="Directory containing isolated Codex profile homes",
+    )
+
+    backend_url: str = Field(
+        default="https://chatgpt.com/backend-api/wham/",
+        alias="CODEX_BACKEND_URL",
+        min_length=1,
+        description="Codex ChatGPT backend base URL",
     )

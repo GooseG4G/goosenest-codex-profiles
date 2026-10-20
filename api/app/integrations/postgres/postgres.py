@@ -123,7 +123,8 @@ class PostgresSession:
 
 class PostgresContext:
     def __init__(self, settings: PostgresSettings, **kwargs: Any) -> None:
-        self._settings = PostgresSettings.model_validate(settings.model_dump() | kwargs)
+        values = settings.model_dump(by_alias=True) | kwargs
+        self._settings = PostgresSettings.model_validate(values)
 
         self._pool: Optional[asyncpg.Pool] = None
 

@@ -15,13 +15,32 @@ class ProfileTaskSettings(BaseSettings):
         extra="ignore",
     )
 
-    max_retries: int = Field(2, alias="PROFILE_TASK_MAX_RETRIES", ge=0)
-    min_retry_delay: int = Field(5, alias="PROFILE_TASK_MIN_RETRY_DELAY", gt=0)
-    max_retry_delay: int = Field(30, alias="PROFILE_TASK_MAX_RETRY_DELAY", gt=0)
+    max_retries: int = Field(
+        default=2,
+        alias="PROFILE_TASK_MAX_RETRIES",
+        ge=0,
+        description="Maximum number of retries for profile tasks",
+    )
+
+    min_retry_delay: int = Field(
+        default=5,
+        alias="PROFILE_TASK_MIN_RETRY_DELAY",
+        gt=0,
+        description="Initial profile task retry delay in seconds",
+    )
+
+    max_retry_delay: int = Field(
+        default=30,
+        alias="PROFILE_TASK_MAX_RETRY_DELAY",
+        gt=0,
+        description="Maximum profile task retry delay in seconds",
+    )
+
     lease_ttl: timedelta = Field(
-        timedelta(hours=6),
+        default=timedelta(hours=6),
         alias="PROFILE_TASK_LEASE_TTL",
         ge=timedelta(minutes=5),
+        description="Maximum lifetime of a profile task execution lease",
     )
 
 

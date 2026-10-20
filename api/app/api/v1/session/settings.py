@@ -14,8 +14,18 @@ class SessionSettings(BaseSettings):
         extra="ignore",
     )
 
-    ttl_days: int = Field(30, alias="SESSION_TTL_DAYS", ge=1)
-    cookie_secure: bool = Field(False, alias="SESSION_COOKIE_SECURE")
+    ttl_days: int = Field(
+        default=30,
+        alias="SESSION_TTL_DAYS",
+        ge=1,
+        description="Session lifetime in days",
+    )
+
+    cookie_secure: bool = Field(
+        default=False,
+        alias="SESSION_COOKIE_SECURE",
+        description="Whether session cookies require HTTPS",
+    )
 
 
 @lru_cache(maxsize=1)

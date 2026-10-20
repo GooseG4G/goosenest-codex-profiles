@@ -1,5 +1,7 @@
 from functools import lru_cache
 
+from typing import Optional
+
 from pydantic import EmailStr, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -14,9 +16,23 @@ class AccountSettings(BaseSettings):
         extra="ignore",
     )
 
-    username: EmailStr | None = Field(None, alias="ACCOUNT_USERNAME")
-    nickname: str | None = Field(None, alias="ACCOUNT_NICKNAME")
-    password: str | None = Field(None, alias="ACCOUNT_PASSWORD")
+    username: Optional[EmailStr] = Field(
+        default=None,
+        alias="ACCOUNT_USERNAME",
+        description="Bootstrap administrator email address",
+    )
+
+    nickname: Optional[str] = Field(
+        default=None,
+        alias="ACCOUNT_NICKNAME",
+        description="Bootstrap administrator display name",
+    )
+
+    password: Optional[str] = Field(
+        default=None,
+        alias="ACCOUNT_PASSWORD",
+        description="Bootstrap administrator password",
+    )
 
 
 @lru_cache(maxsize=1)
