@@ -17,7 +17,6 @@ app.conf.update(
     worker_prefetch_multiplier=1,
     beat_schedule_filename="/data/celerybeat-schedule",
     imports=(
-        "worker.tasks.profile.plan",
         "worker.tasks.profile.usage.usage",
         "worker.tasks.profile.usage.resets",
         "worker.tasks.response.cleanup",
