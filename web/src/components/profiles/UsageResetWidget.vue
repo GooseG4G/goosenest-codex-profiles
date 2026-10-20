@@ -21,6 +21,7 @@ const expanded = shallowRef(false);
 const requestedReset = shallowRef<UsageResetCredit>();
 const now = useMinuteClock();
 const creditsId = useId();
+const lastFreshCount = shallowRef<number>();
 
 const available = computed(() =>
   (props.resets?.credits ?? []).filter(
@@ -30,7 +31,6 @@ const available = computed(() =>
 const count = computed(() =>
   Math.max(props.resets?.available_count ?? 0, available.value.length),
 );
-const hasAvailable = computed(() => count.value > 0);
 const isStale = computed(() => {
   if (!props.resets) return true;
   const updatedAt = props.resets.updated_at
@@ -42,7 +42,22 @@ const isStale = computed(() => {
     now.value - updatedAt >= 180_000
   );
 });
-const canExpand = computed(() => hasAvailable.value && !isStale.value);
+watch(
+  [count, isStale],
+  ([nextCount, stale]) => {
+    if (!stale) lastFreshCount.value = nextCount;
+  },
+  { immediate: true },
+);
+const displayedCount = computed(() =>
+  isStale.value && lastFreshCount.value !== undefined
+    ? lastFreshCount.value
+    : count.value,
+);
+const displayedHasAvailable = computed(() => displayedCount.value > 0);
+const canExpand = computed(
+  () => displayedHasAvailable.value && !isStale.value,
+);
 watch(canExpand, (value) => {
   if (!value) expanded.value = false;
 });
@@ -85,7 +100,7 @@ function toggleExpanded(event: MouseEvent) {
     class="reset-widget"
     :class="{
       'reset-widget-inert': !canExpand,
-      'reset-widget-empty': !hasAvailable,
+      'reset-widget-empty': !displayedHasAvailable,
     }"
     @click="toggleExpanded"
   >
@@ -106,7 +121,7 @@ function toggleExpanded(event: MouseEvent) {
     >
       <strong>Usage limit resets</strong>
       <span :class="['available', { 'is-stale': isStale }]">
-        {{ count }} available
+        {{ displayedCount }} available
       </span>
       <ChevronDown
         :class="['chevron', { expanded }]"
@@ -227,9 +242,6 @@ function toggleExpanded(event: MouseEvent) {
 .reset-widget-empty .available {
   color: var(--color-text-secondary);
   background: var(--color-bg-control-hover);
-}
-.available.is-stale {
-  color: transparent;
 }
 .reset-summary:disabled {
   cursor: default;

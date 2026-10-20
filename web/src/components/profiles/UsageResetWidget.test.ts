@@ -24,6 +24,16 @@ function resets(stale: boolean): UsageResets {
   };
 }
 
+function unavailable(stale: boolean): UsageResets {
+  return {
+    available_count: 0,
+    credits: [],
+    updated_at: new Date().toISOString(),
+    stale,
+    refreshing: stale,
+  };
+}
+
 describe("UsageResetWidget", () => {
   it("remains inert while reset credits are loading", async () => {
     const wrapper = mount(UsageResetWidget, {
@@ -53,5 +63,19 @@ describe("UsageResetWidget", () => {
 
     await wrapper.get(".reset-widget").trigger("click");
     expect(wrapper.find(".credits").exists()).toBe(true);
+  });
+
+  it("keeps the last fresh available state while a refresh is stale", async () => {
+    const wrapper = mount(UsageResetWidget, {
+      props: { resets: resets(false) },
+    });
+
+    await wrapper.setProps({ resets: unavailable(true) });
+
+    expect(wrapper.get(".reset-widget").classes()).not.toContain(
+      "reset-widget-empty",
+    );
+    expect(wrapper.get(".available").text()).toBe("1 available");
+    expect(wrapper.get(".available").classes()).toContain("is-stale");
   });
 });
