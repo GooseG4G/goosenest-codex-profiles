@@ -91,7 +91,7 @@ async def test_lease_publishes_only_once_under_concurrency(
     monkeypatch.setattr(lease, "get_redis_settings", lambda: object())
     tasks = [
         SimpleNamespace(
-            name="profiles.plan.refresh",
+            name="profiles.usage.refresh",
             apply_async=Mock(),
         )
         for _ in range(2)
@@ -116,6 +116,6 @@ async def test_lease_publishes_only_once_under_concurrency(
 
 def test_task_type_is_part_of_lease_identity() -> None:
     usage = lease.task_lease_key("profiles.usage.refresh", "profile-1")
-    plan = lease.task_lease_key("profiles.plan.refresh", "profile-1")
+    plan = lease.task_lease_key("profiles.usage.refresh", "profile-1")
 
     assert usage != plan
