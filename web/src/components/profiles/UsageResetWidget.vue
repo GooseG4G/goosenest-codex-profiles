@@ -31,9 +31,6 @@ const count = computed(() =>
   Math.max(props.resets?.available_count ?? 0, available.value.length),
 );
 const hasAvailable = computed(() => count.value > 0);
-watch(hasAvailable, (value) => {
-  if (!value) expanded.value = false;
-});
 const isStale = computed(() => {
   if (!props.resets) return true;
   const updatedAt = props.resets.updated_at
@@ -44,6 +41,10 @@ const isStale = computed(() => {
     !Number.isFinite(updatedAt) ||
     now.value - updatedAt >= 180_000
   );
+});
+const canExpand = computed(() => hasAvailable.value && !isStale.value);
+watch(canExpand, (value) => {
+  if (!value) expanded.value = false;
 });
 useEscapeLayer(
   () => expanded.value,
@@ -72,7 +73,7 @@ function confirmReset() {
   requestedReset.value = undefined;
 }
 function toggleExpanded(event: MouseEvent) {
-  if (!hasAvailable.value) return;
+  if (!canExpand.value) return;
   const target = event.target;
   if (target instanceof Element && target.closest(".ui-button")) return;
   expanded.value = !expanded.value;
@@ -82,20 +83,22 @@ function toggleExpanded(event: MouseEvent) {
 <template>
   <section
     class="reset-widget"
-    :class="{ 'reset-widget-empty': !hasAvailable }"
+    :class="{ 'reset-widget-inert': !canExpand }"
     @click="toggleExpanded"
   >
     <button
       class="reset-summary"
       type="button"
-      :aria-expanded="hasAvailable ? expanded : false"
+      :aria-expanded="canExpand ? expanded : false"
       :aria-controls="creditsId"
       :aria-label="
-        hasAvailable
+        canExpand
           ? 'Usage limit resets'
+          : isStale
+            ? 'Loading usage limit resets'
           : 'No usage limit resets available'
       "
-      :disabled="!hasAvailable"
+      :disabled="!canExpand"
       @mousedown.prevent
     >
       <strong>Usage limit resets</strong>
@@ -108,7 +111,7 @@ function toggleExpanded(event: MouseEvent) {
       />
     </button>
     <Transition name="credits">
-      <div v-if="expanded && hasAvailable" :id="creditsId" class="credits">
+      <div v-if="expanded && canExpand" :id="creditsId" class="credits">
         <div class="credits-clip">
           <div class="credits-list">
             <article
@@ -157,10 +160,10 @@ function toggleExpanded(event: MouseEvent) {
   background: var(--color-reset-card-background);
   transition: background-color var(--duration-fast) var(--ease-standard);
 }
-.reset-widget:not(.reset-widget-empty):hover {
+.reset-widget:not(.reset-widget-inert):hover {
   background: var(--color-reset-card-hover-background);
 }
-.reset-widget:not(.reset-widget-empty) {
+.reset-widget:not(.reset-widget-inert) {
   cursor: pointer;
 }
 .reset-widget :deep(.ui-button) {
@@ -218,7 +221,7 @@ function toggleExpanded(event: MouseEvent) {
   animation: available-shimmer 1.35s linear infinite;
   will-change: transform;
 }
-.reset-widget-empty .available {
+.reset-widget-inert .available {
   color: var(--color-text-secondary);
   background: var(--color-bg-control-hover);
 }
@@ -239,18 +242,18 @@ function toggleExpanded(event: MouseEvent) {
     color var(--duration-fast) var(--ease-standard),
     transform var(--duration-normal) var(--ease-standard);
 }
-.reset-widget:not(.reset-widget-empty):hover .chevron {
+.reset-widget:not(.reset-widget-inert):hover .chevron {
   color: var(--color-text-primary);
   transform: scale(1.06);
 }
-.reset-widget:not(.reset-widget-empty):hover .chevron.expanded {
+.reset-widget:not(.reset-widget-inert):hover .chevron.expanded {
   transform: rotate(180deg) scale(1.06);
 }
-.reset-widget:not(.reset-widget-empty):active .chevron {
+.reset-widget:not(.reset-widget-inert):active .chevron {
   color: var(--color-text-primary);
   transform: scale(0.96);
 }
-.reset-widget:not(.reset-widget-empty):active .chevron.expanded {
+.reset-widget:not(.reset-widget-inert):active .chevron.expanded {
   transform: rotate(180deg) scale(0.96);
 }
 .chevron.expanded {
