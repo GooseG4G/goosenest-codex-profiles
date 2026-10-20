@@ -213,9 +213,12 @@ export function useProfiles() {
       },
       usage_updated_at: limits.updated_at,
     });
+    const previousResets = resetsByProfileId.value[profileId];
+    const stableResets =
+      resets.refreshing && previousResets ? previousResets : resets;
     resetsByProfileId.value = {
       ...resetsByProfileId.value,
-      [profileId]: resets,
+      [profileId]: stableResets,
     };
   }
   function setPlanPending(profileId: string, pending: boolean) {
