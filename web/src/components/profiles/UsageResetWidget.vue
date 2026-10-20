@@ -83,7 +83,10 @@ function toggleExpanded(event: MouseEvent) {
 <template>
   <section
     class="reset-widget"
-    :class="{ 'reset-widget-inert': !canExpand }"
+    :class="{
+      'reset-widget-inert': !canExpand,
+      'reset-widget-empty': !hasAvailable,
+    }"
     @click="toggleExpanded"
   >
     <button
@@ -221,7 +224,7 @@ function toggleExpanded(event: MouseEvent) {
   animation: available-shimmer 1.35s linear infinite;
   will-change: transform;
 }
-.reset-widget-inert .available {
+.reset-widget-empty .available {
   color: var(--color-text-secondary);
   background: var(--color-bg-control-hover);
 }

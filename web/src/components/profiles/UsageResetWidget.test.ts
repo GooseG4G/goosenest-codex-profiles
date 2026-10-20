@@ -33,6 +33,10 @@ describe("UsageResetWidget", () => {
     const summary = wrapper.get("button.reset-summary");
     expect(summary.attributes("disabled")).toBeDefined();
     expect(summary.attributes("aria-label")).toBe("Loading usage limit resets");
+    expect(wrapper.get(".reset-widget").classes()).toContain("reset-widget-inert");
+    expect(wrapper.get(".reset-widget").classes()).not.toContain(
+      "reset-widget-empty",
+    );
 
     await wrapper.get(".reset-widget").trigger("click");
     expect(wrapper.find(".credits").exists()).toBe(false);
