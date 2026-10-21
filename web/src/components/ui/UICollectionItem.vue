@@ -31,10 +31,13 @@ defineSlots<{
 .collection-item { transition: background-color var(--duration-fast) var(--ease-standard); }
 .collection-row { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 13px; min-height: 68px; padding: 11px 15px; }
 .collection-item.has-interaction .collection-row { grid-template-columns: minmax(0, 1fr) auto; gap: 10px; }
-.collection-item:has(.collection-row:hover) { background: var(--color-bg-row-hover); }
-.collection-item:not(.has-interaction):has(.collection-actions:hover) { background: transparent; }
 .collection-identity { min-width: 0; }
 .collection-aside, .collection-actions { z-index: 2; display: inline-flex; }
 .collection-details { transition: background-color var(--duration-fast) var(--ease-standard); }
+@media (hover: hover) and (pointer: fine) {
+  .collection-item:has(.collection-row:hover):not(:has(.collection-actions:hover)) {
+    background: var(--color-bg-row-hover);
+  }
+}
 @media (prefers-reduced-motion: reduce) { .collection-item, .collection-details { transition: none; } }
 </style>

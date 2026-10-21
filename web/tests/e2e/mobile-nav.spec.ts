@@ -74,15 +74,16 @@ test.beforeEach(async ({ page }) => {
   });
 });
 
-test("collection item owns the row hover background", async ({ page }) => {
+test("touching a row action does not retain row hover", async ({ page }) => {
   await page.goto("/profiles");
   const item = page.locator(".profile-item");
   const row = item.locator(".collection-row");
   const switchControl = row.locator('[role="switch"]');
-  await switchControl.hover();
-  await expect(item).toHaveCSS("background-color", "rgb(28, 29, 30)");
+  await switchControl.tap();
+  await page.waitForTimeout(250);
+  await expect(item).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
   await expect(row).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
-  await expect(switchControl).toHaveCSS("background-color", "rgb(41, 42, 43)");
+  await expect(page.getByRole("tooltip")).toHaveCount(0);
 });
 
 test("mobile navigation is a bottom bar with stable hit targets", async ({
@@ -143,7 +144,7 @@ test("profile and user toolbars use the same search action gap", async ({
   expect(userGap).toBe(profileGap);
 });
 
-test("usage reset badge keeps its color while stale and summary has no pressed state", async ({
+test("usage reset badge keeps its color while stale and touch has no hover state", async ({
   page,
 }) => {
   await page.clock.install({ time: new Date(fixtureTime) });
@@ -152,39 +153,29 @@ test("usage reset badge keeps its color while stale and summary has no pressed s
     .getByRole("button", { name: "Show usage for profile@example.com" })
     .click();
 
-  const summary = page.getByRole("button", { name: /Usage limit resets/ });
+  const summary = page.locator(".reset-summary");
   const badge = summary.locator(".available");
   await expect(badge).toHaveText("1 available");
-  await expect(badge).not.toHaveClass(/is-stale/);
   await expect(badge).toHaveCSS("background-color", "rgb(0, 107, 44)");
   await expect(badge).toHaveCSS("color", "rgb(240, 255, 244)");
   const green = await badge.evaluate(
     (element) => getComputedStyle(element).backgroundColor,
   );
 
-  const summaryBox = await summary.boundingBox();
-  expect(summaryBox).not.toBeNull();
-  await page.mouse.move(summaryBox!.x + 20, summaryBox!.y + 20);
   const widget = page.locator(".reset-widget");
-  await expect(widget).toHaveCSS("background-color", "rgb(41, 42, 43)");
+  const restingWidget = await widget.evaluate(
+    (element) => getComputedStyle(element).backgroundColor,
+  );
+  await summary.tap();
+  await page.waitForTimeout(250);
+  await expect(widget).toHaveCSS("background-color", restingWidget);
   await expect(summary).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
   const chevron = summary.locator(".chevron");
   await expect(chevron).toHaveCSS(
     "transform",
-    "matrix(1.06, 0, 0, 1.06, 0, 0)",
+    "matrix(-1, 0, 0, -1, 0, 0)",
   );
-  await expect(chevron).toHaveCSS("color", "rgb(237, 237, 237)");
-  const beforePress = await summary.evaluate(
-    (element) => getComputedStyle(element).backgroundColor,
-  );
-  await page.mouse.down();
   await expect(summary).toHaveCSS("transform", "none");
-  await expect(summary).toHaveCSS("background-color", beforePress);
-  await page.mouse.up();
-
-  if ((await summary.getAttribute("aria-expanded")) === "false") {
-    await summary.click();
-  }
   const resetButton = page.getByRole("button", { name: "Use reset" });
   await expect(resetButton).toHaveCSS("border-radius", "999px");
   await expect(resetButton).toHaveCSS(
@@ -214,26 +205,19 @@ test("usage reset badge keeps its color while stale and summary has no pressed s
     "0px",
   );
 
-  await page.locator(".credit-copy").hover();
-  await expect(chevron).toHaveCSS(
-    "transform",
-    "matrix(-1.06, 0, 0, -1.06, 0, 0)",
-  );
-  await expect(chevron).toHaveCSS("color", "rgb(237, 237, 237)");
-
-  await page.locator(".credit-copy").click();
+  await page.locator(".credit-copy").tap();
   await expect(page.locator(".credits")).toBeHidden();
-  await summary.click();
-  await resetButton.click();
+  await summary.tap();
+  await resetButton.tap();
   await expect(page.getByRole("dialog")).toBeVisible();
   await expect(page.locator(".credits")).toBeVisible();
-  await page.getByRole("button", { name: "Cancel" }).click();
+  await page.getByRole("button", { name: "Cancel" }).tap();
 
   await page.clock.fastForward(180_000);
-  await expect(badge).toHaveClass(/is-stale/);
-  await expect(badge).toHaveCSS("background-color", green);
-  await expect(badge).toHaveCSS("color", "rgba(0, 0, 0, 0)");
-  const animation = await badge.evaluate(
+  const staleBadge = summary.locator(".available-skeleton");
+  await expect(staleBadge).toHaveClass(/is-available/);
+  await expect(staleBadge).toHaveCSS("background-color", green);
+  const animation = await staleBadge.evaluate(
     (element) => getComputedStyle(element, "::after").animationName,
   );
   expect(animation).toContain("available-shimmer");
@@ -269,32 +253,6 @@ test("closing the current usage panel has no rebound on animation frames", async
     expect(heights[index]).toBeLessThanOrEqual(heights[index - 1]! + 0.25);
   }
   expect(heights.at(-1)).toBeCloseTo(68, 0);
-});
-
-test("expanded details do not keep the collection row hovered", async ({
-  page,
-}) => {
-  await page.goto("/profiles");
-  await page
-    .getByRole("button", { name: "Show usage for profile@example.com" })
-    .click();
-
-  const item = page.locator(".profile-item");
-  const row = item.locator(".collection-row");
-  const details = page.locator(".profile-item .usage-content");
-  await expect(details).toBeVisible();
-  await page.mouse.move(0, 0);
-  await expect(item).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
-
-  const restingColor = await item.evaluate(
-    (element) => getComputedStyle(element).backgroundColor,
-  );
-  await row.hover();
-  await expect(item).not.toHaveCSS("background-color", restingColor);
-  await expect(row).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
-
-  await details.hover();
-  await expect(item).toHaveCSS("background-color", restingColor);
 });
 
 test("switching expanded profiles keeps opposing animations monotonic", async ({
@@ -389,19 +347,18 @@ test("empty usage reset badge shimmers over its gray base", async ({
     .getByRole("button", { name: "Show usage for profile@example.com" })
     .click();
 
-  const badge = page.locator(".reset-widget .available");
-  await expect(badge).toHaveText("0 available");
+  const badge = page.locator(".reset-widget .available-skeleton");
+  await expect(badge).toBeVisible();
   const summary = page.getByRole("button", {
-    name: "No usage limit resets available",
+    name: "Loading usage limit resets",
   });
   await expect(summary).toBeDisabled();
   await expect(summary.locator(".chevron")).toBeVisible();
-  await expect(badge).toHaveClass(/is-stale/);
+  await expect(badge).not.toHaveClass(/is-available/);
   const gray = await badge.evaluate(
     (element) => getComputedStyle(element).backgroundColor,
   );
   await expect(badge).toHaveCSS("background-color", gray);
-  await expect(badge).toHaveCSS("color", "rgba(0, 0, 0, 0)");
   const animation = await badge.evaluate(
     (element) => getComputedStyle(element, "::after").animationName,
   );
@@ -494,18 +451,19 @@ test("profile reauthorization waits for explicit confirmation", async ({
   expect(authRequests).toBe(1);
 });
 
-test("sidebar navigation does not stack surface and icon transforms", async ({
+test("touching active navigation does not stack surface and icon transforms", async ({
   page,
 }) => {
   await page.goto("/me/devices");
   const link = page.locator('.sidebar nav a[href="/me/devices"]');
-  await link.hover();
+  await link.tap();
+  await page.waitForTimeout(250);
   const icon = link.locator("svg");
   await expect(icon).toHaveCSS("transform", "none");
   await expect(link).toHaveCSS("background-color", "rgb(41, 42, 43)");
 });
 
-test("row action spacing is symmetric and delete owns the press transform", async ({
+test("row action spacing is symmetric and touch does not retain delete hover", async ({
   page,
 }) => {
   await page.goto("/profiles");
@@ -550,10 +508,26 @@ test("row action spacing is symmetric and delete owns the press transform", asyn
   expect(Math.abs(statusToCopyGap - 13)).toBeLessThanOrEqual(1);
   expect(leftGap).toBeGreaterThanOrEqual(rightGap + 3);
 
-  await deleteButton.hover();
+  await deleteButton.tap();
+  await page.waitForTimeout(250);
   await expect(deleteButton.locator(".icon")).toHaveCSS("transform", "none");
   await expect(deleteButton).toHaveCSS(
     "transform",
-    "matrix(1.04, 0, 0, 1.04, 0, 0)",
+    "matrix(1, 0, 0, 1, 0, 0)",
   );
+  await expect(page.getByRole("tooltip")).toHaveCount(0);
+});
+
+test("touch does not retain hover on the active bottom navigation item", async ({
+  page,
+}) => {
+  await page.goto("/me/devices");
+  const activeLink = page.locator('.sidebar nav a[href="/me/devices"]');
+  const otherLink = page.locator('.sidebar nav a[href="/profiles"]');
+  await expect(activeLink).toHaveCSS("transform", "none");
+  await otherLink.tap();
+  await page.waitForTimeout(250);
+  await expect(activeLink).toHaveCSS("transform", "none");
+  await expect(activeLink).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+  await expect(otherLink).toHaveCSS("transform", "none");
 });

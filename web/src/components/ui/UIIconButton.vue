@@ -65,6 +65,16 @@ function onDocumentKeydown(event: KeyboardEvent) {
   hovered.value = false;
   focused.value = false;
 }
+function onPointerEnter(event: PointerEvent) {
+  if (event.pointerType === "touch") return;
+  hovered.value = true;
+  tooltipDismissed.value = false;
+}
+function onPointerLeave(event: PointerEvent) {
+  if (event.pointerType === "touch") return;
+  hovered.value = false;
+  tooltipDismissed.value = false;
+}
 onMounted(() => document.addEventListener("keydown", onDocumentKeydown));
 onBeforeUnmount(() => document.removeEventListener("keydown", onDocumentKeydown));
 const classes = computed(() => [
@@ -90,8 +100,8 @@ const classes = computed(() => [
     :disabled="disabled || pending"
     @click="tooltipDismissed = true; $emit('click', $event)"
     @pointerdown="focused = false"
-    @mouseenter="hovered = true; tooltipDismissed = false"
-    @mouseleave="hovered = false; tooltipDismissed = false"
+    @pointerenter="onPointerEnter"
+    @pointerleave="onPointerLeave"
     @focus="focused = (button?.matches(':focus-visible') ?? false) && !button?.dataset.focusRestored; tooltipDismissed = false"
     @blur="focused = false; tooltipDismissed = false"
   >
@@ -162,20 +172,15 @@ const classes = computed(() => [
 .background-always {
   background: var(--button-background);
 }
-.background-always:hover:not(:disabled),
 .background-always:focus-visible:not(:disabled),
-.background-hover:hover:not(:disabled),
 .background-hover:focus-visible:not(:disabled) {
   background: var(--button-hover-background);
   color: var(--color-text-primary);
 }
-.tone-danger.background-always:hover:not(:disabled),
 .tone-danger.background-always:focus-visible:not(:disabled),
-.tone-danger.background-hover:hover:not(:disabled),
 .tone-danger.background-hover:focus-visible:not(:disabled) {
   color: var(--color-icon-button-danger-hover-foreground);
 }
-.background-never:hover:not(:disabled),
 .background-never:focus-visible:not(:disabled) {
   background: transparent;
 }
@@ -195,14 +200,12 @@ const classes = computed(() => [
 .icon-button:active:not(:disabled) {
   background: var(--button-pressed-background);
 }
-.surface-lift:hover:not(:disabled),
 .surface-lift:focus-visible:not(:disabled) {
   transform: translate3d(0, -2px, 0);
 }
 .surface-lift:active:not(:disabled) {
   transform: translate3d(0, 1px, 0) scale(0.98);
 }
-.surface-scale:hover:not(:disabled),
 .surface-scale:focus-visible:not(:disabled) {
   transform: scale(1.04);
 }
@@ -233,29 +236,24 @@ const classes = computed(() => [
   stroke-linejoin: round;
   pointer-events: none;
 }
-.icon-together:hover:not(:disabled) .icon,
 .icon-together:focus-visible:not(:disabled) .icon {
   transform: scale(1.06);
 }
 .icon-together:active:not(:disabled) .icon {
   transform: scale(0.96);
 }
-.icon-spin:hover:not(:disabled) .icon,
 .icon-spin:focus-visible:not(:disabled) .icon {
   transform: rotate(180deg);
 }
 .icon-spin:active:not(:disabled) .icon {
   transform: rotate(320deg) scale(0.9);
 }
-.icon-tilt-clockwise:hover:not(:disabled) .icon,
 .icon-tilt-clockwise:focus-visible:not(:disabled) .icon {
   transform: rotate(12deg);
 }
-.icon-tilt-counterclockwise:hover:not(:disabled) .icon,
 .icon-tilt-counterclockwise:focus-visible:not(:disabled) .icon {
   transform: rotate(-12deg);
 }
-.icon-shift-diagonal:hover:not(:disabled) .icon,
 .icon-shift-diagonal:focus-visible:not(:disabled) .icon {
   transform: translate3d(2px, -2px, 0);
 }
@@ -280,6 +278,41 @@ const classes = computed(() => [
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+@media (hover: hover) and (pointer: fine) {
+  .background-always:hover:not(:disabled),
+  .background-hover:hover:not(:disabled) {
+    background: var(--button-hover-background);
+    color: var(--color-text-primary);
+  }
+  .background-never:hover:not(:disabled) {
+    background: transparent;
+  }
+  .tone-danger.background-always:hover:not(:disabled),
+  .tone-danger.background-hover:hover:not(:disabled) {
+    color: var(--color-icon-button-danger-hover-foreground);
+  }
+  .surface-lift:hover:not(:disabled) {
+    transform: translate3d(0, -2px, 0);
+  }
+  .surface-scale:hover:not(:disabled) {
+    transform: scale(1.04);
+  }
+  .icon-together:hover:not(:disabled) .icon {
+    transform: scale(1.06);
+  }
+  .icon-spin:hover:not(:disabled) .icon {
+    transform: rotate(180deg);
+  }
+  .icon-tilt-clockwise:hover:not(:disabled) .icon {
+    transform: rotate(12deg);
+  }
+  .icon-tilt-counterclockwise:hover:not(:disabled) .icon {
+    transform: rotate(-12deg);
+  }
+  .icon-shift-diagonal:hover:not(:disabled) .icon {
+    transform: translate3d(2px, -2px, 0);
+  }
 }
 @keyframes icon-spin {
   to {

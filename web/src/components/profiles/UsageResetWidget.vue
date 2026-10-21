@@ -169,9 +169,6 @@ function toggleExpanded(event: MouseEvent) {
   background: var(--color-reset-card-background);
   transition: background-color var(--duration-fast) var(--ease-standard);
 }
-.reset-widget:not(.reset-widget-inert):hover {
-  background: var(--color-reset-card-hover-background);
-}
 .reset-widget:not(.reset-widget-inert) {
   cursor: pointer;
 }
@@ -257,13 +254,6 @@ function toggleExpanded(event: MouseEvent) {
     color var(--duration-fast) var(--ease-standard),
     transform var(--duration-normal) var(--ease-standard);
 }
-.reset-widget:not(.reset-widget-inert):hover .chevron {
-  color: var(--color-text-primary);
-  transform: scale(1.06);
-}
-.reset-widget:not(.reset-widget-inert):hover .chevron.expanded {
-  transform: rotate(180deg) scale(1.06);
-}
 .reset-widget:not(.reset-widget-inert):active .chevron {
   color: var(--color-text-primary);
   transform: scale(0.96);
@@ -302,10 +292,6 @@ function toggleExpanded(event: MouseEvent) {
   color: var(--color-reset-action-foreground);
   background: var(--color-reset-action-background);
 }
-.credit :deep(.ui-button:hover:not(:disabled)) {
-  border-color: var(--color-reset-action-hover-border);
-  background: var(--color-reset-action-hover-background);
-}
 .credit-copy {
   display: grid;
   min-width: 0;
@@ -330,6 +316,22 @@ function toggleExpanded(event: MouseEvent) {
 @keyframes available-shimmer {
   to {
     transform: translateX(100%);
+  }
+}
+@media (hover: hover) and (pointer: fine) {
+  .reset-widget:not(.reset-widget-inert):hover {
+    background: var(--color-reset-card-hover-background);
+  }
+  .reset-widget:not(.reset-widget-inert):hover .chevron {
+    color: var(--color-text-primary);
+    transform: scale(1.06);
+  }
+  .reset-widget:not(.reset-widget-inert):hover .chevron.expanded {
+    transform: rotate(180deg) scale(1.06);
+  }
+  .credit :deep(.ui-button:hover:not(:disabled)) {
+    border-color: var(--color-reset-action-hover-border);
+    background: var(--color-reset-action-hover-background);
   }
 }
 @media (prefers-reduced-motion: reduce) {

@@ -47,9 +47,6 @@ const model = defineModel<string>({ required: true });
     box-shadow 140ms ease,
     color 140ms ease;
 }
-.search-field:hover:not(.disabled):not(:focus-within) {
-  border-color: var(--color-border-strong);
-}
 .search-field:focus-within {
   border-color: var(--color-focus);
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-focus) 18%, transparent);
@@ -64,7 +61,6 @@ const model = defineModel<string>({ required: true });
   stroke-width: 1.7;
 }
 .search-field input,
-.search-field input:hover,
 .search-field input:focus {
   width: 100%;
   min-width: 0;
@@ -77,6 +73,11 @@ const model = defineModel<string>({ required: true });
 }
 .search-field.disabled {
   opacity: 0.48;
+}
+@media (hover: hover) and (pointer: fine) {
+  .search-field:hover:not(.disabled):not(:focus-within) {
+    border-color: var(--color-border-strong);
+  }
 }
 @media (prefers-reduced-motion: reduce) {
   .search-field {

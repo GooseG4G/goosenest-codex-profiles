@@ -51,7 +51,7 @@ describe("UISwitch", () => {
     });
     const control = wrapper.get('[role="switch"]');
 
-    await control.trigger("mouseenter");
+    await control.trigger("pointerenter", { pointerType: "mouse" });
     await nextTick();
     expect(document.body.querySelector('[role="tooltip"]')).not.toBeNull();
 
@@ -74,7 +74,7 @@ describe("UISwitch", () => {
     const control = wrapper.get('[role="switch"]');
 
     expect(control.attributes("aria-label")).toBe("Disable profile@example.com");
-    await control.trigger("mouseenter");
+    await control.trigger("pointerenter", { pointerType: "mouse" });
     await new Promise((resolve) => setTimeout(resolve, 100));
     expect(document.body.textContent).toContain("Disable");
     expect(document.body.textContent).not.toContain("Disable profile@example.com");
@@ -101,10 +101,27 @@ describe("UISwitch", () => {
     ];
     for (const props of cases) {
       const wrapper = mount(UISwitch, { props });
-      await wrapper.get('[role="switch"]').trigger("mouseenter");
+      await wrapper
+        .get('[role="switch"]')
+        .trigger("pointerenter", { pointerType: "mouse" });
       await new Promise((resolve) => setTimeout(resolve, 20));
       expect(document.body.querySelector('[role="tooltip"]')).toBeNull();
       wrapper.unmount();
     }
+  });
+
+  it("ignores touch pointer entry for tooltip state", async () => {
+    const wrapper = mount(UISwitch, {
+      props: {
+        modelValue: false,
+        accessibleLabel: "Enable profile@example.com",
+      },
+    });
+    await wrapper
+      .get('[role="switch"]')
+      .trigger("pointerenter", { pointerType: "touch" });
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(document.body.querySelector('[role="tooltip"]')).toBeNull();
+    wrapper.unmount();
   });
 });

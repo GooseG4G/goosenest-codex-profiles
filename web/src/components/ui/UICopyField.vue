@@ -30,6 +30,16 @@ function onDocumentKeydown(event: KeyboardEvent) {
   focused.value = false;
   tooltipDismissed.value = true;
 }
+function onPointerEnter(event: PointerEvent) {
+  if (event.pointerType === "touch") return;
+  hovered.value = true;
+  tooltipDismissed.value = false;
+}
+function onPointerLeave(event: PointerEvent) {
+  if (event.pointerType === "touch") return;
+  hovered.value = false;
+  tooltipDismissed.value = false;
+}
 onMounted(() => document.addEventListener("keydown", onDocumentKeydown));
 onBeforeUnmount(() => document.removeEventListener("keydown", onDocumentKeydown));
 let resetTimer: number | undefined;
@@ -71,8 +81,8 @@ onUnmounted(() => {
     :aria-describedby="tooltipId"
     @click="copy"
     @pointerdown="focused = false"
-    @mouseenter="hovered = true; tooltipDismissed = false"
-    @mouseleave="hovered = false; tooltipDismissed = false"
+    @pointerenter="onPointerEnter"
+    @pointerleave="onPointerLeave"
     @focus="focused = (button?.matches(':focus-visible') ?? false) && !button?.dataset.focusRestored; tooltipDismissed = false"
     @blur="focused = false; tooltipDismissed = false"
   >
@@ -111,7 +121,6 @@ onUnmounted(() => {
     color 140ms ease,
     transform 100ms ease;
 }
-.copy-field:hover,
 .copy-field:focus-visible {
   border-color: var(--color-copy-info-border);
   background: var(--color-copy-info-background);
@@ -160,6 +169,13 @@ onUnmounted(() => {
 }
 .copy-icon .mirrored {
   transform: scaleX(-1);
+}
+@media (hover: hover) and (pointer: fine) {
+  .copy-field:hover {
+    border-color: var(--color-copy-info-border);
+    background: var(--color-copy-info-background);
+    color: var(--color-copy-info-foreground);
+  }
 }
 @media (prefers-reduced-motion: reduce) {
   .copy-field {

@@ -103,14 +103,6 @@ function handleClick(event: MouseEvent) {
   stroke-linejoin: round;
   transition: transform 150ms ease;
 }
-.ui-button:hover:not(:disabled):not([aria-disabled="true"]) {
-  background: var(--color-button-secondary-hover-background);
-  border-color: var(--color-button-secondary-hover-border);
-  transform: translateY(-1px);
-}
-.ui-button:hover:not(:disabled):not([aria-disabled="true"]) .content :deep(svg) {
-  transform: scale(1.08);
-}
 .ui-button:active:not(:disabled):not([aria-disabled="true"]) {
   background: var(--color-button-secondary-pressed-background);
   transform: translateY(0) scale(0.98);
@@ -141,27 +133,15 @@ function handleClick(event: MouseEvent) {
   background: var(--color-button-primary-background);
   color: var(--color-button-primary-foreground);
 }
-.is-primary:hover:not(:disabled):not([aria-disabled="true"]) {
-  border-color: var(--color-button-primary-hover-border);
-  background: var(--color-button-primary-hover-background);
-}
 .is-danger {
   border-color: var(--color-button-danger-border);
   background: var(--color-button-danger-background);
   color: var(--color-button-danger-foreground);
 }
-.is-danger:hover:not(:disabled):not([aria-disabled="true"]) {
-  border-color: var(--color-button-danger-hover-border);
-  background: var(--color-button-danger-hover-background);
-}
 .is-ghost {
   border-color: transparent;
   background: transparent;
   color: var(--color-text-secondary);
-}
-.is-ghost:hover:not(:disabled):not([aria-disabled="true"]) {
-  color: var(--color-text-primary);
-  background: var(--color-bg-control-hover);
 }
 .ui-button:disabled:not(.is-busy),
 .ui-button[aria-disabled="true"]:not(.is-busy) {
@@ -178,9 +158,6 @@ function handleClick(event: MouseEvent) {
     background-color 140ms ease,
     border-color 140ms ease,
     color 140ms ease;
-}
-.is-busy:hover {
-  cursor: wait;
 }
 .is-pending .content {
   opacity: 0.82;
@@ -203,6 +180,31 @@ function handleClick(event: MouseEvent) {
 @keyframes button-shimmer {
   to {
     transform: translateX(100%);
+  }
+}
+@media (hover: hover) and (pointer: fine) {
+  .ui-button:hover:not(:disabled):not([aria-disabled="true"]) {
+    background: var(--color-button-secondary-hover-background);
+    border-color: var(--color-button-secondary-hover-border);
+    transform: translateY(-1px);
+  }
+  .ui-button:hover:not(:disabled):not([aria-disabled="true"]) .content :deep(svg) {
+    transform: scale(1.08);
+  }
+  .is-primary:hover:not(:disabled):not([aria-disabled="true"]) {
+    border-color: var(--color-button-primary-hover-border);
+    background: var(--color-button-primary-hover-background);
+  }
+  .is-danger:hover:not(:disabled):not([aria-disabled="true"]) {
+    border-color: var(--color-button-danger-hover-border);
+    background: var(--color-button-danger-hover-background);
+  }
+  .is-ghost:hover:not(:disabled):not([aria-disabled="true"]) {
+    color: var(--color-text-primary);
+    background: var(--color-bg-control-hover);
+  }
+  .is-busy:hover {
+    cursor: wait;
   }
 }
 @media (prefers-reduced-motion: reduce) {

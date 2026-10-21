@@ -155,14 +155,16 @@ function expiryLabel(): string {
 .actions i { width: 1px; height: 22px; border-left: 1px solid var(--color-border-default); }
 .chevron { width: 16px; height: 16px; transition: transform var(--duration-normal) var(--ease-standard); }
 .row-indicator { z-index: 1; display: inline-flex; width: 16px; height: 28px; align-items: center; justify-content: center; color: var(--color-profile-disclosure-icon); pointer-events: none; transform-origin: center; transition: color var(--duration-fast) var(--ease-standard); }
-.profile-item:hover .row-indicator { color: var(--color-text-primary); }
-.profile-item:hover .row-indicator:not(.expanded) .chevron { transform: scale(1.06); }
-.profile-item:hover .row-indicator.expanded .chevron { transform: rotate(180deg) scale(1.06); }
 .row-indicator.expanded .chevron { transform: rotate(180deg); }
 .reauth-icon { width: 17px; height: 17px; animation: profile-reauth-spin 0.9s linear infinite; }
 @keyframes profile-reauth-spin { to { transform: rotate(360deg); } }
 .usage-collapse { display: grid; grid-template-rows: 1fr; overflow: hidden; opacity: 1; }
 .usage-wrap { min-height: 0; overflow: hidden; transition: background-color var(--duration-fast) var(--ease-standard); }
 .usage-content { display: grid; align-items: start; gap: 8px; padding: 0 12px 12px; }
+@media (hover: hover) and (pointer: fine) {
+  .profile-item:hover .row-indicator { color: var(--color-text-primary); }
+  .profile-item:hover .row-indicator:not(.expanded) .chevron { transform: scale(1.06); }
+  .profile-item:hover .row-indicator.expanded .chevron { transform: rotate(180deg) scale(1.06); }
+}
 @media (prefers-reduced-motion: reduce) { .chevron, .usage-wrap, .copy small.plan-pending::after { animation: none; transform: none; } }
 </style>

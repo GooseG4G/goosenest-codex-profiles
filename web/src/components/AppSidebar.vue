@@ -134,12 +134,8 @@ defineEmits<{ logout: [] }>();
   stroke-linejoin: round;
   transition: transform 150ms ease;
 }
-.sidebar nav a:hover {
+.sidebar nav a:focus-visible {
   color: var(--color-text-primary);
-  background: var(--color-bg-control-hover);
-}
-.sidebar nav a:hover svg {
-  transform: none;
 }
 .sidebar nav a:active {
   background: var(--color-bg-control-pressed);
@@ -192,8 +188,11 @@ defineEmits<{ logout: [] }>();
   white-space: nowrap;
   font-size: 12px;
 }
-.account-trigger:hover,
 .account-trigger[aria-expanded="true"] {
+  color: var(--color-text-primary);
+  background: var(--color-bg-control-hover);
+}
+.account-trigger:focus-visible {
   color: var(--color-text-primary);
   background: var(--color-bg-control-hover);
 }
@@ -201,9 +200,7 @@ defineEmits<{ logout: [] }>();
   background: var(--color-bg-control-pressed);
   transform: scale(0.98);
 }
-.account-trigger:focus-visible {
-  border-color: var(--color-focus);
-}
+.account-trigger:focus-visible { border-color: var(--color-focus); }
 .account-trigger[data-focus-restored]:focus-visible {
   border-color: transparent;
 }
@@ -256,7 +253,6 @@ defineEmits<{ logout: [] }>();
     background-color 120ms ease,
     color 120ms ease;
 }
-.account-action:hover,
 .account-action:focus-visible {
   color: var(--color-text-primary);
   background: var(--color-bg-control-hover);
@@ -265,13 +261,26 @@ defineEmits<{ logout: [] }>();
   background: var(--color-bg-control-pressed);
   transform: scale(0.98);
 }
+@media (hover: hover) and (pointer: fine) {
+  .sidebar nav a:hover {
+    color: var(--color-text-primary);
+    background: var(--color-bg-control-hover);
+  }
+  .account-trigger:hover {
+    color: var(--color-text-primary);
+    background: var(--color-bg-control-hover);
+  }
+  .account-action:hover {
+    color: var(--color-text-primary);
+    background: var(--color-bg-control-hover);
+  }
+}
 @media (prefers-reduced-motion: reduce) {
   .sidebar nav a,
   .sidebar nav a svg,
   .account-chevron {
     transition: none;
   }
-  .sidebar nav a:hover svg,
   .sidebar nav a:active,
   .account-action:active {
     transform: none;

@@ -30,6 +30,14 @@ function onDocumentKeydown(event: KeyboardEvent) {
   hovered.value = false;
   focused.value = false;
 }
+function onPointerEnter(event: PointerEvent) {
+  if (event.pointerType === "touch") return;
+  hovered.value = true;
+}
+function onPointerLeave(event: PointerEvent) {
+  if (event.pointerType === "touch") return;
+  hovered.value = false;
+}
 onMounted(() => document.addEventListener("keydown", onDocumentKeydown));
 onBeforeUnmount(() => document.removeEventListener("keydown", onDocumentKeydown));
 
@@ -52,8 +60,8 @@ function toggle() {
     :aria-busy="pending || undefined"
     :disabled="disabled || pending"
     @click.stop="toggle"
-    @mouseenter="hovered = true"
-    @mouseleave="hovered = false"
+    @pointerenter="onPointerEnter"
+    @pointerleave="onPointerLeave"
     @focus="focused = (button?.matches(':focus-visible') ?? false) && !button?.dataset.focusRestored"
     @blur="focused = false"
   >
@@ -79,10 +87,6 @@ function toggle() {
     border-color var(--duration-normal) var(--ease-standard),
     opacity var(--duration-fast) var(--ease-standard);
 }
-.ui-switch:hover:not(:disabled) {
-  border-color: var(--color-border-button-hover);
-  background: var(--color-switch-track-hover-background);
-}
 .ui-switch:focus-visible {
   border-color: var(--color-focus);
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-focus) 24%, transparent);
@@ -90,10 +94,6 @@ function toggle() {
 .ui-switch.checked {
   border-color: var(--color-border-strong);
   background: var(--color-switch-track-background);
-}
-.ui-switch.checked:hover:not(:disabled) {
-  border-color: var(--color-border-button-hover);
-  background: var(--color-switch-track-hover-background);
 }
 .thumb {
   position: absolute;
@@ -121,6 +121,13 @@ function toggle() {
 @keyframes switch-pulse {
   to {
     opacity: 0.38;
+  }
+}
+@media (hover: hover) and (pointer: fine) {
+  .ui-switch:hover:not(:disabled),
+  .ui-switch.checked:hover:not(:disabled) {
+    border-color: var(--color-border-button-hover);
+    background: var(--color-switch-track-hover-background);
   }
 }
 @media (prefers-reduced-motion: reduce) {

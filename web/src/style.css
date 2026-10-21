@@ -160,14 +160,16 @@ select {
   outline: none;
   background: var(--color-bg-raised);
 }
-input:hover,
-select:hover {
-  border-color: var(--color-border-strong);
-}
 input:focus,
 select:focus {
   border-color: var(--color-focus);
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-focus) 18%, transparent);
+}
+@media (hover: hover) and (pointer: fine) {
+  input:hover,
+  select:hover {
+    border-color: var(--color-border-strong);
+  }
 }
 ::selection {
   background: var(--color-selection);

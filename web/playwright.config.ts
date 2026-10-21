@@ -10,5 +10,16 @@ export default defineConfig({
     url: "http://127.0.0.1:8080",
     reuseExistingServer: true,
   },
-  projects: [{ name: "mobile", use: { ...devices["Pixel 5"] } }],
+  projects: [
+    {
+      name: "mobile",
+      testMatch: /mobile-nav\.spec\.ts/,
+      use: { ...devices["Pixel 5"] },
+    },
+    {
+      name: "desktop",
+      testMatch: /desktop-interactions\.spec\.ts/,
+      use: { ...devices["Desktop Chrome"] },
+    },
+  ],
 });
