@@ -6,7 +6,7 @@ import UsersIcon from './icons/UsersIcon.vue'
 import CloseIcon from './icons/CloseIcon.vue'
 import UIConfirmDialog from './ui/UIConfirmDialog.vue'
 import UIIconButton from './ui/UIIconButton.vue'
-import ProfileRowActions from './ProfileRowActions.vue'
+import ProfileListItem from './ProfileListItem.vue'
 import UIButton from './ui/UIButton.vue'
 import { vscode } from '../vscode'
 
@@ -260,41 +260,8 @@ function submitProvider() {
   }
 }
 
-function getProfileMeta(profile: Profile) {
-  if (profile.kind === 'provider') return profile.baseUrl ?? ''
-  return 'OpenAI'
-}
-
-function getUsageWindows(profile: Profile) {
-  const windows = [profile.usage?.primary, profile.usage?.secondary].filter((window) => window != null)
-  return windows
-    .map((window) => ({
-      ...window,
-      label: window.windowDurationMins === 300
-        ? '5-hour usage limit'
-        : window.windowDurationMins === 10080
-          ? 'Weekly usage limit'
-          : window.windowDurationMins
-            ? `${Math.round(window.windowDurationMins / 60)}-hour usage limit`
-            : 'Usage limit',
-    }))
-    .sort((left, right) => (left.windowDurationMins ?? 0) - (right.windowDurationMins ?? 0))
-}
-
 function isUsageExpanded(profile: Profile) {
   return expandedUsageIds.value.has(profile.id)
-}
-
-function canShowUsage(profile: Profile) {
-  return profile.kind !== 'provider' && getUsageWindows(profile).length > 0
-}
-
-function isUsageBusy(profile: Profile) {
-  return Boolean(profile.busy)
-}
-
-function usageStatusLabel(profile: Profile) {
-  return profile.usage?.updatedAt ? 'Updating usage limits...' : 'Fetching usage limits...'
 }
 
 function toggleUsage(profile: Profile, event: MouseEvent) {
@@ -309,17 +276,6 @@ function publishExpandedUsage() {
 
 function persistUiState() {
   vscode.setState({ query: query.value, expandedUsageIds: [...expandedUsageIds.value] })
-}
-
-function getRemainingPercent(usedPercent: number) {
-  return Math.max(0, 100 - usedPercent)
-}
-
-function formatResetTime(resetsAt: number | null) {
-  if (!resetsAt) return 'Reset time unavailable'
-  return `Resets ${new Date(resetsAt * 1000).toLocaleString(undefined, {
-    month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
-  })}`
 }
 
 function handleUsageKeydown(event: KeyboardEvent) {
@@ -343,6 +299,16 @@ watch(() => props.activationWaitingProfileId, (profileId) => {
     isSwitchPending.value = true
   }
 })
+
+watch(
+  () => props.profiles.find((profile) => profile.active)?.id ?? null,
+  (activeId) => {
+    if (activeId && pendingSwitchProfile.value?.id === activeId) {
+      pendingSwitchProfile.value = null
+      isSwitchPending.value = false
+    }
+  },
+)
 
 watch(isProviderFormOpen, async (open) => {
   if (!open) return
@@ -454,67 +420,16 @@ onUnmounted(() => {
     <div class="table-card">
       <div class="list-header">Profile</div>
       <div class="profile-list">
-        <article v-for="profile in visibleProfiles" :key="profile.id" class="profile-item">
-          <div
-            class="profile-row"
-            :class="{ active: profile.active, expired: profile.authExpired, switchable: !profile.active }"
-          >
-            <button
-              class="row-hit-target"
-              type="button"
-              :aria-label="profile.active ? `Active profile ${profile.name}` : `Switch to ${profile.name}`"
-              :tabindex="profile.active ? -1 : 0"
-              @click="requestActivation(profile)"
-            />
-            <div class="identity">
-              <span class="status-stack">
-                <span class="dot" aria-hidden="true" />
-              </span>
-              <span class="profile-copy">
-                <span class="name">{{ profile.name }}</span>
-                <span class="meta">{{ getProfileMeta(profile) }}</span>
-              </span>
-            </div>
-            <ProfileRowActions
-              :kind="profile.kind"
-              :can-show-usage="canShowUsage(profile)"
-              :usage-expanded="isUsageExpanded(profile)"
-              @edit="openProviderEditor(profile, $event)"
-              @delete="requestDeletion(profile)"
-              @toggle-usage="toggleUsage(profile, $event)"
-            />
-          </div>
-          <Transition name="usage-expand">
-            <div v-if="isUsageExpanded(profile)" class="usage-widgets">
-              <section
-                v-for="window in getUsageWindows(profile)"
-                :key="window.label"
-                class="usage-widget"
-              >
-                <span class="usage-copy">
-                  <span class="usage-title">{{ window.label }}</span>
-                  <span class="usage-reset">{{ formatResetTime(window.resetsAt) }}</span>
-                </span>
-                <span class="usage-track" aria-hidden="true">
-                  <span
-                    class="usage-fill"
-                    :style="{ width: `${getRemainingPercent(window.usedPercent)}%` }"
-                  />
-                </span>
-                <span class="usage-remaining">{{ getRemainingPercent(window.usedPercent) }}% left</span>
-              </section>
-              <section
-                v-if="getUsageWindows(profile).length === 0"
-                class="usage-widget usage-placeholder"
-              >
-                <span class="usage-copy">
-                  <span class="usage-title">Usage limits</span>
-                  <span class="usage-reset">{{ isUsageBusy(profile) ? usageStatusLabel(profile) : profile.usage?.errorCode === 'AUTH_EXPIRED' ? 'Expired' : 'Usage limits unavailable' }}</span>
-                </span>
-              </section>
-            </div>
-          </Transition>
-        </article>
+        <ProfileListItem
+          v-for="profile in visibleProfiles"
+          :key="profile.id"
+          :profile="profile"
+          :usage-expanded="isUsageExpanded(profile)"
+          @activate="requestActivation(profile)"
+          @edit="openProviderEditor(profile, $event)"
+          @delete="requestDeletion(profile)"
+          @toggle-usage="toggleUsage(profile, $event)"
+        />
         <div v-if="!visibleProfiles.length" class="empty">
           {{ props.profiles.length ? 'No profiles found' : 'No profiles yet' }}
         </div>
@@ -533,7 +448,7 @@ onUnmounted(() => {
     <UIConfirmDialog
       :open="isAddPending"
       title="Add OpenAI profile?"
-      message="The current profile will remain saved. VS Code will reload and wait for another Codex sign-in."
+      message="A terminal will open with an isolated device-code sign-in. The current profile and running chats will not be changed."
       confirm-label="Continue"
       @confirm="confirmAdd"
       @cancel="isAddPending = false"
@@ -606,8 +521,8 @@ onUnmounted(() => {
     <UIConfirmDialog
       :open="props.awaitingSignIn"
       :title="props.addError ? 'Authentication problem' : 'Waiting for sign-in'"
-      :message="props.addError || 'Open Codex and sign in. The profile will be added automatically when authentication completes.'"
-      confirm-label="Open Codex"
+      :message="props.addError || 'Complete the device-code sign-in in the terminal. The profile will be added automatically.'"
+      confirm-label="Show terminal"
       cancel-label="Cancel"
       :secondary-label="props.addError ? 'Retry' : undefined"
       @confirm="emit('signIn')"
@@ -617,7 +532,7 @@ onUnmounted(() => {
     <UIConfirmDialog
       :open="pendingSwitchProfile !== null"
       title="Switch profile?"
-      :message="`Switch to ${pendingSwitchProfile?.name ?? ''}? VS Code will reload immediately.`"
+      :message="`Use ${pendingSwitchProfile?.name ?? ''} for new Codex requests? Existing WebSocket connections remain pinned to their current profile.`"
       confirm-label="Switch"
       :confirm-pending="isSwitchPending"
       @confirm="confirmActivation"
@@ -657,19 +572,19 @@ onUnmounted(() => {
   flex: 1 1 auto;
   align-items: center;
   padding: 8px;
-  border: 1px solid var(--vscode-widget-border);
+  border: 1px solid var(--color-border-default);
   border-radius: 7px;
-  background-color: var(--vscode-sideBar-background, var(--vscode-editor-background));
+  background-color: var(--color-bg-surface);
 }
-.search-card:focus-within { border-color: var(--vscode-focusBorder); }
+.search-card:focus-within { border-color: var(--color-focus); }
 .add-button {
-  --button-background: var(--vscode-editor-background);
-  --button-hover-background: var(--vscode-toolbar-hoverBackground);
+  --button-background: var(--color-bg-surface);
+  --button-hover-background: var(--color-bg-control-hover);
   box-sizing: border-box;
   width: 46px;
   height: 46px;
   flex: 0 0 46px;
-  border-color: var(--vscode-widget-border);
+  border-color: var(--color-border-default);
   border-radius: 7px;
 }
 .add-button :deep(.icon) { width: 18px; height: 18px; }
@@ -679,25 +594,25 @@ onUnmounted(() => {
   min-width: 0;
   height: 28px;
   padding: 4px 8px;
-  color: var(--vscode-input-foreground);
+  color: var(--color-text-primary);
   border: 0;
   outline: none;
   background: transparent;
   font: inherit;
 }
-.search-input::placeholder { color: var(--vscode-input-placeholderForeground); }
+.search-input::placeholder { color: var(--color-text-secondary); }
 .clear-search-button {
-  --button-foreground: var(--vscode-descriptionForeground);
+  --button-foreground: var(--color-text-secondary);
   flex: 0 0 28px;
 }
-.clear-search-button:hover { --button-foreground: var(--vscode-errorForeground); }
+.clear-search-button:hover { --button-foreground: var(--color-icon-button-danger-foreground); }
 .table-card {
   max-height: calc(100vh - 82px);
   overflow: auto;
   scrollbar-width: none;
-  border: 1px solid var(--vscode-widget-border);
+  border: 1px solid var(--color-border-default);
   border-radius: 7px;
-  background: var(--vscode-editor-background);
+  background: var(--color-bg-surface);
 }
 .table-card::-webkit-scrollbar { display: none; }
 .list-header {
@@ -707,9 +622,9 @@ onUnmounted(() => {
   box-sizing: border-box;
   min-height: 36px;
   padding: 8px 12px;
-  color: var(--vscode-descriptionForeground);
-  border-bottom: 1px solid color-mix(in srgb, var(--vscode-widget-border) 70%, transparent);
-  background-color: var(--vscode-sideBar-background, var(--vscode-editor-background));
+  color: var(--color-text-secondary);
+  border-bottom: 1px solid var(--color-border-default);
+  background-color: var(--color-bg-table-header);
   box-shadow: none;
   isolation: isolate;
   font-size: 11px;
@@ -717,42 +632,7 @@ onUnmounted(() => {
   line-height: 20px;
   user-select: none;
 }
-.profile-item { border-bottom: 1px solid var(--vscode-widget-border); }
-.profile-item:last-child { border-bottom: 0; }
-.profile-row { position: relative; box-sizing: border-box; display: grid; min-height: 54px; grid-template-columns: minmax(0, 1fr) auto; align-items: stretch; padding: 12px; transition: background-color 120ms ease; }
-.profile-row:has(.row-hit-target:hover) { background: var(--app-row-hover-background); }
-.profile-item:has(.row-hit-target:hover) .usage-widgets { background: var(--app-row-hover-background); }
-.row-hit-target { position: absolute; z-index: 0; inset: 0; padding: 0; border: 0; outline: none; background: transparent; cursor: default; }
-.switchable .row-hit-target { cursor: pointer; }
-.row-hit-target:focus-visible { outline: 1px solid var(--vscode-focusBorder); outline-offset: -1px; }
-.identity { position: relative; z-index: 1; display: flex; min-width: 0; align-items: center; gap: 10px; overflow: hidden; pointer-events: none; }
-.status-stack { display: flex; width: 12px; flex: 0 0 12px; align-items: center; justify-content: center; }
-.dot { width: 9px; height: 9px; flex: 0 0 auto; border-radius: 50%; background: var(--vscode-descriptionForeground); }
-.active .dot { background: var(--vscode-testing-iconPassed, #73c991); }
-.expired .dot { background: var(--vscode-editorWarning-foreground, #cca700); }
-.profile-copy { display: flex; min-width: 0; flex-direction: column; justify-content: center; gap: 2px; }
-.name { overflow: hidden; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
-.meta { overflow: hidden; color: var(--vscode-descriptionForeground); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
-.usage-widgets { display: flex; min-width: 0; flex-direction: column; gap: 8px; padding: 0 12px 12px; background: transparent; transition: background-color 120ms ease; }
-.usage-expand-enter-active, .usage-expand-leave-active { max-height: 360px; overflow: hidden; transition: max-height 220ms ease, opacity 160ms ease, transform 180ms ease, padding-bottom 220ms ease; }
-.usage-expand-enter-from, .usage-expand-leave-to { max-height: 0; padding-bottom: 0; opacity: 0; transform: translateY(-4px); }
-.usage-widget { position: relative; box-sizing: border-box; display: grid; width: 100%; min-width: 0; overflow: hidden; grid-template-columns: minmax(0, 1fr) minmax(72px, 120px) 52px; align-items: center; gap: 12px; padding: 12px; border: 1px solid var(--vscode-widget-border); border-radius: 7px; background: var(--vscode-editorWidget-background, var(--vscode-editor-background)); }
-.usage-placeholder { min-height: 66px; grid-template-columns: minmax(0, 1fr); }
-.usage-copy { display: flex; min-width: 0; flex-direction: column; gap: 4px; }
-.usage-title { overflow: hidden; color: var(--vscode-foreground); font-size: var(--vscode-font-size); font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
-.usage-track { display: block; width: 100%; height: 8px; overflow: hidden; border-radius: 4px; background: rgb(127 127 127 / 18%); }
-.usage-fill { display: block; height: 100%; border-radius: inherit; background: var(--vscode-foreground); opacity: .72; transition: width 560ms cubic-bezier(.22, 1, .36, 1); }
-.usage-remaining { min-width: 0; overflow: hidden; color: var(--vscode-descriptionForeground); font-size: 11px; font-variant-numeric: tabular-nums; text-align: right; text-overflow: ellipsis; white-space: nowrap; }
-.usage-reset { overflow: hidden; color: var(--vscode-descriptionForeground); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
-@media (max-width: 380px) {
-  .usage-widget { grid-template-columns: minmax(0, 1fr) 52px; gap: 10px; }
-  .usage-track { grid-row: 2; grid-column: 1 / -1; }
-  .usage-remaining { grid-row: 1; grid-column: 2; }
-}
-@media (prefers-reduced-motion: reduce) {
-  .usage-expand-enter-active, .usage-expand-leave-active { transition: none; }
-}
-.empty { padding: 14px 10px; color: var(--vscode-descriptionForeground); text-align: center; }
+.empty { padding: 14px 10px; color: var(--color-text-secondary); text-align: center; }
 .backdrop {
   position: fixed;
   z-index: 100;

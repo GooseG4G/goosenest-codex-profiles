@@ -75,6 +75,8 @@ function appendProviderConfig(contents, profile) {
     `base_url = ${tomlString(profile.baseUrl)}`,
     `env_key = ${tomlString(profile.envKey)}`,
     'wire_api = "responses"',
+    'requires_openai_auth = false',
+    'supports_websockets = true',
   ].join('\n');
   const rootProvider = `model_provider = ${tomlString(profile.provider)}`;
   return formatTomlFile(`${rootProvider}\n\n${base ? `${base}\n\n` : ''}${providerBlock}`);

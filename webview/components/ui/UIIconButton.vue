@@ -75,10 +75,10 @@ const buttonClasses = computed(() => [
 
 <style scoped>
 .icon-button {
-  --button-background: var(--vscode-toolbar-hoverBackground);
-  --button-foreground: var(--vscode-foreground);
-  --button-hover-background: var(--vscode-toolbar-hoverBackground);
-  --button-pressed-background: var(--vscode-toolbar-activeBackground, var(--vscode-list-activeSelectionBackground));
+  --button-background: var(--color-bg-control-hover);
+  --button-foreground: var(--color-icon-button-foreground);
+  --button-hover-background: var(--color-bg-control-hover);
+  --button-pressed-background: var(--color-bg-control-pressed);
   position: relative;
   display: inline-flex;
   align-items: center;
@@ -101,9 +101,9 @@ const buttonClasses = computed(() => [
 .size-small { width: 28px; height: 28px; padding: 5px; font-size: 11px; }
 .size-medium { min-height: 28px; padding: 5px 9px; font-size: 12px; }
 .tone-danger {
-  --button-foreground: var(--vscode-errorForeground);
-  --button-hover-background: var(--vscode-inputValidation-errorBackground, var(--vscode-toolbar-hoverBackground));
-  --button-pressed-background: var(--vscode-inputValidation-errorBackground, var(--vscode-toolbar-hoverBackground));
+  --button-foreground: var(--color-icon-button-danger-foreground);
+  --button-hover-background: color-mix(in srgb, var(--color-icon-button-danger-foreground) 12%, transparent);
+  --button-pressed-background: color-mix(in srgb, var(--color-icon-button-danger-foreground) 18%, transparent);
 }
 .background-always { background: var(--button-background); }
 .background-always:hover, .background-always:focus-visible { background: var(--button-hover-background); }
@@ -111,7 +111,7 @@ const buttonClasses = computed(() => [
 .background-hover:hover, .background-hover:focus-visible { color: var(--button-foreground); background: var(--button-hover-background); }
 .background-never { color: var(--button-foreground); background: transparent; }
 .background-never:hover, .background-never:focus-visible { color: var(--button-foreground); background: transparent; }
-.icon-button:focus-visible { border-color: var(--vscode-focusBorder); }
+.icon-button:focus-visible { border-color: var(--color-focus); }
 .icon-button.is-selected { color: var(--button-foreground); background: var(--button-hover-background); }
 .icon-button:active { background: var(--button-pressed-background); }
 .surface-lift:hover, .surface-lift:focus-visible { transform: translate3d(0, -2px, 0) scale(1); }
@@ -142,7 +142,7 @@ const buttonClasses = computed(() => [
 .icon-shift-diagonal:hover .icon, .icon-shift-diagonal:focus-visible .icon { transform: translate3d(2px, -2px, 0); }
 .icon-shift-diagonal:active .icon { transform: translate3d(-1px, 1px, 0) scale(.9); }
 .icon-none .icon { transform: none; }
-.icon-button:disabled { color: var(--vscode-disabledForeground); background: transparent; cursor: default; transform: none; transition: none; }
+.icon-button:disabled { color: var(--color-disabled); background: transparent; cursor: default; transform: none; transition: none; }
 .icon-button:disabled .icon { opacity: .65; transform: none; }
 .icon-button:disabled .label { opacity: .65; }
 .label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

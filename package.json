@@ -2,7 +2,7 @@
   "name": "codex-profiles",
   "displayName": "Codex Profiles",
   "description": "Switch Codex accounts, view usage limits, and manage compatible providers from VS Code",
-  "version": "0.11.2",
+  "version": "1.0.0",
   "publisher": "goosenest",
   "repository": {
     "type": "git",
@@ -39,12 +39,14 @@
     "node_modules/proper-lockfile",
     "node_modules/retry",
     "node_modules/signal-exit",
+    "node_modules/ws",
     "README.md"
   ],
   "scripts": {
     "build": "vite build",
     "check": "vue-tsc --noEmit",
-    "package": "vsce package --githubBranch master"
+    "test": "node --test test/*.test.js",
+    "package": "vsce package --githubBranch main"
   },
   "contributes": {
     "commands": [
@@ -106,14 +108,15 @@
   },
   "devDependencies": {
     "@types/vscode": "^1.106.0",
-    "@vscode/vsce": "^3.6.2",
     "@vitejs/plugin-vue": "^6.0.1",
+    "@vscode/vsce": "^3.6.2",
     "typescript": "^5.9.3",
     "vite": "^7.1.7",
     "vue-tsc": "^3.1.0"
   },
   "dependencies": {
     "proper-lockfile": "^4.1.2",
-    "vue": "^3.5.22"
+    "vue": "^3.5.22",
+    "ws": "^8.18.3"
   }
 }

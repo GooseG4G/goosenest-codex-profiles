@@ -1,0 +1,96 @@
+:root {
+  color-scheme: dark;
+  color: var(--color-text-primary);
+  background: var(--color-bg-canvas);
+  font-family: var(--vscode-font-family, Inter, ui-sans-serif, sans-serif);
+  font-size: var(--vscode-font-size, 13px);
+
+  --color-text-primary: var(--vscode-foreground, #ededed);
+  --color-text-secondary: var(--vscode-descriptionForeground, #9a9a9a);
+  --color-text-tertiary: var(--vscode-disabledForeground, #737373);
+  --color-text-on-emphasis: var(--vscode-button-foreground, #fff);
+  --color-bg-canvas: var(--vscode-sideBar-background, #101112);
+  --color-bg-surface: var(--vscode-editor-background, #18191a);
+  --color-bg-raised: var(--vscode-editorWidget-background, #1e1f20);
+  --color-bg-dialog: var(--vscode-editorWidget-background, #191a1b);
+  --color-bg-backdrop: rgb(5 6 7 / 78%);
+  --color-bg-table-header: color-mix(in srgb, var(--color-bg-surface) 88%, var(--color-text-primary) 12%);
+  --color-bg-row-hover: var(--vscode-list-hoverBackground, #1c1d1e);
+  --color-bg-control-hover: var(--vscode-toolbar-hoverBackground, rgb(255 255 255 / 4%));
+  --color-bg-control-pressed: var(--vscode-toolbar-activeBackground, rgb(255 255 255 / 7%));
+  --color-bg-progress-track: color-mix(in srgb, var(--color-text-primary) 20%, transparent);
+  --color-bg-progress-fill: color-mix(in srgb, var(--color-text-primary) 72%, transparent);
+  --color-bg-skeleton: color-mix(in srgb, var(--color-text-primary) 22%, transparent);
+  --color-border-default: var(--vscode-widget-border, #303132);
+  --color-border-strong: color-mix(in srgb, var(--color-border-default) 68%, var(--color-text-primary) 32%);
+  --color-focus: var(--vscode-focusBorder, #7aa2f7);
+  --color-shimmer-light: rgb(255 255 255 / 13%);
+  --color-shimmer-strong: rgb(255 255 255 / 16%);
+  --color-shimmer-subtle: rgb(255 255 255 / 10%);
+  --shadow-overlay: 0 12px 30px var(--vscode-widget-shadow, rgb(0 0 0 / 53%));
+  --shadow-dialog: 0 18px 48px var(--vscode-widget-shadow, rgb(0 0 0 / 53%));
+  --duration-fast: 120ms;
+  --duration-normal: 160ms;
+  --duration-slow: 220ms;
+  --ease-standard: ease;
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+
+  --color-button-secondary-background: var(--vscode-button-secondaryBackground, #1e1f20);
+  --color-button-secondary-border: var(--color-border-strong);
+  --color-button-secondary-hover-background: var(--vscode-button-secondaryHoverBackground, #292a2b);
+  --color-button-secondary-pressed-background: var(--color-bg-control-pressed);
+  --color-button-primary-background: var(--vscode-button-background, #ededed);
+  --color-button-primary-border: var(--vscode-button-background, #ededed);
+  --color-button-primary-hover-background: var(--vscode-button-hoverBackground, #fff);
+  --color-button-primary-foreground: var(--vscode-button-foreground, #171717);
+  --color-icon-button-foreground: var(--vscode-icon-foreground, #c4c4c4);
+  --color-icon-button-danger-foreground: var(--vscode-errorForeground, #f2766d);
+  --color-icon-button-danger-hover-foreground: var(--vscode-errorForeground, #ff8c84);
+  --color-disabled: var(--vscode-disabledForeground, #737373);
+  --color-input-background: var(--vscode-input-background, #18191a);
+  --color-error-foreground: var(--vscode-inputValidation-errorForeground, var(--vscode-errorForeground, #ff8c84));
+  --color-error-border: var(--vscode-inputValidation-errorBorder, var(--vscode-errorForeground, #a64a44));
+  --color-error-background: var(--vscode-inputValidation-errorBackground, #3b2020);
+  --color-tooltip-foreground: var(--vscode-editorHoverWidget-foreground, var(--color-text-primary));
+  --color-tooltip-background: var(--vscode-editorHoverWidget-background, var(--color-bg-raised));
+  --color-tooltip-border: var(--vscode-editorHoverWidget-border, var(--color-border-default));
+  --color-profile-status-active: var(--vscode-testing-iconPassed, #58d68d);
+  --color-profile-status-inactive: var(--vscode-descriptionForeground, #888);
+  --color-profile-status-auth-required: var(--vscode-editorWarning-foreground, #d99a18);
+  --color-profile-disclosure-icon: var(--vscode-icon-foreground, #c4c4c4);
+  --color-usage-card-background: color-mix(in srgb, var(--color-bg-raised) 86%, var(--color-text-primary) 14%);
+  --color-usage-secondary-text: var(--vscode-descriptionForeground, #aaa);
+}
+
+* {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html,
+body,
+#app {
+  width: 100%;
+  height: 100%;
+  min-width: 240px;
+  margin: 0;
+}
+
+body {
+  color: var(--color-text-primary);
+  background: var(--color-bg-canvas);
+  user-select: none;
+}
+
+input,
+textarea,
+[contenteditable="true"] {
+  user-select: text;
+}
+
+button,
+input,
+select {
+  color: inherit;
+  font: inherit;
+}

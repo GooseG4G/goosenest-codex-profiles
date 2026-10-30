@@ -5,19 +5,15 @@ const os = require('os');
 const path = require('path');
 const vscode = require('vscode');
 const {
-  appendProviderConfig,
   createProviderSlug,
   createUniqueEnvKey,
-  formatTomlFile,
-  readEnvValue,
-  readRootModelProvider,
-  removeEnvValue,
-  stripManagedProviderConfig,
-  upsertEnvValue,
 } = require('./provider-config');
 const { resolveReauthenticationProfile } = require('./profile-selection');
 const { SerialQueue } = require('./serial-queue');
 const { StoreTransactionQueue } = require('./store-transaction');
+const { ensureLocalGateway } = require('./local-gateway/coordinator');
+const { accountHome, createGatewayPaths, providerHome } = require('./local-gateway/paths');
+const { ProfileRegistry } = require('./local-gateway/registry');
 
 const VIEW_ID = 'codexProfiles.profilesView';
 const AUTH_READ_RETRY_COUNT = 5;
@@ -25,7 +21,7 @@ const AUTH_READ_RETRY_DELAY_MS = 250;
 const DEFAULT_KIND = 'default';
 const PROVIDER_KIND = 'provider';
 const ACTIVE_USAGE_INTERVAL_MS = 60 * 1000;
-const MIN_USAGE_REQUEST_INTERVAL_MS = 60 * 1000;
+const MIN_USAGE_REQUEST_INTERVAL_MS = 24 * 60 * 60 * 1000;
 const USAGE_REQUEST_TIMEOUT_MS = 20 * 1000;
 const SCRATCH_ROOT = path.join(os.tmpdir(), 'goosenest-codex-profiles');
 const ORPHAN_SCRATCH_MAX_AGE_MS = 24 * 60 * 60 * 1000;
@@ -131,15 +127,6 @@ function getAuthFreshness(contents, modifiedAt) {
   } catch {
     return { refreshAt: null, modifiedAt };
   }
-}
-
-function compareFreshness(left, right) {
-  if (left.refreshAt !== null && right.refreshAt !== null && left.refreshAt !== right.refreshAt) {
-    return left.refreshAt - right.refreshAt;
-  }
-  if (left.refreshAt !== null && right.refreshAt === null) return 1;
-  if (left.refreshAt === null && right.refreshAt !== null) return -1;
-  return left.modifiedAt - right.modifiedAt;
 }
 
 async function exists(filePath) {
@@ -324,21 +311,23 @@ async function readCodexUsage(codexHome) {
 }
 
 class ProfileStore {
-  constructor(context) {
-    this.profilesDirectory = path.join(context.globalStorageUri.fsPath, 'auth-profiles');
-    this.configSnapshotsDirectory = path.join(context.globalStorageUri.fsPath, 'config-profiles');
-    this.statePath = path.join(context.globalStorageUri.fsPath, 'profiles.json');
+  constructor(context, paths) {
+    this.context = context;
+    this.paths = paths;
+    this.profilesDirectory = paths.accountsRoot;
+    this.statePath = paths.indexPath;
     this.stateQueue = new StoreTransactionQueue(this.statePath);
   }
 
-  get authPath() { return path.join(getCodexHome(), 'auth.json'); }
-  get configPath() { return path.join(getCodexHome(), 'config.toml'); }
-  get envPath() { return path.join(getCodexHome(), '.env'); }
+  profilePath(id) { return path.join(accountHome(this.paths, id), 'auth.json'); }
+  providerCredentialsPath(id) { return path.join(providerHome(this.paths, id), 'credentials.json'); }
 
   async readState() {
     try {
       const parsed = JSON.parse(await fs.promises.readFile(this.statePath, 'utf8'));
       return {
+        version: Number.isInteger(parsed.version) ? parsed.version : 1,
+        revision: Number.isInteger(parsed.revision) ? parsed.revision : 0,
         activeId: typeof parsed.activeId === 'string' ? parsed.activeId : null,
         profiles: Array.isArray(parsed.profiles)
           ? parsed.profiles.map((profile) => ({
@@ -359,12 +348,14 @@ class ProfileStore {
           : null,
       };
     } catch (error) {
-      if (error.code === 'ENOENT') return { activeId: null, profiles: [], pendingAdd: null };
+      if (error.code === 'ENOENT') return { version: 1, revision: 0, activeId: null, profiles: [], pendingAdd: null };
       throw new Error(`Could not read profiles: ${error.message}`);
     }
   }
 
   async writeState(state) {
+    state.version = 1;
+    state.revision = (state.revision || 0) + 1;
     await writeAtomic(this.statePath, JSON.stringify(state, null, 2));
   }
 
@@ -377,16 +368,16 @@ class ProfileStore {
   }
 
   async listLocked(options = {}) {
-    let state;
+    let state = await this.readState();
     let addError = null;
-    try {
-      state = await this.syncCurrentLocked(options);
-    } catch (error) {
-      state = await this.readState();
-      if (!state.pendingAdd) throw error;
-      addError = error.code === 'REAUTH_ACCOUNT_MISMATCH'
-        ? error.message
-        : 'Could not read the new Codex authentication file.';
+    if (state.pendingAdd) {
+      try {
+        state = await this.completePendingAddLocked(state, options);
+      } catch (error) {
+        addError = error.code === 'REAUTH_ACCOUNT_MISMATCH'
+          ? error.message
+          : 'Could not read the new Codex authentication file.';
+      }
     }
     const profiles = [];
     for (const profile of state.profiles) {
@@ -401,7 +392,7 @@ class ProfileStore {
           envKey: profile.envKey,
           active: profile.id === state.activeId,
         });
-      } else if (await exists(path.join(this.profilesDirectory, `${profile.id}.json`))) {
+      } else if (await exists(this.profilePath(profile.id))) {
         profiles.push({
           id: profile.id,
           kind,
@@ -415,7 +406,10 @@ class ProfileStore {
   }
 
   syncCurrent(options = {}) {
-    return this.runExclusive(() => this.syncCurrentLocked(options));
+    return this.runExclusive(async () => {
+      const state = await this.readState();
+      return state.pendingAdd ? this.completePendingAddLocked(state, options) : state;
+    });
   }
 
   getDueUsageTargets(options = {}) {
@@ -428,12 +422,12 @@ class ProfileStore {
     hotIds = new Set(),
     includeScheduled = true,
   } = {}) {
-    const state = await this.syncCurrentLocked();
+    const state = await this.readState();
     const targets = [];
     let nextDueIn = ACTIVE_USAGE_INTERVAL_MS;
     for (const profile of state.profiles) {
       if ((profile.kind || DEFAULT_KIND) !== DEFAULT_KIND) continue;
-      const profilePath = path.join(this.profilesDirectory, `${profile.id}.json`);
+      const profilePath = this.profilePath(profile.id);
       if (!(await exists(profilePath))) continue;
       const active = profile.id === state.activeId;
       const fetchedAt = Date.parse(profile.usage?.fetchedAt || '');
@@ -515,169 +509,24 @@ class ProfileStore {
     });
   }
 
-  async readAuthSnapshot(retry = false) {
-    const attempts = retry ? AUTH_READ_RETRY_COUNT : 1;
-    let lastError;
-    for (let attempt = 0; attempt < attempts; attempt += 1) {
-      try {
-        const [contents, authStat] = await Promise.all([
-          fs.promises.readFile(this.authPath),
-          fs.promises.stat(this.authPath),
-        ]);
-        const parsed = JSON.parse(contents.toString('utf8'));
-        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-          throw new Error('auth.json does not contain a JSON object.');
-        }
-        return { contents, authStat };
-      } catch (error) {
-        lastError = error;
-        if (attempt + 1 < attempts) await delay(AUTH_READ_RETRY_DELAY_MS);
-      }
-    }
-    if (lastError?.code === 'ENOENT') return null;
-    throw lastError;
-  }
-
-  async syncCurrentLocked({ retry = false } = {}) {
-    const state = await this.readState();
-    const activeProvider = readRootModelProvider(await this.readTextIfExists(this.configPath));
-    if (activeProvider) {
-      const providerProfile = state.profiles.find((profile) =>
-        (profile.kind || DEFAULT_KIND) === PROVIDER_KIND && profile.provider === activeProvider
-      );
-      if (providerProfile) {
-        state.activeId = providerProfile.id;
-        providerProfile.lastSeenAt = new Date().toISOString();
-        await this.writeState(state);
-        return state;
-      }
-    }
-    const snapshot = await this.readAuthSnapshot(retry);
-    if (!snapshot) return state;
-    const { contents, authStat } = snapshot;
-    const fingerprint = crypto.createHash('sha256').update(contents).digest('hex');
-    const freshness = getAuthFreshness(contents.toString('utf8'), authStat.mtimeMs);
-    const fallback = `Profile ${state.profiles.length + 1}`;
-    const info = getProfileInfo(contents.toString('utf8'), fallback);
-    const matchingProfile = findProfile(state.profiles, info, fingerprint);
-    const reauthenticateProfileId = state.pendingAdd?.reauthenticateProfileId;
-    let current = matchingProfile;
-    if (reauthenticateProfileId) {
-      current = resolveReauthenticationProfile(state.profiles, info, matchingProfile, reauthenticateProfileId);
-    }
-    if (!current) {
-      const id = createProfileId(info.name);
-      const now = new Date().toISOString();
-      current = {
-        id,
-        kind: DEFAULT_KIND,
-        name: info.name,
-        identity: info.identity,
-        accountId: info.accountId,
-        email: info.email,
-        fingerprint,
-        lastRefresh: freshness.refreshAt === null ? null : new Date(freshness.refreshAt).toISOString(),
-        createdAt: now,
-        updatedAt: now,
-        lastSeenAt: now,
-      };
-      await writeAtomic(path.join(this.profilesDirectory, `${id}.json`), contents);
-      state.profiles.push(current);
-    } else {
-      const profilePath = path.join(this.profilesDirectory, `${current.id}.json`);
-      const profileExists = await exists(profilePath);
-      let shouldStoreCurrent = !profileExists;
-      let storedStat = null;
-      const explicitReauthentication = reauthenticateProfileId === current.id;
-
-      if (profileExists && current.fingerprint !== fingerprint) {
-        const [storedContents, profileStat] = await Promise.all([
-          fs.promises.readFile(profilePath),
-          fs.promises.stat(profilePath),
-        ]);
-        storedStat = profileStat;
-        if (explicitReauthentication) {
-          shouldStoreCurrent = true;
-        } else {
-          const storedFreshness = getAuthFreshness(storedContents.toString('utf8'), storedStat.mtimeMs);
-          shouldStoreCurrent = compareFreshness(freshness, storedFreshness) >= 0;
-          if (!shouldStoreCurrent) {
-            current.fingerprint = crypto.createHash('sha256').update(storedContents).digest('hex');
-            current.lastRefresh = storedFreshness.refreshAt === null
-              ? null
-              : new Date(storedFreshness.refreshAt).toISOString();
-            await copyAtomic(this.authPath, `${this.authPath}.bak`);
-            await copyAtomic(profilePath, this.authPath);
-          }
-        }
-      }
-
-      if (profileExists && !storedStat && (!current.createdAt || !current.updatedAt)) {
-        storedStat = await fs.promises.stat(profilePath);
-      }
-      const storedCreatedAt = storedStat
-        ? new Date(Number.isFinite(storedStat.birthtimeMs) ? storedStat.birthtimeMs : storedStat.mtimeMs).toISOString()
-        : new Date().toISOString();
-      current.createdAt ??= storedCreatedAt;
-      current.updatedAt ??= current.lastRefresh || (storedStat ? new Date(storedStat.mtimeMs).toISOString() : storedCreatedAt);
-
-      current.name = info.name;
-      current.identity = info.identity;
-      current.accountId = info.accountId;
-      current.email = info.email;
-      if (shouldStoreCurrent || current.fingerprint === fingerprint) {
-        current.fingerprint = fingerprint;
-        current.lastRefresh = freshness.refreshAt === null ? null : new Date(freshness.refreshAt).toISOString();
-      }
-      if (shouldStoreCurrent) {
-        await writeAtomic(profilePath, contents);
-        current.updatedAt = new Date().toISOString();
-      }
-      if (explicitReauthentication && current.usage) {
-        current.usage = {
-          ...current.usage,
-          status: 'stale',
-          fetchedAt: null,
-        };
-        delete current.usage.errorCode;
-        delete current.usage.error;
-      }
-      current.lastSeenAt = new Date().toISOString();
-    }
-    state.activeId = current.id;
-    state.pendingAdd = null;
-    await this.writeState(state);
-    return state;
-  }
-
   activate(id) {
     return this.runExclusive(() => this.activateLocked(id));
   }
 
   async activateLocked(id) {
-    // Persist the freshest access/refresh tokens of the account we are leaving.
-    const state = await this.syncCurrentLocked();
+    const state = await this.readState();
     const profile = state.profiles.find((item) => item.id === id);
     if (!profile) throw new Error('Profile not found.');
-    if ((profile.kind || DEFAULT_KIND) === PROVIDER_KIND) {
-      await this.applyProviderProfile(profile, state);
-      return profile.name;
+    if ((profile.kind || DEFAULT_KIND) === DEFAULT_KIND && !(await exists(this.profilePath(profile.id)))) {
+      throw new Error('The selected profile file was not found.');
     }
-    const source = path.join(this.profilesDirectory, `${profile.id}.json`);
-    if (!(await exists(source))) throw new Error('The selected profile file was not found.');
-    if (await exists(this.authPath)) await copyAtomic(this.authPath, `${this.authPath}.bak`);
-    await copyAtomic(source, this.authPath);
-    await this.applyDefaultConfig(state);
+    if ((profile.kind || DEFAULT_KIND) === PROVIDER_KIND && !(await exists(this.providerCredentialsPath(profile.id)))) {
+      throw new Error('The selected provider credentials were not found.');
+    }
     state.activeId = id;
+    profile.lastSeenAt = new Date().toISOString();
     await this.writeState(state);
     return profile.name;
-  }
-
-  getManagedProviders(state) {
-    return state.profiles
-      .filter((profile) => (profile.kind || DEFAULT_KIND) === PROVIDER_KIND)
-      .map((profile) => profile.provider)
-      .filter(Boolean);
   }
 
   async readTextIfExists(filePath) {
@@ -687,28 +536,6 @@ class ProfileStore {
       if (error.code === 'ENOENT') return '';
       throw error;
     }
-  }
-
-  async backupConfig() {
-    if (await exists(this.configPath)) await copyAtomic(this.configPath, `${this.configPath}.bak`);
-  }
-
-  async applyDefaultConfig(state) {
-    const contents = await this.readTextIfExists(this.configPath);
-    if (state.activeId) await writeAtomic(path.join(this.configSnapshotsDirectory, `${state.activeId}.toml`), contents);
-    await this.backupConfig();
-    await writeAtomic(this.configPath, formatTomlFile(stripManagedProviderConfig(contents, this.getManagedProviders(state))));
-  }
-
-  async applyProviderProfile(profile, state) {
-    if (!profile.provider || !profile.baseUrl || !profile.envKey) throw new Error('Provider profile is incomplete.');
-    const contents = await this.readTextIfExists(this.configPath);
-    if (state.activeId) await writeAtomic(path.join(this.configSnapshotsDirectory, `${state.activeId}.toml`), contents);
-    await this.backupConfig();
-    await writeAtomic(this.configPath, appendProviderConfig(contents, profile));
-    profile.lastSeenAt = new Date().toISOString();
-    state.activeId = profile.id;
-    await this.writeState(state);
   }
 
   validateProviderInput(name, baseUrl) {
@@ -736,7 +563,7 @@ class ProfileStore {
     if (!cleanToken) throw new Error('Access token is required.');
     if (/[\r\n]/.test(cleanToken)) throw new Error('Access token must be a single line.');
 
-    const state = await this.syncCurrentLocked();
+    const state = await this.readState();
     const normalizedName = cleanName.toLocaleLowerCase();
     const duplicate = state.profiles.find((profile) =>
       (profile.kind || DEFAULT_KIND) === PROVIDER_KIND
@@ -763,10 +590,12 @@ class ProfileStore {
       lastSeenAt: null,
     };
 
-    const envContents = await this.readTextIfExists(this.envPath);
-    await writeAtomic(this.envPath, upsertEnvValue(envContents, profile.envKey, cleanToken));
+    await fs.promises.mkdir(providerHome(this.paths, profile.id), { recursive: true });
+    await writeAtomic(this.providerCredentialsPath(profile.id), JSON.stringify({ accessToken: cleanToken }));
     state.profiles.push(profile);
-    await this.applyProviderProfile(profile, state);
+    state.activeId = profile.id;
+    profile.lastSeenAt = new Date().toISOString();
+    await this.writeState(state);
     return profile.name;
   }
 
@@ -778,7 +607,7 @@ class ProfileStore {
     const { cleanName, cleanBaseUrl } = this.validateProviderInput(name, baseUrl);
     const cleanToken = String(token || '').trim();
     if (/[\r\n]/.test(cleanToken)) throw new Error('Access token must be a single line.');
-    const state = await this.syncCurrentLocked();
+    const state = await this.readState();
     const profile = state.profiles.find((item) => item.id === id && (item.kind || DEFAULT_KIND) === PROVIDER_KIND);
     if (!profile) throw new Error('Provider profile not found.');
 
@@ -790,23 +619,82 @@ class ProfileStore {
     );
     if (duplicate) throw new Error(`A provider named "${cleanName}" already exists.`);
 
-    const envContents = await this.readTextIfExists(this.envPath);
-    const tokenToStore = cleanToken || readEnvValue(envContents, profile.envKey);
+    const credentials = await this.readTextIfExists(this.providerCredentialsPath(profile.id));
+    const tokenToStore = cleanToken || (credentials ? JSON.parse(credentials).accessToken : '');
     if (!tokenToStore) throw new Error('Access token is required.');
-    await writeAtomic(this.envPath, upsertEnvValue(envContents, profile.envKey, tokenToStore));
+    await writeAtomic(this.providerCredentialsPath(profile.id), JSON.stringify({ accessToken: tokenToStore }));
 
     profile.name = cleanName;
     profile.baseUrl = cleanBaseUrl;
     profile.updatedAt = new Date().toISOString();
     const active = state.activeId === profile.id;
-    if (active) {
-      const configContents = await this.readTextIfExists(this.configPath);
-      await this.backupConfig();
-      await writeAtomic(this.configPath, appendProviderConfig(configContents, profile));
-      profile.lastSeenAt = new Date().toISOString();
-    }
+    if (active) profile.lastSeenAt = new Date().toISOString();
     await this.writeState(state);
     return { name: profile.name, active };
+  }
+
+  async completePendingAddLocked(state, { retry = false } = {}) {
+    const pending = state.pendingAdd;
+    if (!pending?.loginId) return state;
+    const loginHome = accountHome(this.paths, pending.loginId);
+    const loginAuthPath = path.join(loginHome, 'auth.json');
+    const attempts = retry ? AUTH_READ_RETRY_COUNT : 1;
+    let contents;
+    let lastError;
+    for (let attempt = 0; attempt < attempts; attempt += 1) {
+      try {
+        contents = await fs.promises.readFile(loginAuthPath);
+        JSON.parse(contents.toString('utf8'));
+        break;
+      } catch (error) {
+        lastError = error;
+        if (error.code === 'ENOENT') return state;
+        if (attempt + 1 < attempts) await delay(AUTH_READ_RETRY_DELAY_MS);
+      }
+    }
+    if (!contents) throw lastError || new Error('Could not read device authentication.');
+
+    const fingerprint = crypto.createHash('sha256').update(contents).digest('hex');
+    const info = getProfileInfo(contents.toString('utf8'), 'The new authentication file');
+    let profile;
+    if (pending.reauthenticateProfileId) {
+      const matching = findProfile(state.profiles, info, fingerprint);
+      profile = resolveReauthenticationProfile(
+        state.profiles,
+        info,
+        matching,
+        pending.reauthenticateProfileId,
+      );
+    } else {
+      profile = findProfile(state.profiles, info, fingerprint);
+      if (!profile) {
+        profile = {
+          id: pending.loginId,
+          kind: DEFAULT_KIND,
+          createdAt: new Date().toISOString(),
+        };
+        state.profiles.push(profile);
+      }
+    }
+
+    const destinationHome = accountHome(this.paths, profile.id);
+    await fs.promises.mkdir(destinationHome, { recursive: true });
+    await writeAtomic(path.join(destinationHome, 'auth.json'), contents);
+    if (destinationHome !== loginHome) {
+      await fs.promises.rm(loginHome, { recursive: true, force: true });
+    }
+    profile.name = info.name;
+    profile.identity = info.identity;
+    profile.accountId = info.accountId;
+    profile.email = info.email;
+    profile.fingerprint = fingerprint;
+    profile.updatedAt = new Date().toISOString();
+    profile.lastSeenAt = profile.updatedAt;
+    if (profile.usage) profile.usage = { ...profile.usage, status: 'stale', fetchedAt: null };
+    state.activeId = profile.id;
+    state.pendingAdd = null;
+    await this.writeState(state);
+    return state;
   }
 
   beginAddProfile(reauthenticateProfileId = null) {
@@ -814,8 +702,8 @@ class ProfileStore {
   }
 
   async beginAddProfileLocked(reauthenticateProfileId = null) {
-    // Save the latest tokens without calling Codex logout, which could revoke the session.
-    const state = await this.syncCurrentLocked();
+    const state = await this.readState();
+    if (state.pendingAdd) throw new Error('A device-code sign-in is already in progress.');
     if (reauthenticateProfileId) {
       const profile = state.profiles.find((item) =>
         item.id === reauthenticateProfileId && (item.kind || DEFAULT_KIND) === DEFAULT_KIND
@@ -825,14 +713,13 @@ class ProfileStore {
         throw new Error('The saved profile does not contain a verifiable Codex account identity.');
       }
     }
-    state.pendingAdd = {
-      restoreProfileId: state.activeId,
-      reauthenticateProfileId,
-    };
-    await this.applyDefaultConfig(state);
-    await fs.promises.rm(this.authPath, { force: true });
-    state.activeId = null;
+    const loginId = `login-${crypto.randomBytes(8).toString('hex')}`;
+    const loginHome = accountHome(this.paths, loginId);
+    await fs.promises.rm(loginHome, { recursive: true, force: true });
+    await fs.promises.mkdir(loginHome, { recursive: true });
+    state.pendingAdd = { loginId, reauthenticateProfileId };
     await this.writeState(state);
+    return { loginId, loginHome };
   }
 
   cancelAddProfile() {
@@ -841,20 +728,8 @@ class ProfileStore {
 
   async cancelAddProfileLocked() {
     const state = await this.readState();
-    const restoreProfileId = state.pendingAdd?.restoreProfileId ?? null;
-    if (restoreProfileId) {
-      const profile = state.profiles.find((item) => item.id === restoreProfileId);
-      if (profile && (profile.kind || DEFAULT_KIND) === PROVIDER_KIND) {
-        await this.applyProviderProfile(profile, state);
-      } else {
-        const source = path.join(this.profilesDirectory, `${restoreProfileId}.json`);
-        if (await exists(source)) {
-          await this.applyDefaultConfig(state);
-          await copyAtomic(source, this.authPath);
-          state.activeId = restoreProfileId;
-        }
-      }
-    }
+    const loginId = state.pendingAdd?.loginId;
+    if (loginId) await fs.promises.rm(accountHome(this.paths, loginId), { recursive: true, force: true });
     state.pendingAdd = null;
     await this.writeState(state);
   }
@@ -864,19 +739,14 @@ class ProfileStore {
   }
 
   async deleteLocked(id) {
-    const state = await this.syncCurrentLocked();
+    const state = await this.readState();
     const profile = state.profiles.find((item) => item.id === id);
     if (!profile) throw new Error('Profile not found.');
     const active = profile.id === state.activeId;
     if ((profile.kind || DEFAULT_KIND) === PROVIDER_KIND) {
-      const configContents = await this.readTextIfExists(this.configPath);
-      await this.backupConfig();
-      await writeAtomic(this.configPath, formatTomlFile(stripManagedProviderConfig(configContents, [profile.provider])));
-      const envContents = await this.readTextIfExists(this.envPath);
-      await writeAtomic(this.envPath, removeEnvValue(envContents, profile.envKey));
+      await fs.promises.rm(providerHome(this.paths, profile.id), { recursive: true, force: true });
     } else {
-      await fs.promises.rm(path.join(this.profilesDirectory, `${profile.id}.json`), { force: true });
-      if (profile.id === state.activeId) await fs.promises.rm(this.authPath, { force: true });
+      await fs.promises.rm(accountHome(this.paths, profile.id), { recursive: true, force: true });
     }
     state.profiles = state.profiles.filter((item) => item.id !== id);
     if (active) state.activeId = null;
@@ -1094,22 +964,23 @@ class ProfilesViewProvider {
       }
       if (message.type === 'activate') {
         const id = String(message.id || '');
-        const activeId = await this.store.getActiveId();
-        const busyIds = this.usagePoller?.getBusyIds() || new Set();
-        if ([activeId, id].some((profileId) => profileId && busyIds.has(profileId))) {
-          this.post({ type: 'activationWaiting', id });
-        }
-        await this.usagePoller?.waitForProfiles([activeId, id]);
         await this.store.activate(id);
-        await vscode.commands.executeCommand('workbench.action.restartExtensionHost');
+        await this.sendState();
         return;
       }
       if (message.type === 'beginAdd' || message.type === 'reauthenticate') {
         const reauthenticateProfileId = message.type === 'reauthenticate' ? String(message.id || '') : null;
-        const activeId = await this.store.getActiveId();
-        await this.usagePoller?.waitForProfiles([activeId, reauthenticateProfileId]);
-        await this.store.beginAddProfile(reauthenticateProfileId);
-        await vscode.commands.executeCommand('workbench.action.restartExtensionHost');
+        const login = await this.store.beginAddProfile(reauthenticateProfileId);
+        const executable = await findCodexExecutable();
+        this.loginTerminal?.dispose();
+        this.loginTerminal = vscode.window.createTerminal({
+          name: reauthenticateProfileId ? 'Re-authenticate Codex profile' : 'Add Codex profile',
+          shellPath: executable,
+          shellArgs: ['login', '--device-auth'],
+          env: { CODEX_HOME: login.loginHome },
+        });
+        this.loginTerminal.show(true);
+        await this.sendState();
         return;
       }
       if (message.type === 'addProvider') {
@@ -1118,7 +989,7 @@ class ProfilesViewProvider {
           baseUrl: message.baseUrl,
           token: message.token,
         });
-        await vscode.commands.executeCommand('workbench.action.restartExtensionHost');
+        await this.sendState();
         return;
       }
       if (message.type === 'updateProvider') {
@@ -1128,33 +999,27 @@ class ProfilesViewProvider {
           baseUrl: message.baseUrl,
           token: message.token,
         });
-        if (result.active) {
-          await vscode.commands.executeCommand('workbench.action.restartExtensionHost');
-        } else {
-          await this.sendState();
-          this.post({ type: 'providerUpdated' });
-        }
+        await this.sendState();
+        this.post({ type: 'providerUpdated' });
         return;
       }
       if (message.type === 'cancelAdd') {
         await this.store.cancelAddProfile();
-        await vscode.commands.executeCommand('workbench.action.restartExtensionHost');
+        this.loginTerminal?.dispose();
+        this.loginTerminal = undefined;
+        await this.sendState();
         return;
       }
       if (message.type === 'signIn') {
-        await vscode.commands.executeCommand('chatgpt.openSidebar');
+        this.loginTerminal?.show(true);
         return;
       }
       if (message.type === 'retryAdd') return await this.sendState({ retry: true });
       if (message.type === 'delete') {
         const id = String(message.id || '');
         await this.usagePoller?.waitForProfiles([id]);
-        const result = await this.store.delete(id);
-        if (result.active) {
-          await vscode.commands.executeCommand('workbench.action.restartExtensionHost');
-        } else {
-          await this.sendState();
-        }
+        await this.store.delete(id);
+        await this.sendState();
         return;
       }
       await this.sendState();
@@ -1200,31 +1065,30 @@ class ProfilesViewProvider {
 }
 
 async function activate(context) {
-  const store = new ProfileStore(context);
-  try {
-    await store.syncCurrent();
-  } catch (error) {
-    console.error('Codex Profiles: automatic profile sync failed', error);
-  }
+  const paths = createGatewayPaths(getCodexHome());
+  const registry = new ProfileRegistry(paths);
+  await registry.ensure();
+  await ensureLocalGateway(paths);
+  const store = new ProfileStore(context, paths);
   const provider = new ProfilesViewProvider(context, store);
   const usagePoller = new UsagePoller(store, () => provider.sendState());
   provider.usagePoller = usagePoller;
   usagePoller.start();
   let syncTimer;
-  const authWatcher = vscode.workspace.createFileSystemWatcher(
-    new vscode.RelativePattern(getCodexHome(), 'auth.json'),
+  const stateWatcher = vscode.workspace.createFileSystemWatcher(
+    new vscode.RelativePattern(paths.profilesRoot, '{index.json,accounts/*/auth.json}'),
   );
   const scheduleSync = () => {
     clearTimeout(syncTimer);
     syncTimer = setTimeout(() => {
-      provider.sendState({ retry: true }).catch((error) => console.error('Codex Profiles: auth.json sync failed', error));
+      provider.sendState({ retry: true }).catch((error) => console.error('Codex Profiles: profile sync failed', error));
     }, 400);
   };
-  authWatcher.onDidCreate(scheduleSync);
-  authWatcher.onDidChange(scheduleSync);
-  authWatcher.onDidDelete(scheduleSync);
+  stateWatcher.onDidCreate(scheduleSync);
+  stateWatcher.onDidChange(scheduleSync);
+  stateWatcher.onDidDelete(scheduleSync);
   context.subscriptions.push(
-    authWatcher,
+    stateWatcher,
     { dispose: () => clearTimeout(syncTimer) },
     usagePoller,
     vscode.window.registerWebviewViewProvider(VIEW_ID, provider, {
