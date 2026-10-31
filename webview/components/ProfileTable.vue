@@ -514,6 +514,11 @@ onUnmounted(() => {
         <fieldset class="field transport-field">
           <legend class="field-label">Transport</legend>
           <div class="transport-switch" role="group" aria-label="Provider transport">
+            <span
+              class="transport-selection"
+              :class="{ websocket: providerTransport === 'websocket' }"
+              aria-hidden="true"
+            />
             <button
               type="button"
               class="transport-option"
@@ -685,9 +690,11 @@ onUnmounted(() => {
 .field { position: relative; display: flex; flex-direction: column; gap: 5px; }
 .field-label { color: var(--vscode-descriptionForeground, var(--color-text-secondary)); font-size: 11px; font-weight: 600; }
 .transport-field { min-width: 0; margin: 0; padding: 0; border: 0; }
-.transport-switch { position: relative; display: grid; grid-template-columns: 1fr 1fr; gap: 2px; padding: 2px; border: 1px solid var(--vscode-widget-border, var(--color-border-default)); border-radius: 8px; background: var(--vscode-input-background, var(--color-bg-surface)); }
-.transport-option { position: relative; z-index: 1; min-height: 32px; padding: 5px 8px; color: var(--vscode-descriptionForeground, var(--color-text-secondary)); border: 0; border-radius: 6px; outline: none; background: transparent; cursor: pointer; font-size: 11px; transition: color 140ms ease, background-color 180ms ease, transform 180ms cubic-bezier(.22,1,.36,1); }
-.transport-option.selected { color: var(--vscode-button-foreground, var(--color-text-on-emphasis)); background: var(--vscode-button-background, var(--color-button-primary-background)); box-shadow: 0 1px 2px rgb(0 0 0 / 22%); }
+.transport-switch { position: relative; display: grid; grid-template-columns: 1fr 1fr; gap: 2px; padding: 2px; border: 1px solid var(--vscode-widget-border, var(--color-border-default)); border-radius: 999px; background: var(--vscode-input-background, var(--color-bg-surface)); }
+.transport-selection { position: absolute; z-index: 0; top: 2px; bottom: 2px; left: 2px; width: calc(50% - 3px); border-radius: 999px; background: var(--vscode-button-background, var(--color-button-primary-background)); box-shadow: 0 1px 2px rgb(0 0 0 / 22%); transition: transform 220ms cubic-bezier(.22,1,.36,1); }
+.transport-selection.websocket { transform: translateX(calc(100% + 2px)); }
+.transport-option { position: relative; z-index: 1; min-height: 32px; padding: 5px 10px; color: var(--vscode-descriptionForeground, var(--color-text-secondary)); border: 0; border-radius: 999px; outline: none; background: transparent; cursor: pointer; font-size: 11px; transition: color 140ms ease, transform 180ms cubic-bezier(.22,1,.36,1); }
+.transport-option.selected { color: var(--vscode-button-foreground, var(--color-text-on-emphasis)); }
 .transport-option:hover:not(.selected) { color: var(--vscode-foreground, var(--color-text-primary)); background: var(--vscode-toolbar-hoverBackground, var(--color-bg-control-hover)); }
 .transport-option:active { transform: scale(.98); }
 .transport-option:focus-visible { box-shadow: inset 0 0 0 1px var(--vscode-focusBorder); }
@@ -717,7 +724,7 @@ onUnmounted(() => {
 .provider-layer-enter-from, .provider-layer-leave-to { opacity: 0; }
 .provider-layer-enter-from .provider-dialog, .provider-layer-leave-to .provider-dialog { opacity: 0; transform: translateY(5px) scale(.98); }
 @media (prefers-reduced-motion: reduce) {
-  .field-error-enter-active, .field-error-leave-active, .provider-layer-enter-active, .provider-layer-leave-active, .provider-layer-enter-active .provider-dialog, .provider-layer-leave-active .provider-dialog { transition: none; }
+  .field-error-enter-active, .field-error-leave-active, .provider-layer-enter-active, .provider-layer-leave-active, .provider-layer-enter-active .provider-dialog, .provider-layer-leave-active .provider-dialog, .transport-selection, .transport-option { transition: none; }
 }
 .visually-hidden {
   position: absolute;
