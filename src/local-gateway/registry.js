@@ -27,6 +27,7 @@ function normalizeUsage(usage, now = Date.now()) {
   if (!usage || typeof usage !== 'object' || Array.isArray(usage)) return usage || null;
   const next = { ...usage };
   const nowSeconds = Math.floor(now / 1000);
+  let resetExpired = false;
   for (const name of ['primary', 'secondary']) {
     const window = usage[name];
     if (!window || typeof window !== 'object' || Array.isArray(window)) continue;
@@ -34,6 +35,7 @@ function normalizeUsage(usage, now = Date.now()) {
     const duration = Number(window.windowDurationMins ?? window.window_duration_minutes);
     const normalized = { ...window };
     if (Number.isFinite(resetAt) && resetAt <= nowSeconds) {
+      resetExpired = true;
       normalized.usedPercent = 0;
       if (Number.isFinite(duration) && duration > 0) {
         normalized.resetsAt = nowSeconds + Math.round(duration * 60);
@@ -41,6 +43,7 @@ function normalizeUsage(usage, now = Date.now()) {
     }
     next[name] = normalized;
   }
+  if (resetExpired && next.status !== 'error') next.status = 'stale';
   return next;
 }
 

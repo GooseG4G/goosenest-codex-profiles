@@ -206,6 +206,25 @@ function normalizeUsageResponse(result) {
   const primary = normalizeRateLimitWindow(snapshot.primary);
   const secondary = normalizeRateLimitWindow(snapshot.secondary);
   if (!primary && !secondary) throw new Error('Codex returned no usage windows.');
+  const resetSummary = result?.rateLimitResetCredits
+    || result?.rate_limit_reset_credits
+    || snapshot.rateLimitResetCredits
+    || snapshot.rate_limit_reset_credits;
+  const rawCredits = Array.isArray(resetSummary?.credits) ? resetSummary.credits : [];
+  const resetCredits = rawCredits
+    .filter((credit) => credit && typeof (credit.id ?? credit.reset_id) === 'string')
+    .map((credit) => ({
+      id: credit.id ?? credit.reset_id,
+      status: typeof credit.status === 'string' ? credit.status : 'unknown',
+      title: typeof credit.title === 'string' ? credit.title : null,
+      description: typeof credit.description === 'string' ? credit.description : null,
+      grantedAt: Number.isFinite(credit.grantedAt)
+        ? credit.grantedAt
+        : Number.isFinite(credit.granted_at) ? credit.granted_at : null,
+      expiresAt: Number.isFinite(credit.expiresAt)
+        ? credit.expiresAt
+        : Number.isFinite(credit.expires_at) ? credit.expires_at : null,
+    }));
   const receivedAt = new Date().toISOString();
   return {
     status: 'ready',
@@ -215,6 +234,10 @@ function normalizeUsageResponse(result) {
     ordinaryUsageAllowed: typeof result.ordinaryUsageAllowed === 'boolean' ? result.ordinaryUsageAllowed : null,
     primary,
     secondary,
+    resetCredits,
+    availableResetCount: Number.isFinite(resetSummary?.availableCount ?? resetSummary?.available_count)
+      ? Math.max(0, resetSummary.availableCount ?? resetSummary.available_count)
+      : resetCredits.filter((credit) => credit.status === 'available').length,
   };
 }
 
@@ -275,7 +298,7 @@ async function readCodexUsage(codexHome) {
           send({
             id: 2,
             method: 'account/rateLimits/read',
-            params: { excludeResetCreditDetails: true },
+            params: { excludeResetCreditDetails: false },
           });
         } else if (message.id === 2) {
           if (message.error) {
@@ -399,6 +422,7 @@ class ProfileStore {
           kind,
           name: profile.name,
           active: profile.id === state.activeId,
+            lastUsedAt: profile.lastSeenAt || null,
           usage: profile.usage || null,
         });
       }
@@ -436,7 +460,8 @@ class ProfileStore {
       const requested = requestedIds.has(profile.id);
       if (!hot && !requested) continue;
       if (!requested && !includeScheduled) continue;
-      if (Number.isFinite(fetchedAt) && now - fetchedAt < MIN_USAGE_REQUEST_INTERVAL_MS) {
+      const refreshAfterReset = profile.usage?.status === 'stale';
+      if (!refreshAfterReset && Number.isFinite(fetchedAt) && now - fetchedAt < MIN_USAGE_REQUEST_INTERVAL_MS) {
         nextDueIn = Math.min(nextDueIn, MIN_USAGE_REQUEST_INTERVAL_MS - (now - fetchedAt));
         continue;
       }

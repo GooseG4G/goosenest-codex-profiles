@@ -39,12 +39,38 @@ const windows = computed<WindowInfo[]>(() =>
   }),
 )
 
+const isLoading = computed(() => {
+  if (windows.value.length) return false
+  return Boolean(props.busy || props.usage?.status === 'fetching')
+})
+
+const availableResetCount = computed(() => {
+  const credits = props.usage?.resetCredits
+  const fromCredits = credits?.filter((credit) => credit.status === 'available').length ?? 0
+  return Math.max(fromCredits, props.usage?.availableResetCount ?? 0)
+})
+
+const resetSnapshotKnown = computed(() => {
+  const usage = props.usage
+  return Boolean(
+    usage
+    && (usage.status === 'ready'
+      || usage.updatedAt
+      || usage.resetCredits !== undefined
+      || usage.availableResetCount !== undefined),
+  )
+})
+
+const resetLoading = computed(() =>
+  !resetSnapshotKnown.value && Boolean(props.busy || props.usage?.status === 'fetching'),
+)
+
 const isStale = computed(() => {
-  if (props.busy || props.usage?.status === 'fetching' || props.usage?.status === 'stale') return true
   if (!windows.value.length) return false
+  if (props.usage?.status === 'stale') return true
   const timestamp = props.usage?.updatedAt ?? props.usage?.fetchedAt
   const updatedAt = timestamp ? new Date(timestamp).getTime() : Number.NaN
-  return !Number.isFinite(updatedAt) || now.value - updatedAt >= 180_000
+  return Number.isFinite(updatedAt) && now.value - updatedAt >= 180_000
 })
 
 function resetLabel(timestamp: number): string {
@@ -70,23 +96,32 @@ function resetLabel(timestamp: number): string {
       :key="window.key"
       class="usage-card"
       :class="{ stale: isStale }"
-      :aria-label="isStale ? `${window.label}, updating` : undefined"
+      :aria-label="isStale ? `${window.label}, snapshot is stale` : undefined"
     >
       <span class="usage-copy">
         <strong>{{ window.label }}</strong>
-        <small v-if="!isStale">{{ resetLabel(window.reset) }}</small>
-        <small v-else class="skeleton skeleton-reset" aria-hidden="true" />
+        <small>{{ resetLabel(window.reset) }}</small>
       </span>
       <span class="track" :class="{ 'is-stale': isStale }" aria-hidden="true">
         <i :style="{ width: `${100 - window.used}%` }" />
       </span>
-      <span v-if="!isStale" class="remaining">{{ Math.round(100 - window.used) }}% left</span>
-      <span v-else class="remaining skeleton skeleton-percent" aria-hidden="true" />
+      <span class="remaining">{{ Math.round(100 - window.used) }}% left</span>
     </section>
     <section v-if="!windows.length" class="usage-card unavailable">
       <span class="usage-copy">
         <strong>Usage limits</strong>
-        <small>{{ busy ? 'Fetching usage limits…' : 'Usage limits unavailable' }}</small>
+        <small>{{ isLoading ? 'Fetching usage limits…' : 'Usage limits unavailable' }}</small>
+      </span>
+    </section>
+    <section v-if="windows.length || resetSnapshotKnown || resetLoading" class="reset-card">
+      <strong>Usage limit resets</strong>
+      <span
+        v-if="resetLoading"
+        class="reset-count skeleton"
+        aria-label="Loading usage limit resets"
+      />
+      <span v-else class="reset-count" :class="{ empty: availableResetCount === 0 }">
+        {{ availableResetCount }} available
       </span>
     </section>
   </div>
@@ -101,7 +136,6 @@ function resetLabel(timestamp: number): string {
 .track { position: relative; height: 7px; overflow: hidden; border-radius: 4px; background: var(--color-bg-progress-track); }
 .track i { display: block; height: 100%; border-radius: inherit; background: var(--color-bg-progress-fill); transition: width 560ms var(--ease-out); }
 .track.is-stale i { opacity: .45; }
-.track.is-stale::after { position: absolute; inset: 0; background: linear-gradient(100deg, transparent 12%, var(--color-shimmer-strong) 50%, transparent 88%); content: ''; transform: translateX(-100%); animation: shimmer 1.35s linear infinite; }
 .remaining { text-align: right; font-variant-numeric: tabular-nums; }
 .skeleton { position: relative; overflow: hidden; border-radius: 4px; color: transparent; background: transparent; }
 .skeleton::before { position: absolute; inset: 1.5px 0; border-radius: inherit; background: var(--color-bg-skeleton); content: ''; }
@@ -109,7 +143,13 @@ function resetLabel(timestamp: number): string {
 .skeleton-reset { width: 76px; height: 12px; }
 .skeleton-percent { width: 40px; height: 12px; justify-self: end; }
 .unavailable { grid-template-columns: 1fr; }
-@keyframes shimmer { to { transform: translateX(100%); } }
+.reset-card { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 12px; min-height: 42px; padding: 8px 14px; border: 1px solid var(--color-border-default); border-radius: 7px; background: var(--color-usage-card-background); }
+.reset-card > strong { overflow: hidden; font-size: 13px; font-weight: 600; line-height: 16px; text-overflow: ellipsis; white-space: nowrap; }
+.reset-count { min-width: 76px; padding: 4px 9px; border-radius: 999px; color: var(--color-reset-badge-available-foreground, var(--color-text-primary)); font-size: 11px; font-weight: 650; line-height: 14px; text-align: center; background: var(--color-reset-badge-available-background, var(--color-bg-control-hover)); }
+.reset-count.empty { color: var(--color-text-secondary); background: var(--color-bg-control-hover); }
+.reset-count.skeleton { position: relative; height: 24px; overflow: hidden; padding: 0; background: var(--color-bg-control-hover); }
+.reset-count.skeleton::after { position: absolute; inset: 0; background: linear-gradient(100deg, transparent 15%, var(--color-shimmer-subtle) 50%, transparent 85%); content: ''; transform: translateX(-100%); animation: reset-shimmer 1.35s linear infinite; }
+@keyframes reset-shimmer { to { transform: translateX(100%); } }
 @media (max-width: 420px) {
   .usage-card { grid-template-columns: 1fr 56px; }
   .track { grid-column: 1 / -1; grid-row: 2; }
@@ -117,6 +157,6 @@ function resetLabel(timestamp: number): string {
 }
 @media (prefers-reduced-motion: reduce) {
   .track i { transition: none; }
-  .track.is-stale::after, .skeleton::after { animation: none; transform: none; }
+  .skeleton::after, .reset-count.skeleton::after { animation: none; transform: none; }
 }
 </style>

@@ -129,9 +129,9 @@ async function readRequestBody(request, maximumBytes = 64 * 1024 * 1024) {
   return Buffer.concat(chunks);
 }
 
-async function proxyHttpResponse(request, response, registry) {
+async function proxyHttpResponse(request, response, registry, credentials = activeCredentials) {
   const body = await readRequestBody(request);
-  let route = await activeCredentials(registry);
+  let route = await credentials(registry);
   const send = () => fetch(responseUrl(route.profile), {
     method: 'POST',
     headers: upstreamHeaders(request.headers, route.token, route.accountId),
@@ -141,7 +141,7 @@ async function proxyHttpResponse(request, response, registry) {
   });
   let upstream = await send();
   if (upstream.status === 401 && route.profile.kind !== 'provider') {
-    route = await activeCredentials(registry, true);
+    route = await credentials(registry, true);
     upstream = await send();
   }
   const usage = usageFromHeaders(upstream.headers);
@@ -157,40 +157,94 @@ async function proxyHttpResponse(request, response, registry) {
   stream.on('error', () => response.destroy()).pipe(response);
 }
 
+function connectWebSocket(url, headers) {
+  return new Promise((resolve, reject) => {
+    const socket = new WebSocket(url, {
+      headers,
+      perMessageDeflate: true,
+      handshakeTimeout: 15_000,
+      followRedirects: false,
+    });
+    let settled = false;
+    const fail = (error) => {
+      if (settled) return;
+      settled = true;
+      reject(error);
+    };
+    socket.once('open', () => {
+      if (settled) return;
+      settled = true;
+      resolve(socket);
+    });
+    socket.once('unexpected-response', (_request, response) => {
+      const error = Object.assign(
+        new Error(`Upstream WebSocket handshake failed (${response.statusCode}).`),
+        { statusCode: response.statusCode },
+      );
+      response.resume();
+      fail(error);
+    });
+    socket.once('error', fail);
+  });
+}
+
+async function connectWebSocketWithAuthRefresh(
+  registry,
+  request,
+  connect = connectWebSocket,
+  credentials = activeCredentials,
+) {
+  let route = await credentials(registry);
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      const upstream = await connect(
+        websocketUrl(responseUrl(route.profile)),
+        upstreamHeaders(request.headers, route.token, route.accountId),
+      );
+      return { route, upstream };
+    } catch (error) {
+      if (
+        attempt === 0
+        && route.profile.kind !== 'provider'
+        && error?.statusCode === 401
+      ) {
+        route = await credentials(registry, true);
+        continue;
+      }
+      throw error;
+    }
+  }
+  throw new Error('Upstream WebSocket authentication failed.');
+}
+
 function createWebSocketProxy({ registry, authorize }) {
   const server = new WebSocket.WebSocketServer({ noServer: true, perMessageDeflate: true });
 
   server.on('connection', async (downstream, request) => {
     let route;
-    try {
-      route = await activeCredentials(registry);
-    } catch (error) {
-      downstream.close(1011, error.message.slice(0, 120));
-      return;
-    }
-    const upstream = new WebSocket(websocketUrl(responseUrl(route.profile)), {
-      headers: upstreamHeaders(request.headers, route.token, route.accountId),
-      perMessageDeflate: true,
-      handshakeTimeout: 15_000,
-      followRedirects: false,
-    });
+    let upstream;
     const pending = [];
     let opened = false;
 
     downstream.on('message', (data, isBinary) => {
       if (isBinary) return downstream.close(1003, 'Binary frames are unsupported.');
       if (!opened) pending.push(data);
-      else if (upstream.readyState === WebSocket.OPEN) upstream.send(data, { binary: false });
+      else if (upstream?.readyState === WebSocket.OPEN) upstream.send(data, { binary: false });
     });
     downstream.on('close', (code, reason) => {
-      if (upstream.readyState === WebSocket.OPEN || upstream.readyState === WebSocket.CONNECTING) {
+      if (upstream?.readyState === WebSocket.OPEN || upstream?.readyState === WebSocket.CONNECTING) {
         upstream.close(code || 1000, reason);
       }
     });
-    upstream.on('open', () => {
-      opened = true;
-      for (const message of pending.splice(0)) upstream.send(message, { binary: false });
-    });
+
+    try {
+      ({ route, upstream } = await connectWebSocketWithAuthRefresh(registry, request));
+    } catch (error) {
+      downstream.close(1011, error.message.slice(0, 120));
+      return;
+    }
+    opened = true;
+    for (const message of pending.splice(0)) upstream.send(message, { binary: false });
     upstream.on('message', (data, isBinary) => {
       if (isBinary) {
         downstream.close(1003, 'Upstream sent an unsupported binary frame.');
@@ -227,6 +281,7 @@ function createWebSocketProxy({ registry, authorize }) {
 module.exports = {
   DEFAULT_OPENAI_RESPONSES_URL,
   activeCredentials,
+  connectWebSocketWithAuthRefresh,
   createWebSocketProxy,
   proxyHttpResponse,
   responseUrl,

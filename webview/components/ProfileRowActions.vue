@@ -16,7 +16,7 @@ const emit = defineEmits<{
 <template>
   <div class="row-actions" :class="`row-actions--${props.kind}`">
     <span v-if="kind === 'default'" class="row-action-slot">
-      <UIIconButton v-if="!active" class="row-action-activate" accessible-label="Use profile" title="Use profile" background="hover" surface-motion="scale" icon-motion="together" size="small" @click.stop="emit('activate', $event)">
+      <UIIconButton class="row-action-activate" :accessible-label="active ? 'Current profile' : 'Use profile'" :title="active ? 'Current profile' : 'Use profile'" background="hover" surface-motion="scale" icon-motion="together" size="small" :disabled="active" @click.stop="emit('activate', $event)">
         <template #icon><ArrowLeftRight /></template>
       </UIIconButton>
     </span>

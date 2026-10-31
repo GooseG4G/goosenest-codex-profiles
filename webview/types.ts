@@ -7,6 +7,15 @@ export interface UsageWindow {
   resetsAt: number | null
 }
 
+export interface UsageResetCredit {
+  id: string
+  status: string
+  title?: string | null
+  description?: string | null
+  grantedAt?: number | null
+  expiresAt?: number | null
+}
+
 export interface ProfileUsage {
   fetchedAt: string | null
   status?: 'fetching' | 'ready' | 'stale' | 'error'
@@ -15,6 +24,8 @@ export interface ProfileUsage {
   ordinaryUsageAllowed?: boolean | null
   primary?: UsageWindow | null
   secondary?: UsageWindow | null
+  resetCredits?: readonly UsageResetCredit[]
+  availableResetCount?: number
   error?: string
   errorCode?: 'AUTH_EXPIRED' | 'TIMEOUT' | 'NETWORK' | 'UNKNOWN'
 }
@@ -31,6 +42,7 @@ export interface Profile {
   transport?: ProviderTransport
   usage?: ProfileUsage | null
   authExpired?: boolean
+  lastUsedAt?: string | null
 }
 
 export interface ProviderDraft {

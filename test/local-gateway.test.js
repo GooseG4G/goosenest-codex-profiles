@@ -7,10 +7,18 @@ const os = require('node:os');
 const path = require('node:path');
 const test = require('node:test');
 const WebSocket = require('ws');
+const { Readable } = require('node:stream');
 const { createGatewayPaths, providerHome } = require('../src/local-gateway/paths');
 const { ProfileRegistry, writeAtomic } = require('../src/local-gateway/registry');
 const { normalizeUsage } = require('../src/local-gateway/registry');
-const { upstreamHeaders, usageFromEvent, usageFromHeaders, websocketUrl } = require('../src/local-gateway/proxy');
+const {
+  connectWebSocketWithAuthRefresh,
+  upstreamHeaders,
+  usageFromEvent,
+  usageFromHeaders,
+  websocketUrl,
+} = require('../src/local-gateway/proxy');
+const { proxyHttpResponse } = require('../src/local-gateway/proxy');
 
 test('expired usage windows reset from the current time', () => {
   const now = Date.UTC(2026, 9, 30, 12, 0, 0);
@@ -20,6 +28,7 @@ test('expired usage windows reset from the current time', () => {
   }, now);
   assert.equal(usage.primary.usedPercent, 0);
   assert.equal(usage.primary.resetsAt, now / 1000 + 18_000);
+  assert.equal(usage.status, 'stale');
   assert.equal(usage.secondary.usedPercent, 45);
 });
 
@@ -42,6 +51,109 @@ test('websocket mode keeps the same explicit upstream header allowlist', () => {
   const headers = upstreamHeaders({ 'openai-beta': 'untrusted' }, 'token', null);
   assert.equal(headers['openai-beta'], undefined);
   assert.equal(websocketUrl('https://example.test/v1/responses'), 'wss://example.test/v1/responses');
+});
+
+test('local WebSocket retries one default-profile handshake after a 401', async () => {
+  const routes = [
+    { profile: { kind: 'default', id: 'profile-1' }, token: 'stale' },
+    { profile: { kind: 'default', id: 'profile-1' }, token: 'fresh' },
+  ];
+  const credentialsCalls = [];
+  const connectCalls = [];
+  const socket = {};
+  let attempt = 0;
+  const result = await connectWebSocketWithAuthRefresh(
+    {},
+    { headers: {} },
+    async (_url, headers) => {
+      connectCalls.push(headers.authorization);
+      if (attempt++ === 0) throw Object.assign(new Error('unauthorized'), { statusCode: 401 });
+      return socket;
+    },
+    async (_registry, force) => {
+      credentialsCalls.push(Boolean(force));
+      return routes[credentialsCalls.length - 1];
+    },
+  );
+
+  assert.equal(result.upstream, socket);
+  assert.deepEqual(credentialsCalls, [false, true]);
+  assert.deepEqual(connectCalls, ['Bearer stale', 'Bearer fresh']);
+});
+
+test('local WebSocket does not refresh a provider after a 401', async () => {
+  const credentialsCalls = [];
+  await assert.rejects(
+    connectWebSocketWithAuthRefresh(
+      {},
+      { headers: {} },
+      async () => { throw Object.assign(new Error('unauthorized'), { statusCode: 401 }); },
+      async (_registry, force) => {
+        credentialsCalls.push(Boolean(force));
+        return { profile: { kind: 'provider', id: 'provider-1', baseUrl: 'https://provider.example/v1' }, token: 'provider-token' };
+      },
+    ),
+    /unauthorized/,
+  );
+  assert.deepEqual(credentialsCalls, [false]);
+});
+
+test('local WebSocket stops after one forced refresh failure', async () => {
+  const credentialsCalls = [];
+  await assert.rejects(
+    connectWebSocketWithAuthRefresh(
+      {},
+      { headers: {} },
+      async () => { throw Object.assign(new Error('unauthorized'), { statusCode: 401 }); },
+      async (_registry, force) => {
+        credentialsCalls.push(Boolean(force));
+        return { profile: { kind: 'default', id: 'profile-1' }, token: force ? 'fresh' : 'stale' };
+      },
+    ),
+    /unauthorized/,
+  );
+  assert.deepEqual(credentialsCalls, [false, true]);
+});
+
+test('local HTTP proxy retries one default-profile request after a 401', async () => {
+  const responses = [
+    { status: 401, headers: new Headers(), body: null },
+    { status: 200, headers: new Headers(), body: null },
+  ];
+  const routes = [
+    { profile: { kind: 'default', id: 'profile-1' }, token: 'stale' },
+    { profile: { kind: 'default', id: 'profile-1' }, token: 'fresh' },
+  ];
+  const credentialsCalls = [];
+  const requests = [];
+  const originalFetch = global.fetch;
+  global.fetch = async (_url, options) => {
+    requests.push(options.headers.authorization);
+    return responses.shift();
+  };
+  const request = Readable.from([Buffer.from('{}')]);
+  request.headers = { 'content-type': 'application/json' };
+  const response = new (require('node:stream').Writable)({ write(_chunk, _encoding, callback) { callback(); } });
+  response.setHeader = () => undefined;
+  response.end = () => undefined;
+
+  try {
+    await proxyHttpResponse(
+      request,
+      response,
+      {},
+      async (_registry, force) => {
+        credentialsCalls.push(Boolean(force));
+        return routes[credentialsCalls.length - 1];
+      },
+    );
+  } finally {
+    global.fetch = originalFetch;
+  }
+
+  assert.deepEqual(credentialsCalls, [false, true]);
+  assert.deepEqual(requests, ['Bearer stale', 'Bearer fresh']);
+  assert.equal(response.statusCode, 200);
 });
 
 test('usage is collected from response headers and websocket events', () => {
@@ -149,10 +261,10 @@ test('local daemon proxies Responses over HTTP and WebSocket', { timeout: 20_000
   });
   assert.equal(response.status, 200);
   assert.match(await response.text(), /response.completed/);
-  for (let attempt = 0; attempt < 20; attempt += 1) {
+  for (let attempt = 0; attempt < 100; attempt += 1) {
     const state = await registry.read();
     if (state.profiles[0]?.usage?.lastResponseUsage?.input_tokens === 1) break;
-    await new Promise((resolve) => setTimeout(resolve, 10));
+    await new Promise((resolve) => setTimeout(resolve, 20));
   }
   const httpState = await registry.read();
   assert.equal(httpState.profiles[0].usage.lastResponseUsage.input_tokens, 1);
