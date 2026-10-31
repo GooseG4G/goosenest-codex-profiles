@@ -1,4 +1,4 @@
-const { Readable } = require('stream');
+const { Readable, Transform } = require('stream');
 const { URL } = require('url');
 const WebSocket = require('ws');
 const { ensureFresh } = require('./auth');
@@ -77,6 +77,37 @@ function usageFromEvent(value) {
   return usage && typeof usage === 'object' ? { lastResponseUsage: usage } : null;
 }
 
+function usageCaptureStream(registry, profileId) {
+  let buffered = '';
+  return new Transform({
+    transform(chunk, encoding, callback) {
+      const text = Buffer.isBuffer(chunk) ? chunk.toString('utf8') : String(chunk);
+      buffered += text;
+      const lines = buffered.split(/\r?\n/);
+      buffered = lines.pop() || '';
+      for (const line of lines) {
+        if (!line.startsWith('data:')) continue;
+        try {
+          const usage = usageFromEvent(JSON.parse(line.slice(5).trim()));
+          if (usage) void registry.updateUsage(profileId, usage).catch(() => undefined);
+        } catch {
+          // Non-JSON SSE frames are forwarded unchanged and ignored for usage.
+        }
+      }
+      callback(null, chunk);
+    },
+    flush(chunkCallback) {
+      if (buffered.startsWith('data:')) {
+        try {
+          const usage = usageFromEvent(JSON.parse(buffered.slice(5).trim()));
+          if (usage) void registry.updateUsage(profileId, usage).catch(() => undefined);
+        } catch {}
+      }
+      chunkCallback();
+    },
+  });
+}
+
 async function activeCredentials(registry, force = false) {
   const route = await registry.activeRoute();
   if (route.profile.kind === 'provider') {
@@ -121,7 +152,9 @@ async function proxyHttpResponse(request, response, registry) {
   }
   response.setHeader('cache-control', 'no-cache');
   if (!upstream.body) return response.end();
-  Readable.fromWeb(upstream.body).on('error', () => response.destroy()).pipe(response);
+  const stream = Readable.fromWeb(upstream.body)
+    .pipe(usageCaptureStream(registry, route.profile.id));
+  stream.on('error', () => response.destroy()).pipe(response);
 }
 
 function createWebSocketProxy({ registry, authorize }) {
@@ -200,5 +233,6 @@ module.exports = {
   upstreamHeaders,
   usageFromEvent,
   usageFromHeaders,
+  usageCaptureStream,
   websocketUrl,
 };

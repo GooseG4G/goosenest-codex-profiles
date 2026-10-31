@@ -149,6 +149,13 @@ test('local daemon proxies Responses over HTTP and WebSocket', { timeout: 20_000
   });
   assert.equal(response.status, 200);
   assert.match(await response.text(), /response.completed/);
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    const state = await registry.read();
+    if (state.profiles[0]?.usage?.lastResponseUsage?.input_tokens === 1) break;
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+  const httpState = await registry.read();
+  assert.equal(httpState.profiles[0].usage.lastResponseUsage.input_tokens, 1);
 
   const downstreamWebSocket = new WebSocket(`ws://127.0.0.1:${runtime.port}/v1/responses`, {
     headers: { authorization: `Bearer ${daemonToken}`, 'x-session-id': 'session-ws' },
