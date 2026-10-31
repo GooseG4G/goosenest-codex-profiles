@@ -1,4 +1,5 @@
 export type ProfileKind = 'default' | 'provider'
+export type ProviderTransport = 'responses' | 'websocket'
 
 export interface UsageWindow {
   usedPercent: number
@@ -27,6 +28,7 @@ export interface Profile {
   baseUrl?: string
   envKey?: string
   provider?: string
+  transport?: ProviderTransport
   usage?: ProfileUsage | null
   authExpired?: boolean
 }
@@ -35,6 +37,7 @@ export interface ProviderDraft {
   name: string
   baseUrl: string
   token: string
+  transport: ProviderTransport
 }
 
 export interface ProviderUpdate extends ProviderDraft {

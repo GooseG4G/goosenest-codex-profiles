@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { Profile } from '../types'
-import ChevronIcon from './icons/ChevronIcon.vue'
+import { ChevronDown } from '@lucide/vue'
 import ProfileRowActions from './ProfileRowActions.vue'
 import UsageDisplay from './UsageDisplay.vue'
 
@@ -29,7 +29,10 @@ const planPending = computed(() =>
 )
 
 const subtitle = computed(() => {
-  if (props.profile.kind === 'provider') return props.profile.baseUrl || 'Custom provider'
+  if (props.profile.kind === 'provider') {
+    const transport = props.profile.transport === 'websocket' ? 'WebSocket' : 'HTTP/SSE'
+    return `${transport} · ${props.profile.baseUrl || 'Custom provider'}`
+  }
   const plan = props.profile.usage?.planType?.trim()
   if (!plan) return 'Plan unavailable'
   return plan
@@ -37,6 +40,11 @@ const subtitle = computed(() => {
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
     .join(' ')
 })
+
+function toggleFromKeyboard(event: KeyboardEvent) {
+  if (!hasUsage.value || (event.key !== 'Enter' && event.key !== ' ')) return
+  emit('toggleUsage', event as unknown as MouseEvent)
+}
 </script>
 
 <template>
@@ -48,28 +56,21 @@ const subtitle = computed(() => {
         expired: profile.authExpired,
         switchable: !profile.active,
       }"
+      @click="hasUsage && emit('toggleUsage', $event)"
+      @keydown="toggleFromKeyboard"
+      tabindex="0"
+      :aria-expanded="hasUsage ? usageExpanded : undefined"
+      :aria-label="hasUsage ? (usageExpanded ? `Hide usage for ${profile.name}` : `Show usage for ${profile.name}`) : undefined"
     >
-      <button
-        class="row-hit-target"
-        type="button"
-        :aria-label="profile.active ? `Active profile ${profile.name}` : `Switch to ${profile.name}`"
-        :tabindex="profile.active ? -1 : 0"
-        @click="emit('activate')"
-      />
       <div class="identity">
-        <button
+        <span
           v-if="profile.kind !== 'provider'"
           class="disclosure"
           :class="{ disabled: !hasUsage }"
-          type="button"
-          :disabled="!hasUsage"
-          :aria-label="hasUsage ? (usageExpanded ? `Hide usage for ${profile.name}` : `Show usage for ${profile.name}`) : 'Usage unavailable'"
-          :aria-expanded="hasUsage ? usageExpanded : false"
-          :aria-controls="`usage-${profile.id}`"
-          @click.stop="emit('toggleUsage', $event)"
+          aria-hidden="true"
         >
-          <ChevronIcon :expanded="usageExpanded" />
-        </button>
+          <ChevronDown :class="{ expanded: usageExpanded }" />
+        </span>
         <span v-else class="disclosure-placeholder" aria-hidden="true" />
         <span class="status-dot" aria-hidden="true" />
         <span class="profile-copy">
@@ -80,6 +81,8 @@ const subtitle = computed(() => {
       </div>
       <ProfileRowActions
         :kind="profile.kind"
+        :active="profile.active"
+        @activate="emit('activate')"
         @edit="emit('edit', $event)"
         @delete="emit('delete', $event)"
       />
@@ -100,13 +103,12 @@ const subtitle = computed(() => {
 .profile-item + .profile-item { border-top: 1px solid var(--color-border-default); }
 .profile-item { transition: background-color var(--duration-fast) var(--ease-standard); }
 .profile-row { position: relative; display: grid; min-height: 68px; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 11px 15px; }
-.row-hit-target { position: absolute; z-index: 0; inset: 0; padding: 0; border: 0; outline: none; background: transparent; cursor: default; }
-.switchable .row-hit-target { cursor: pointer; }
-.row-hit-target:focus-visible { box-shadow: inset 0 0 0 1px var(--color-focus); }
+.profile-row:focus-visible { outline: 1px solid var(--color-focus); outline-offset: -1px; }
 .identity { z-index: 1; display: grid; min-width: 0; grid-template-columns: 16px 10px minmax(0, 1fr); align-items: center; gap: 5px; pointer-events: none; }
 .disclosure, .disclosure-placeholder { width: 24px; height: 28px; margin-left: -4px; }
 .disclosure { z-index: 2; display: inline-flex; padding: 5px; align-items: center; justify-content: center; color: var(--color-profile-disclosure-icon); border: 0; border-radius: 5px; outline: none; background: transparent; pointer-events: auto; transition: color var(--duration-fast) var(--ease-standard), background-color var(--duration-fast) var(--ease-standard); }
-.disclosure svg { width: 16px; height: 16px; }
+.disclosure svg { width: 16px; height: 16px; transition: transform var(--duration-fast) var(--ease-standard); }
+.disclosure svg.expanded { transform: rotate(180deg); }
 .disclosure:focus-visible { box-shadow: inset 0 0 0 1px var(--color-focus); }
 .disclosure.disabled { color: var(--color-text-tertiary); opacity: .55; cursor: default; }
 .status-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--color-profile-status-inactive); }
@@ -122,8 +124,7 @@ const subtitle = computed(() => {
 .usage-expand-enter-from, .usage-expand-leave-to { max-height: 0; padding-bottom: 0; opacity: 0; transform: translateY(-4px); }
 @keyframes plan-shimmer { to { transform: translateX(100%); } }
 @media (hover: hover) and (pointer: fine) {
-  .profile-item:has(.row-hit-target:hover):not(:has(.row-actions:hover)) { background: var(--color-bg-row-hover); }
-  .disclosure:hover:not(:disabled) { color: var(--color-text-primary); background: var(--color-bg-control-hover); }
+  .profile-item:hover { background: var(--color-bg-row-hover); }
 }
 @media (prefers-reduced-motion: reduce) {
   .profile-item, .disclosure, .usage-expand-enter-active, .usage-expand-leave-active { transition: none; }

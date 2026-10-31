@@ -1,14 +1,12 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, shallowRef, useTemplateRef, watch, type CSSProperties } from 'vue'
-import type { Profile, ProviderDraft, ProviderUpdate } from '../types'
-import PersonAddIcon from './icons/PersonAddIcon.vue'
-import UsersIcon from './icons/UsersIcon.vue'
-import CloseIcon from './icons/CloseIcon.vue'
+import type { Profile, ProviderDraft, ProviderTransport, ProviderUpdate } from '../types'
 import UIConfirmDialog from './ui/UIConfirmDialog.vue'
 import UIIconButton from './ui/UIIconButton.vue'
 import ProfileListItem from './ProfileListItem.vue'
 import UIButton from './ui/UIButton.vue'
 import { vscode } from '../vscode'
+import { UserRoundPlus, UsersRound, X } from '@lucide/vue'
 
 const props = defineProps<{
   profiles: readonly Profile[]
@@ -44,8 +42,10 @@ const editingProviderId = shallowRef<string | null>(null)
 const providerName = shallowRef('')
 const providerBaseUrl = shallowRef('')
 const providerToken = shallowRef('')
+const providerTransport = shallowRef<ProviderTransport>('responses')
 const initialProviderName = shallowRef('')
 const initialProviderBaseUrl = shallowRef('')
+const initialProviderTransport = shallowRef<ProviderTransport>('responses')
 const providerNameInput = useTemplateRef<HTMLInputElement>('providerNameInput')
 const providerBaseUrlInput = useTemplateRef<HTMLInputElement>('providerBaseUrlInput')
 const providerNameError = useTemplateRef<HTMLSpanElement>('providerNameError')
@@ -68,6 +68,7 @@ const isEditingProvider = computed(() => editingProviderId.value !== null)
 const providerFieldsChanged = computed(() =>
   providerName.value.trim() !== initialProviderName.value
   || providerBaseUrl.value.trim() !== initialProviderBaseUrl.value
+  || providerTransport.value !== initialProviderTransport.value
   || providerToken.value.trim() !== ''
 )
 const hasDuplicateProviderName = computed(() => {
@@ -193,6 +194,7 @@ function openProviderForm(event?: MouseEvent) {
   editingProviderId.value = null
   initialProviderName.value = ''
   initialProviderBaseUrl.value = ''
+  initialProviderTransport.value = 'responses'
 }
 
 function openProviderEditor(profile: Profile, event?: MouseEvent) {
@@ -202,8 +204,10 @@ function openProviderEditor(profile: Profile, event?: MouseEvent) {
   providerName.value = profile.name
   providerBaseUrl.value = profile.baseUrl ?? ''
   providerToken.value = ''
+  providerTransport.value = profile.transport ?? 'responses'
   initialProviderName.value = profile.name.trim()
   initialProviderBaseUrl.value = (profile.baseUrl ?? '').trim()
+  initialProviderTransport.value = providerTransport.value
   showProviderBaseUrlError.value = false
   isProviderFormOpen.value = true
 }
@@ -213,6 +217,8 @@ function closeProviderForm() {
   providerName.value = ''
   providerBaseUrl.value = ''
   providerToken.value = ''
+  providerTransport.value = 'responses'
+  initialProviderTransport.value = 'responses'
   editingProviderId.value = null
   showProviderBaseUrlError.value = false
   showProviderNameError.value = false
@@ -252,6 +258,7 @@ function submitProvider() {
     name: providerName.value.trim(),
     baseUrl: providerBaseUrl.value.trim(),
     token: providerToken.value.trim(),
+    transport: providerTransport.value,
   }
   if (editingProviderId.value) {
     emit('updateProvider', { id: editingProviderId.value, ...draft })
@@ -388,7 +395,7 @@ onUnmounted(() => {
           size="small"
           @click="query = ''"
         >
-          <template #icon><CloseIcon /></template>
+        <template #icon><X /></template>
         </UIIconButton>
       </div>
       <UIIconButton
@@ -401,7 +408,7 @@ onUnmounted(() => {
         size="medium"
         @click="isAddPending = true"
       >
-        <template #icon><PersonAddIcon /></template>
+        <template #icon><UserRoundPlus /></template>
       </UIIconButton>
       <UIIconButton
         accessible-label="Add provider"
@@ -413,7 +420,7 @@ onUnmounted(() => {
         size="medium"
         @click="openProviderForm"
       >
-        <template #icon><UsersIcon /></template>
+        <template #icon><UsersRound /></template>
       </UIIconButton>
     </div>
 
@@ -504,6 +511,25 @@ onUnmounted(() => {
           <span class="field-label">Token</span>
           <input v-model="providerToken" class="field-input" type="password" autocomplete="new-password" :placeholder="editingProviderId ? 'Enter a new token' : ''">
         </label>
+        <fieldset class="field transport-field">
+          <legend class="field-label">Transport</legend>
+          <div class="transport-switch" role="group" aria-label="Provider transport">
+            <button
+              type="button"
+              class="transport-option"
+              :class="{ selected: providerTransport === 'responses' }"
+              :aria-pressed="providerTransport === 'responses'"
+              @click="providerTransport = 'responses'"
+            >HTTP/SSE</button>
+            <button
+              type="button"
+              class="transport-option"
+              :class="{ selected: providerTransport === 'websocket' }"
+              :aria-pressed="providerTransport === 'websocket'"
+              @click="providerTransport = 'websocket'"
+            >WebSocket</button>
+          </div>
+        </fieldset>
         <div class="actions">
           <UIButton @click="closeProviderForm">Cancel</UIButton>
           <UIButton
@@ -649,25 +675,32 @@ onUnmounted(() => {
   flex-direction: column;
   gap: 10px;
   padding: 18px;
-  color: var(--vscode-foreground);
-  border: 1px solid var(--vscode-widget-border);
+  color: var(--vscode-foreground, var(--color-text-primary));
+  border: 1px solid var(--vscode-widget-border, var(--color-border-default));
   border-radius: 8px;
-  background: var(--vscode-editorWidget-background);
+  background: var(--vscode-editorWidget-background, var(--color-bg-dialog));
   box-shadow: 0 10px 32px rgb(0 0 0 / 32%);
 }
 .dialog-title { margin: 0 0 2px; font-size: 15px; font-weight: 600; }
 .field { position: relative; display: flex; flex-direction: column; gap: 5px; }
-.field-label { color: var(--vscode-descriptionForeground); font-size: 11px; font-weight: 600; }
+.field-label { color: var(--vscode-descriptionForeground, var(--color-text-secondary)); font-size: 11px; font-weight: 600; }
+.transport-field { min-width: 0; margin: 0; padding: 0; border: 0; }
+.transport-switch { position: relative; display: grid; grid-template-columns: 1fr 1fr; gap: 2px; padding: 2px; border: 1px solid var(--vscode-widget-border, var(--color-border-default)); border-radius: 8px; background: var(--vscode-input-background, var(--color-bg-surface)); }
+.transport-option { position: relative; z-index: 1; min-height: 32px; padding: 5px 8px; color: var(--vscode-descriptionForeground, var(--color-text-secondary)); border: 0; border-radius: 6px; outline: none; background: transparent; cursor: pointer; font-size: 11px; transition: color 140ms ease, background-color 180ms ease, transform 180ms cubic-bezier(.22,1,.36,1); }
+.transport-option.selected { color: var(--vscode-button-foreground, var(--color-text-on-emphasis)); background: var(--vscode-button-background, var(--color-button-primary-background)); box-shadow: 0 1px 2px rgb(0 0 0 / 22%); }
+.transport-option:hover:not(.selected) { color: var(--vscode-foreground, var(--color-text-primary)); background: var(--vscode-toolbar-hoverBackground, var(--color-bg-control-hover)); }
+.transport-option:active { transform: scale(.98); }
+.transport-option:focus-visible { box-shadow: inset 0 0 0 1px var(--vscode-focusBorder); }
 .field-input {
   box-sizing: border-box;
   width: 100%;
   height: 38px;
   padding: 6px 10px;
-  color: var(--vscode-input-foreground);
-  border: 1px solid var(--vscode-widget-border);
+  color: var(--vscode-input-foreground, var(--color-text-primary));
+  border: 1px solid var(--vscode-widget-border, var(--color-border-default));
   border-radius: 7px;
   outline: none;
-  background: var(--vscode-editor-background);
+  background: var(--vscode-input-background, var(--color-bg-surface));
   font: inherit;
 }
 .field-input:focus { border-color: var(--vscode-focusBorder); }

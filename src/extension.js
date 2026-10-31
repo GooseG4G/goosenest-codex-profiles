@@ -11,7 +11,7 @@ const {
 const { resolveReauthenticationProfile } = require('./profile-selection');
 const { SerialQueue } = require('./serial-queue');
 const { StoreTransactionQueue } = require('./store-transaction');
-const { ensureLocalGateway } = require('./local-gateway/coordinator');
+const { ensureExternalProviderConfig, ensureLocalGateway } = require('./local-gateway/coordinator');
 const { accountHome, createGatewayPaths, providerHome } = require('./local-gateway/paths');
 const { ProfileRegistry } = require('./local-gateway/registry');
 
@@ -390,6 +390,7 @@ class ProfileStore {
           provider: profile.provider,
           baseUrl: profile.baseUrl,
           envKey: profile.envKey,
+          transport: profile.transport || 'responses',
           active: profile.id === state.activeId,
         });
       } else if (await exists(this.profilePath(profile.id))) {
@@ -523,6 +524,12 @@ class ProfileStore {
     if ((profile.kind || DEFAULT_KIND) === PROVIDER_KIND && !(await exists(this.providerCredentialsPath(profile.id)))) {
       throw new Error('The selected provider credentials were not found.');
     }
+    if ((profile.kind || DEFAULT_KIND) === PROVIDER_KIND) {
+      const credentials = JSON.parse(await fs.promises.readFile(this.providerCredentialsPath(profile.id), 'utf8'));
+      await ensureExternalProviderConfig(this.paths, profile, credentials.accessToken);
+    } else {
+      await ensureLocalGateway(this.paths);
+    }
     state.activeId = id;
     profile.lastSeenAt = new Date().toISOString();
     await this.writeState(state);
@@ -557,7 +564,7 @@ class ProfileStore {
     return this.runExclusive(() => this.addProviderLocked(input));
   }
 
-  async addProviderLocked({ name, baseUrl, token }) {
+  async addProviderLocked({ name, baseUrl, token, transport = 'responses' }) {
     const { cleanName, cleanBaseUrl } = this.validateProviderInput(name, baseUrl);
     const cleanToken = String(token || '').trim();
     if (!cleanToken) throw new Error('Access token is required.');
@@ -585,6 +592,7 @@ class ProfileStore {
       provider,
       baseUrl: cleanBaseUrl,
       envKey: createUniqueEnvKey(cleanName, state.profiles),
+      transport: transport === 'websocket' ? 'websocket' : 'responses',
       createdAt: now,
       updatedAt: now,
       lastSeenAt: null,
@@ -603,7 +611,7 @@ class ProfileStore {
     return this.runExclusive(() => this.updateProviderLocked(input));
   }
 
-  async updateProviderLocked({ id, name, baseUrl, token }) {
+  async updateProviderLocked({ id, name, baseUrl, token, transport = 'responses' }) {
     const { cleanName, cleanBaseUrl } = this.validateProviderInput(name, baseUrl);
     const cleanToken = String(token || '').trim();
     if (/[\r\n]/.test(cleanToken)) throw new Error('Access token must be a single line.');
@@ -626,10 +634,14 @@ class ProfileStore {
 
     profile.name = cleanName;
     profile.baseUrl = cleanBaseUrl;
+    profile.transport = transport === 'websocket' ? 'websocket' : 'responses';
     profile.updatedAt = new Date().toISOString();
     const active = state.activeId === profile.id;
     if (active) profile.lastSeenAt = new Date().toISOString();
     await this.writeState(state);
+    if (active) {
+      await ensureExternalProviderConfig(this.paths, profile, tokenToStore);
+    }
     return { name: profile.name, active };
   }
 
@@ -988,6 +1000,7 @@ class ProfilesViewProvider {
           name: message.name,
           baseUrl: message.baseUrl,
           token: message.token,
+          transport: message.transport,
         });
         await this.sendState();
         return;
@@ -998,6 +1011,7 @@ class ProfilesViewProvider {
           name: message.name,
           baseUrl: message.baseUrl,
           token: message.token,
+          transport: message.transport,
         });
         await this.sendState();
         this.post({ type: 'providerUpdated' });
@@ -1070,6 +1084,12 @@ async function activate(context) {
   await registry.ensure();
   await ensureLocalGateway(paths);
   const store = new ProfileStore(context, paths);
+  const initialState = await store.readState();
+  const activeProfile = initialState.profiles.find((profile) => profile.id === initialState.activeId);
+  if (activeProfile?.kind === PROVIDER_KIND) {
+    const credentials = JSON.parse(await fs.promises.readFile(store.providerCredentialsPath(activeProfile.id), 'utf8'));
+    await ensureExternalProviderConfig(paths, activeProfile, credentials.accessToken);
+  }
   const provider = new ProfilesViewProvider(context, store);
   const usagePoller = new UsagePoller(store, () => provider.sendState());
   provider.usagePoller = usagePoller;

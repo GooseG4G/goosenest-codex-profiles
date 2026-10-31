@@ -52,6 +52,7 @@ function normalizeState(value, now = Date.now()) {
       .map((profile) => ({
         ...profile,
         kind: profile.kind === 'provider' ? 'provider' : 'default',
+        transport: profile.kind === 'provider' && profile.transport === 'websocket' ? 'websocket' : 'responses',
         usage: normalizeUsage(profile.usage, now),
       }))
     : [];

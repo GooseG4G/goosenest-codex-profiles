@@ -3,11 +3,11 @@ const { spawn } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const lockfile = require('proper-lockfile');
-const { appendProviderConfig, formatTomlFile, upsertEnvValue } = require('../provider-config');
+const { appendProviderConfig, formatTomlFile, removeEnvValue, upsertEnvValue } = require('../provider-config');
 const { writeAtomic } = require('./registry');
 
 const LOCAL_PROVIDER_ID = 'codex_profiles';
-const LOCAL_TOKEN_ENV = 'CODEX_PROFILES_LOCAL_TOKEN';
+const LOCAL_TOKEN_ENV = 'CODEX_PROFILES_TOKEN';
 
 async function readRuntime(paths) {
   try {
@@ -76,7 +76,7 @@ async function ensureDaemon(paths) {
   }
 }
 
-async function ensureLocalProviderConfig(paths, runtime) {
+async function updateProviderConfig(paths, profile) {
   await fs.promises.mkdir(paths.codexRoot, { recursive: true });
   await Promise.all([
     fs.promises.writeFile(paths.configPath, '', { flag: 'a' }),
@@ -93,18 +93,37 @@ async function ensureLocalProviderConfig(paths, runtime) {
       fs.promises.readFile(paths.configPath, 'utf8'),
       fs.promises.readFile(paths.envPath, 'utf8'),
     ]);
-    const nextConfig = appendProviderConfig(config, {
-      provider: LOCAL_PROVIDER_ID,
-      name: 'Codex Profiles',
-      baseUrl: `http://127.0.0.1:${runtime.port}/v1`,
-      envKey: LOCAL_TOKEN_ENV,
-    });
-    const nextEnv = upsertEnvValue(env, LOCAL_TOKEN_ENV, runtime.token);
+    const nextConfig = appendProviderConfig(config, profile);
+    const nextEnv = profile.token
+      ? upsertEnvValue(removeEnvValue(env, 'CODEX_PROFILES_LOCAL_TOKEN'), profile.envKey, profile.token)
+      : env;
     if (formatTomlFile(config) !== nextConfig) await writeAtomic(paths.configPath, nextConfig);
     if (env !== nextEnv) await writeAtomic(paths.envPath, nextEnv);
   } finally {
     await release();
   }
+}
+
+async function ensureLocalProviderConfig(paths, runtime) {
+  return updateProviderConfig(paths, {
+    provider: LOCAL_PROVIDER_ID,
+    name: 'Codex Profiles',
+    baseUrl: `http://127.0.0.1:${runtime.port}/v1`,
+    envKey: LOCAL_TOKEN_ENV,
+    token: runtime.token,
+    transport: 'websocket',
+  });
+}
+
+async function ensureExternalProviderConfig(paths, profile, token) {
+  return updateProviderConfig(paths, {
+    provider: profile.provider,
+    name: profile.name,
+    baseUrl: profile.baseUrl,
+    envKey: profile.envKey,
+    token,
+    transport: profile.transport || 'responses',
+  });
 }
 
 async function ensureLocalGateway(paths) {
@@ -119,6 +138,7 @@ module.exports = {
   ensureDaemon,
   ensureLocalGateway,
   ensureLocalProviderConfig,
+  ensureExternalProviderConfig,
   isHealthy,
   readRuntime,
 };
