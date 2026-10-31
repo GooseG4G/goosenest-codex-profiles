@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { Profile } from '../types'
-import { ChevronDown } from '@lucide/vue'
+import { ArrowLeftRight, ChevronDown } from '@lucide/vue'
+import UIIconButton from './ui/UIIconButton.vue'
 import ProfileRowActions from './ProfileRowActions.vue'
 import UsageDisplay from './UsageDisplay.vue'
 
@@ -42,8 +43,12 @@ const subtitle = computed(() => {
 })
 
 function toggleFromKeyboard(event: KeyboardEvent) {
-  if (!hasUsage.value || (event.key !== 'Enter' && event.key !== ' ')) return
-  emit('toggleUsage', event as unknown as MouseEvent)
+  if (event.key !== 'Enter' && event.key !== ' ') return
+  if (props.profile.kind === 'provider') {
+    emit('activate')
+  } else if (hasUsage.value) {
+    emit('toggleUsage', event as unknown as MouseEvent)
+  }
 }
 </script>
 
@@ -56,11 +61,11 @@ function toggleFromKeyboard(event: KeyboardEvent) {
         expired: profile.authExpired,
         switchable: !profile.active,
       }"
-      @click="hasUsage && emit('toggleUsage', $event)"
+      @click="profile.kind === 'provider' ? emit('activate') : hasUsage && emit('toggleUsage', $event)"
       @keydown="toggleFromKeyboard"
       tabindex="0"
-      :aria-expanded="hasUsage ? usageExpanded : undefined"
-      :aria-label="hasUsage ? (usageExpanded ? `Hide usage for ${profile.name}` : `Show usage for ${profile.name}`) : undefined"
+      :aria-expanded="profile.kind !== 'provider' && hasUsage ? usageExpanded : undefined"
+      :aria-label="profile.kind === 'provider' ? `Use ${profile.name}` : hasUsage ? (usageExpanded ? `Hide usage for ${profile.name}` : `Show usage for ${profile.name}`) : undefined"
     >
       <div class="identity">
         <span
@@ -71,7 +76,20 @@ function toggleFromKeyboard(event: KeyboardEvent) {
         >
           <ChevronDown :class="{ expanded: usageExpanded }" />
         </span>
-        <span v-else class="disclosure-placeholder" aria-hidden="true" />
+        <UIIconButton
+          v-else
+          class="provider-switch"
+          accessible-label="Use profile"
+          title="Use profile"
+          background="hover"
+          surface-motion="scale"
+          icon-motion="together"
+          size="small"
+          :disabled="profile.active"
+          @click.stop="emit('activate')"
+        >
+          <template #icon><ArrowLeftRight /></template>
+        </UIIconButton>
         <span class="status-dot" aria-hidden="true" />
         <span class="profile-copy">
           <strong>{{ profile.name }}</strong>
@@ -105,12 +123,13 @@ function toggleFromKeyboard(event: KeyboardEvent) {
 .profile-row { position: relative; display: grid; min-height: 68px; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 11px 15px; }
 .profile-row:focus-visible { outline: 1px solid var(--color-focus); outline-offset: -1px; }
 .identity { z-index: 1; display: grid; min-width: 0; grid-template-columns: 16px 10px minmax(0, 1fr); align-items: center; gap: 5px; pointer-events: none; }
-.disclosure, .disclosure-placeholder { width: 24px; height: 28px; margin-left: -4px; }
+.disclosure, .provider-switch { width: 24px; height: 28px; margin-left: -4px; }
 .disclosure { z-index: 2; display: inline-flex; padding: 5px; align-items: center; justify-content: center; color: var(--color-profile-disclosure-icon); border: 0; border-radius: 5px; outline: none; background: transparent; pointer-events: auto; transition: color var(--duration-fast) var(--ease-standard), background-color var(--duration-fast) var(--ease-standard); }
 .disclosure svg { width: 16px; height: 16px; transition: transform var(--duration-fast) var(--ease-standard); }
 .disclosure svg.expanded { transform: rotate(180deg); }
 .disclosure:focus-visible { box-shadow: inset 0 0 0 1px var(--color-focus); }
 .disclosure.disabled { color: var(--color-text-tertiary); opacity: .55; cursor: default; }
+.provider-switch :deep(.icon) { width: 17px; height: 17px; }
 .status-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--color-profile-status-inactive); }
 .active .status-dot { background: var(--color-profile-status-active); }
 .expired .status-dot { background: var(--color-profile-status-auth-required); }
