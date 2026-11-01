@@ -2,6 +2,7 @@
 import { computed, nextTick, onMounted, onUnmounted, shallowRef, useTemplateRef, watch, type CSSProperties } from 'vue'
 import type { Profile, ProviderDraft, ProviderTransport, ProviderUpdate } from '../types'
 import UIConfirmDialog from './ui/UIConfirmDialog.vue'
+import UIDeleteDialog from './ui/UIDeleteDialog.vue'
 import DeviceAuthDialog from './DeviceAuthDialog.vue'
 import UISearch from './ui/UISearch.vue'
 import UIToolbarButton from './ui/UIToolbarButton.vue'
@@ -435,11 +436,10 @@ onUnmounted(() => {
       title="Authentication expired"
       :description="`Authentication for ${pendingReauthProfile?.name ?? 'this profile'} has expired. Sign in again to refresh it.`"
       confirm-label="Re-authenticate"
-      confirm-variant="primary"
       @confirm="confirmReauth"
       @close="pendingReauthProfile = null"
     />
-    <UIConfirmDialog
+    <UIDeleteDialog
       :open="isAddPending"
       title="Add profile"
       description="Start Codex sign-in to connect another profile."
@@ -560,7 +560,6 @@ onUnmounted(() => {
       title="Delete profile?"
       :description="`Delete ${pendingDeleteProfile?.name ?? ''} from saved profiles? This cannot be undone.`"
       confirm-label="Delete"
-      confirm-variant="danger"
       @confirm="confirmDeletion"
       @close="cancelDeletion"
     />
