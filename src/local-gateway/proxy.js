@@ -225,6 +225,7 @@ function createWebSocketProxy({ registry, authorize }) {
     let upstream;
     const pending = [];
     let opened = false;
+    let downstreamClosed = false;
 
     downstream.on('message', (data, isBinary) => {
       if (isBinary) return downstream.close(1003, 'Binary frames are unsupported.');
@@ -232,6 +233,7 @@ function createWebSocketProxy({ registry, authorize }) {
       else if (upstream?.readyState === WebSocket.OPEN) upstream.send(data, { binary: false });
     });
     downstream.on('close', (code, reason) => {
+      downstreamClosed = true;
       if (upstream?.readyState === WebSocket.OPEN || upstream?.readyState === WebSocket.CONNECTING) {
         upstream.close(code || 1000, reason);
       }
@@ -241,6 +243,12 @@ function createWebSocketProxy({ registry, authorize }) {
       ({ route, upstream } = await connectWebSocketWithAuthRefresh(registry, request));
     } catch (error) {
       downstream.close(1011, error.message.slice(0, 120));
+      return;
+    }
+    if (downstreamClosed) {
+      if (upstream.readyState === WebSocket.OPEN || upstream.readyState === WebSocket.CONNECTING) {
+        upstream.close(1000, 'Downstream closed before upstream connection completed.');
+      }
       return;
     }
     opened = true;
