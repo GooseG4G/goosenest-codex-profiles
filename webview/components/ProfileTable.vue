@@ -439,12 +439,11 @@ onUnmounted(() => {
       @confirm="confirmReauth"
       @close="pendingReauthProfile = null"
     />
-    <UIDeleteDialog
+    <UIConfirmDialog
       :open="isAddPending"
       title="Add profile"
       description="Start Codex sign-in to connect another profile."
       confirm-label="Sign in"
-      confirm-variant="primary"
       @confirm="confirmAdd"
       @close="isAddPending = false"
     />
@@ -550,12 +549,11 @@ onUnmounted(() => {
       title="Switch profile?"
       :description="`Use ${pendingSwitchProfile?.name ?? ''} for new Codex requests?`"
       confirm-label="Switch"
-      confirm-variant="primary"
       :pending="isSwitchPending"
       @confirm="confirmActivation"
       @close="cancelActivation"
     />
-    <UIConfirmDialog
+    <UIDeleteDialog
       :open="pendingDeleteProfile !== null"
       title="Delete profile?"
       :description="`Delete ${pendingDeleteProfile?.name ?? ''} from saved profiles? This cannot be undone.`"
