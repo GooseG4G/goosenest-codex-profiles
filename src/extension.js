@@ -757,7 +757,7 @@ class ProfileStore {
   async cancelAddProfileLocked() {
     const state = await this.readState();
     const loginId = state.pendingAdd?.loginId;
-    if (loginId) await fs.promises.rm(accountHome(this.paths, loginId), { recursive: true, force: true });
+    if (loginId) await fs.promises.rm(accountHome(this.paths, loginId), { recursive: true, force: true }).catch(() => undefined);
     state.pendingAdd = null;
     await this.writeState(state);
   }
@@ -1082,11 +1082,12 @@ class ProfilesViewProvider {
         return;
       }
       if (message.type === 'cancelAdd') {
-        await this.loginFlow?.cancel();
+        const loginFlow = this.loginFlow;
         this.loginFlow = undefined;
         this.deviceAuth = undefined;
         await this.store.cancelAddProfile();
         await this.sendState();
+        void loginFlow?.cancel().catch(() => undefined);
         return;
       }
       if (message.type === 'signIn') {
