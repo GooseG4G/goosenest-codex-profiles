@@ -3,7 +3,8 @@ import { computed, nextTick, onMounted, onUnmounted, shallowRef, useTemplateRef,
 import type { Profile, ProviderDraft, ProviderTransport, ProviderUpdate } from '../types'
 import UIConfirmDialog from './ui/UIConfirmDialog.vue'
 import DeviceAuthDialog from './DeviceAuthDialog.vue'
-import UIIconButton from './ui/UIIconButton.vue'
+import UISearch from './ui/UISearch.vue'
+import UIToolbarButton from './ui/UIToolbarButton.vue'
 import ProfileListItem from './ProfileListItem.vue'
 import UIButton from './ui/UIButton.vue'
 import { vscode } from '../vscode'
@@ -380,54 +381,33 @@ onUnmounted(() => {
   <div class="profiles-view">
     <div class="search-toolbar">
       <div class="search-card">
-        <label class="visually-hidden" for="profile-search">Search profiles by email</label>
-        <input
-          id="profile-search"
+        <UISearch
           v-model="query"
-          class="search-input"
-          type="text"
+          id="profile-search"
+          accessible-label="Search profiles by email"
           placeholder="Search..."
           autocomplete="off"
           spellcheck="false"
-        >
-        <UIIconButton
+        />
+        <UIToolbarButton
           v-if="query"
           accessible-label="Clear search"
           title="Clear search"
           class="clear-search-button"
-          background="never"
-          surface-motion="scale"
-          icon-motion="together"
           size="small"
           @click="query = ''"
-        >
-        <template #icon><X /></template>
-        </UIIconButton>
+        ><template #icon><X /></template></UIToolbarButton>
       </div>
-      <UIIconButton
+      <UIToolbarButton
         accessible-label="Add profile"
         title="Add profile"
-        class="add-button"
-        background="always"
-        surface-motion="none"
-        icon-motion="together"
-        size="medium"
         @click="isAddPending = true"
-      >
-        <template #icon><UserRoundPlus /></template>
-      </UIIconButton>
-      <UIIconButton
+      ><template #icon><UserRoundPlus /></template></UIToolbarButton>
+      <UIToolbarButton
         accessible-label="Add provider"
         title="Add provider"
-        class="add-button"
-        background="always"
-        surface-motion="none"
-        icon-motion="together"
-        size="medium"
         @click="openProviderForm"
-      >
-        <template #icon><UsersRound /></template>
-      </UIIconButton>
+      ><template #icon><UsersRound /></template></UIToolbarButton>
     </div>
 
     <div class="table-card">
@@ -602,45 +582,25 @@ onUnmounted(() => {
   margin-bottom: 10px;
 }
 .search-card {
+  position: relative;
   display: flex;
   min-width: 0;
   flex: 1 1 auto;
   align-items: center;
-  padding: 8px;
-  border: 1px solid var(--color-border-default);
-  border-radius: 7px;
-  background-color: var(--color-bg-surface);
-}
-.search-card:focus-within { border-color: var(--color-focus); }
-.add-button {
-  --button-background: var(--color-bg-surface);
-  --button-hover-background: var(--color-bg-control-hover);
-  box-sizing: border-box;
-  width: 46px;
-  height: 46px;
-  flex: 0 0 46px;
-  border-color: var(--color-border-default);
-  border-radius: 7px;
-}
-.add-button :deep(.icon) { width: 18px; height: 18px; }
-.search-input {
-  box-sizing: border-box;
-  width: 100%;
-  min-width: 0;
-  height: 28px;
-  padding: 4px 8px;
-  color: var(--color-text-primary);
+  padding: 0;
   border: 0;
-  outline: none;
   background: transparent;
-  font: inherit;
 }
-.search-input::placeholder { color: var(--color-text-secondary); }
+.search-card :deep(.search-field) { width: 100%; }
 .clear-search-button {
-  --button-foreground: var(--color-text-secondary);
-  flex: 0 0 28px;
+  position: absolute;
+  z-index: 1;
+  top: 9px;
+  right: 8px;
+  width: 28px;
+  height: 28px;
 }
-.clear-search-button:hover { --button-foreground: var(--color-icon-button-danger-foreground); }
+.clear-search-button :deep(.toolbar-button-surface) { border-color: transparent; background: transparent; }
 .table-card {
   max-height: calc(100vh - 82px);
   overflow: auto;

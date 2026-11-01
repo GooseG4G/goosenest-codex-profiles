@@ -3,9 +3,13 @@ export function useCollapseAnimation() {
 
   function animate(element: Element, opening: boolean, done: () => void) {
     const target = element as HTMLElement
-    animations.get(target)?.cancel()
-    target.style.removeProperty('height')
-    target.style.removeProperty('opacity')
+    const previous = animations.get(target)
+    if (previous) {
+      const computed = getComputedStyle(target)
+      target.style.height = `${target.getBoundingClientRect().height}px`
+      target.style.opacity = computed.opacity
+      previous.cancel()
+    }
     const height = target.scrollHeight
     const animation = target.animate(
       [
