@@ -171,6 +171,33 @@ test('usage is collected from response headers and websocket events', () => {
   }), { lastResponseUsage: { input_tokens: 12, output_tokens: 3 } });
 });
 
+test('usage metadata keeps plan and credits from response headers and rate-limit events', () => {
+  const headers = new Headers({
+    'x-codex-plan-type': 'free',
+    'x-codex-credits-has-credits': 'False',
+    'x-codex-credits-unlimited': 'False',
+    'x-codex-credits-balance': '',
+  });
+  assert.deepEqual(usageFromHeaders(headers), {
+    planType: 'free',
+    creditsMeta: { hasCredits: 'False', unlimited: 'False', balance: null },
+  });
+  assert.deepEqual(usageFromEvent({
+    type: 'codex.rate_limits',
+    plan_type: 'free',
+    rate_limits: {
+      allowed: true,
+      primary: { used_percent: 100, window_minutes: 43200, reset_at: 1234 },
+    },
+    credits: { has_credits: false, unlimited: false, balance: null },
+  }), {
+    planType: 'free',
+    ordinaryUsageAllowed: true,
+    primary: { usedPercent: 100, windowDurationMins: 43200, resetsAt: 1234 },
+    creditsMeta: { has_credits: false, unlimited: false, balance: null },
+  });
+});
+
 test('local daemon proxies Responses over HTTP and WebSocket', { timeout: 20_000 }, async (t) => {
   const temporaryRoot = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'codex-profiles-gateway-test-'));
   const upstreamServer = http.createServer((request, response) => {

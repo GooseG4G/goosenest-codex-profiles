@@ -45,6 +45,16 @@ function upstreamHeaders(sourceHeaders, token, accountId) {
 
 function usageFromHeaders(headers) {
   const result = {};
+  const planType = headers.get('x-codex-plan-type');
+  if (planType) result.planType = planType;
+  const credits = {
+    hasCredits: headers.get('x-codex-credits-has-credits') || null,
+    unlimited: headers.get('x-codex-credits-unlimited') || null,
+    balance: headers.get('x-codex-credits-balance') || null,
+  };
+  if (Object.values(credits).some((value) => value !== null && value !== '')) {
+    result.creditsMeta = credits;
+  }
   for (const window of ['primary', 'secondary']) {
     const usedHeader = headers.get(`x-codex-${window}-used-percent`);
     if (usedHeader === null) continue;
@@ -71,6 +81,22 @@ function usageFromEvent(value) {
       if (typeof headerValue === 'string') headers.set(name, headerValue);
     }
     return usageFromHeaders(headers);
+  }
+  if (value.type === 'codex.rate_limits') {
+    const limits = value.rate_limits || {};
+    const result = usageFromHeaders(new Headers(value.headers || {})) || {};
+    if (typeof value.plan_type === 'string') result.planType = value.plan_type;
+    if (typeof limits.allowed === 'boolean') result.ordinaryUsageAllowed = limits.allowed;
+    for (const [name, source] of [['primary', limits.primary], ['secondary', limits.secondary]]) {
+      if (!source || typeof source !== 'object') continue;
+      result[name] = {
+        usedPercent: source.used_percent,
+        windowDurationMins: source.window_minutes,
+        resetsAt: source.reset_at,
+      };
+    }
+    if (value.credits && typeof value.credits === 'object') result.creditsMeta = value.credits;
+    return Object.keys(result).length ? result : null;
   }
   if (value.type !== 'response.completed') return null;
   const usage = value.response?.usage;
