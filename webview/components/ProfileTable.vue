@@ -548,8 +548,9 @@ onUnmounted(() => {
     <UIConfirmDialog
       :open="pendingSwitchProfile !== null"
       title="Switch profile?"
-      :description="`Use ${pendingSwitchProfile?.name ?? ''} for new Codex requests? Existing WebSocket connections remain pinned to their current profile.`"
+      :description="`Use ${pendingSwitchProfile?.name ?? ''} for new Codex requests?`"
       confirm-label="Switch"
+      confirm-variant="primary"
       :pending="isSwitchPending"
       @confirm="confirmActivation"
       @close="cancelActivation"

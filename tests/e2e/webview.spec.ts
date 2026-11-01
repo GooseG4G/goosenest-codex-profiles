@@ -201,6 +201,17 @@ test('add profile confirmation uses the primary action style', async ({ page }) 
   await expect(page.getByRole('button', { name: 'Sign in' }).locator('.line-button-surface')).toHaveCSS('background-color', 'rgb(237, 237, 237)')
 })
 
+test('switch confirmation is concise and uses the primary action style', async ({ page }) => {
+  await page.goto('/?state=ready')
+  const provider = page.locator('.profile-item').filter({ hasText: 'Local provider' })
+  await provider.getByRole('button', { name: 'Use profile' }).click()
+  const dialog = page.getByRole('dialog')
+  await expect(dialog).toContainText('Switch profile?')
+  await expect(dialog).toContainText('Use Local provider for new Codex requests?')
+  await expect(dialog).not.toContainText('WebSocket')
+  await expect(page.getByRole('button', { name: 'Switch' }).locator('.line-button-surface')).toHaveCSS('background-color', 'rgb(237, 237, 237)')
+})
+
 test('provider form exposes the Responses and WebSocket transport selector', async ({ page }) => {
   await page.goto('/?state=empty')
   await page.getByRole('button', { name: 'Add provider' }).click()
