@@ -43,6 +43,7 @@ const pendingReauthProfile = shallowRef<Profile | null>(null)
 const isSwitchPending = shallowRef(false)
 const pendingDeleteProfile = shallowRef<Profile | null>(null)
 const isAddPending = shallowRef(false)
+const isAddStarting = shallowRef(false)
 const isProviderFormOpen = shallowRef(false)
 const editingProviderId = shallowRef<string | null>(null)
 const providerName = shallowRef('')
@@ -137,6 +138,7 @@ async function updateProviderErrorPositions() {
 const hasOpenOverlay = computed(() =>
   isProviderFormOpen.value
   || isAddPending.value
+  || isAddStarting.value
   || props.awaitingSignIn
   || pendingSwitchProfile.value !== null
   || pendingReauthProfile.value !== null
@@ -180,8 +182,15 @@ function confirmDeletion() {
 }
 
 function confirmAdd() {
-  isAddPending.value = false
+  isAddStarting.value = true
   emit('beginAdd')
+}
+
+function cancelAddConfirmation() {
+  const started = isAddStarting.value
+  isAddPending.value = false
+  isAddStarting.value = false
+  if (started) emit('cancelAdd')
 }
 
 function confirmReauth() {
@@ -189,6 +198,10 @@ function confirmReauth() {
   pendingReauthProfile.value = null
   if (profileId) emit('reauthenticate', profileId)
 }
+
+watch(() => props.awaitingSignIn, (open) => {
+  if (open) isAddStarting.value = false
+})
 
 function blurActiveElement() {
   if (document.activeElement instanceof HTMLElement) document.activeElement.blur()
@@ -440,12 +453,13 @@ onUnmounted(() => {
       @close="pendingReauthProfile = null"
     />
     <UIConfirmDialog
-      :open="isAddPending"
+      :open="isAddPending || isAddStarting"
+      :pending="isAddStarting"
       title="Add profile"
       description="Start Codex sign-in to connect another profile."
       confirm-label="Sign in"
       @confirm="confirmAdd"
-      @close="isAddPending = false"
+      @close="cancelAddConfirmation"
     />
     <Transition name="provider-layer">
       <div
