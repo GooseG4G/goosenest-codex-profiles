@@ -560,6 +560,7 @@ onUnmounted(() => {
       title="Delete profile?"
       :description="`Delete ${pendingDeleteProfile?.name ?? ''} from saved profiles? This cannot be undone.`"
       confirm-label="Delete"
+      confirm-variant="danger"
       @confirm="confirmDeletion"
       @close="cancelDeletion"
     />

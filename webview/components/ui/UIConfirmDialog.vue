@@ -12,7 +12,7 @@ withDefaults(defineProps<{
   pending?: boolean
   confirmLabel?: string
   confirmVariant?: 'primary' | 'danger'
-}>(), { pending: false, confirmLabel: 'Delete', confirmVariant: 'danger' })
+}>(), { pending: false, confirmLabel: 'Confirm', confirmVariant: 'primary' })
 
 defineEmits<{ close: []; confirm: [] }>()
 </script>
