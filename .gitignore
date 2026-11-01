@@ -13,3 +13,4 @@ node_modules/
 # Local browser-debug artifacts
 .playwright-cli/
 output/playwright/
+test-results/
