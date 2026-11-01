@@ -1,5 +1,4 @@
 const crypto = require('crypto');
-const { spawn } = require('child_process');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -16,6 +15,7 @@ const { StoreTransactionQueue } = require('./store-transaction');
 const { ensureExternalProviderConfig, ensureLocalGateway } = require('./local-gateway/coordinator');
 const { accountHome, createGatewayPaths, providerHome } = require('./local-gateway/paths');
 const { ProfileRegistry, normalizeUsage } = require('./local-gateway/registry');
+const { ensureFresh } = require('./local-gateway/auth');
 
 const VIEW_ID = 'codexProfiles.profilesView';
 const AUTH_READ_RETRY_COUNT = 20;
@@ -194,11 +194,16 @@ async function findCodexExecutable() {
 }
 
 function normalizeRateLimitWindow(window) {
-  if (!window || !Number.isFinite(window.usedPercent)) return null;
+  if (!window) return null;
+  const usedPercent = window.usedPercent ?? window.used_percent;
+  const windowDurationMins = window.windowDurationMins
+    ?? (Number.isFinite(window.limit_window_seconds) ? Math.ceil(window.limit_window_seconds / 60) : window.window_duration_mins);
+  const resetsAt = window.resetsAt ?? window.reset_at;
+  if (!Number.isFinite(usedPercent)) return null;
   return {
-    usedPercent: Math.max(0, Math.min(100, Math.round(window.usedPercent))),
-    windowDurationMins: Number.isFinite(window.windowDurationMins) ? window.windowDurationMins : null,
-    resetsAt: Number.isFinite(window.resetsAt) ? window.resetsAt : null,
+    usedPercent: Math.max(0, Math.min(100, Math.round(usedPercent))),
+    windowDurationMins: Number.isFinite(windowDurationMins) ? windowDurationMins : null,
+    resetsAt: Number.isFinite(resetsAt) ? resetsAt : null,
   };
 }
 
@@ -254,85 +259,42 @@ function classifyUsageError(error) {
 }
 
 async function readCodexUsage(codexHome) {
-  const executable = await findCodexExecutable();
-  return new Promise((resolve, reject) => {
-    const child = spawn(executable, ['app-server', '--stdio'], {
-      env: { ...process.env, CODEX_HOME: codexHome },
-      stdio: ['pipe', 'pipe', 'pipe'],
-      windowsHide: true,
+  const { token, accountId } = await ensureFresh(codexHome);
+  const headers = {
+    authorization: `Bearer ${token}`,
+    accept: 'application/json',
+    'user-agent': 'codex-cli',
+  };
+  if (accountId) headers['chatgpt-account-id'] = accountId;
+  const fetchJson = async (pathName) => {
+    const response = await fetch(`https://chatgpt.com/backend-api/wham/${pathName}`, {
+      headers,
+      signal: AbortSignal.timeout(USAGE_REQUEST_TIMEOUT_MS),
     });
-    let stdout = '';
-    let stderr = '';
-    let response;
-    let initialized = false;
-    let settled = false;
-
-    const timeout = setTimeout(() => {
-      child.kill();
-      finish(new Error('Timed out while reading Codex usage limits.'));
-    }, USAGE_REQUEST_TIMEOUT_MS);
-
-    function finish(error) {
-      if (settled) return;
-      settled = true;
-      clearTimeout(timeout);
-      if (error) reject(error);
-      else resolve(normalizeUsageResponse(response));
+    if (response.status === 401 || response.status === 403) {
+      const error = new Error('Codex access token was rejected.');
+      error.code = 'AUTH_EXPIRED';
+      throw error;
     }
-
-    function send(message) {
-      child.stdin.write(`${JSON.stringify(message)}\n`);
-    }
-
-    child.stdout.on('data', (chunk) => {
-      stdout += chunk.toString();
-      for (;;) {
-        const newline = stdout.indexOf('\n');
-        if (newline < 0) break;
-        const line = stdout.slice(0, newline).trim();
-        stdout = stdout.slice(newline + 1);
-        if (!line) continue;
-        let message;
-        try { message = JSON.parse(line); } catch { continue; }
-        if (message.id === 1 && !initialized) {
-          initialized = true;
-          send({ method: 'initialized' });
-          send({
-            id: 2,
-            method: 'account/rateLimits/read',
-            params: { excludeResetCreditDetails: false },
-          });
-        } else if (message.id === 2) {
-          if (message.error) {
-            const error = new Error(message.error.message || 'Codex could not read usage limits.');
-            error.code = message.error.code;
-            finish(error);
-          } else {
-            response = message.result;
-            child.stdin.end();
-          }
-        }
-      }
-    });
-    child.stderr.on('data', (chunk) => { stderr = `${stderr}${chunk.toString()}`.slice(-2000); });
-    child.on('error', finish);
-    child.on('close', (code) => {
-      if (response) finish();
-      else finish(new Error(stderr.trim() || `Codex app-server exited with code ${code}.`));
-    });
-
-    send({
-      id: 1,
-      method: 'initialize',
-      params: {
-        clientInfo: {
-          name: 'goosenest-codex-profiles',
-          version: vscode.extensions.getExtension('goosenest.codex-profiles')?.packageJSON.version || '0.0.0',
-        },
-        capabilities: { experimentalApi: true },
-      },
-    });
-  });
+    if (!response.ok) throw new Error(`Codex usage request failed (${response.status}).`);
+    return response.json();
+  };
+  const [usageResponse, resetCredits] = await Promise.all([
+    fetchJson('usage'),
+    fetchJson('rate-limit-reset-credits'),
+  ]);
+  const rateLimit = usageResponse?.rate_limit || usageResponse?.rateLimit
+    || usageResponse?.rateLimitsByLimitId?.codex || usageResponse?.rateLimits;
+  const rateLimits = rateLimit && !rateLimit.primary && rateLimit.primary_window
+    ? { ...rateLimit, primary: rateLimit.primary_window, secondary: rateLimit.secondary_window }
+    : rateLimit;
+  const normalized = {
+    ...usageResponse,
+    rateLimits,
+    planType: usageResponse?.plan_type || usageResponse?.planType || rateLimit?.planType,
+    rateLimitResetCredits: resetCredits,
+  };
+  return normalizeUsageResponse(normalized);
 }
 
 class ProfileStore {
