@@ -12,19 +12,23 @@
   --color-bg-canvas: var(--vscode-sideBar-background, #101112);
   --color-bg-surface: var(--vscode-editor-background, #18191a);
   --color-bg-raised: var(--vscode-editorWidget-background, #1e1f20);
+  --color-bg-overlay: var(--vscode-editorHoverWidget-background, #202122);
   --color-bg-dialog: var(--vscode-editorWidget-background, #191a1b);
   --color-bg-backdrop: rgb(5 6 7 / 78%);
   --color-bg-table-header: var(--vscode-sideBarSectionHeader-background, #1c1d1e);
   --color-bg-row-hover: var(--vscode-list-hoverBackground, #1c1d1e);
   --color-bg-control-hover: var(--vscode-toolbar-hoverBackground, rgb(255 255 255 / 4%));
   --color-bg-control-pressed: var(--vscode-toolbar-activeBackground, rgb(255 255 255 / 7%));
-  --color-bg-progress-track: color-mix(in srgb, var(--color-text-primary) 20%, transparent);
-  --color-bg-progress-fill: color-mix(in srgb, var(--color-text-primary) 72%, transparent);
+  --color-bg-progress-track: #3b3b3b;
+  --color-bg-progress-fill: #aaa;
   --color-bg-skeleton: color-mix(in srgb, var(--color-text-primary) 22%, transparent);
+  --color-bg-code: #111212;
   --color-border-default: var(--vscode-widget-border, #303132);
   --color-border-strong: color-mix(in srgb, var(--color-border-default) 68%, var(--color-text-primary) 32%);
+  --color-border-overlay: var(--vscode-editorWidget-border, #343638);
   --color-focus: var(--vscode-focusBorder, #7aa2f7);
   --color-shimmer-light: rgb(255 255 255 / 13%);
+  --color-shimmer-dark: rgb(0 0 0 / 11%);
   --color-shimmer-strong: rgb(255 255 255 / 16%);
   --color-shimmer-subtle: rgb(255 255 255 / 10%);
   --shadow-overlay: 0 12px 30px var(--vscode-widget-shadow, rgb(0 0 0 / 53%));
@@ -38,10 +42,12 @@
   --color-button-secondary-background: var(--vscode-button-secondaryBackground, #1e1f20);
   --color-button-secondary-border: var(--color-border-strong);
   --color-button-secondary-hover-background: var(--vscode-button-secondaryHoverBackground, #292a2b);
+  --color-button-secondary-hover-border: var(--color-border-button-hover, #4b4c4d);
   --color-button-secondary-pressed-background: var(--color-bg-control-pressed);
   --color-button-primary-background: var(--vscode-button-background, #ededed);
   --color-button-primary-border: var(--vscode-button-background, #ededed);
   --color-button-primary-hover-background: var(--vscode-button-hoverBackground, #fff);
+  --color-button-primary-hover-border: var(--vscode-button-hoverBackground, #fff);
   --color-button-primary-foreground: var(--vscode-button-foreground, #171717);
   --color-icon-button-foreground: var(--vscode-icon-foreground, #c4c4c4);
   --color-icon-button-danger-foreground: var(--vscode-errorForeground, #f2766d);
@@ -51,6 +57,12 @@
   --color-error-foreground: var(--vscode-inputValidation-errorForeground, var(--vscode-errorForeground, #ff8c84));
   --color-error-border: var(--vscode-inputValidation-errorBorder, var(--vscode-errorForeground, #a64a44));
   --color-error-background: var(--vscode-inputValidation-errorBackground, #3b2020);
+  --color-copy-info-background: #162033;
+  --color-copy-info-border: #527bbd;
+  --color-copy-info-foreground: #b9d2ff;
+  --color-copy-success-background: #294034;
+  --color-copy-success-border: #3d8c63;
+  --color-copy-success-foreground: #9ad8b2;
   --color-tooltip-foreground: var(--vscode-editorHoverWidget-foreground, var(--color-text-primary));
   --color-tooltip-background: var(--vscode-editorHoverWidget-background, var(--color-bg-raised));
   --color-tooltip-border: var(--vscode-editorHoverWidget-border, var(--color-border-default));
@@ -58,8 +70,11 @@
   --color-profile-status-inactive: var(--vscode-descriptionForeground, #888);
   --color-profile-status-auth-required: var(--vscode-editorWarning-foreground, #d99a18);
   --color-profile-disclosure-icon: var(--vscode-icon-foreground, #c4c4c4);
-  --color-usage-card-background: color-mix(in srgb, var(--color-bg-raised) 86%, var(--color-text-primary) 14%);
+  --color-usage-card-background: #242526;
   --color-usage-secondary-text: var(--vscode-descriptionForeground, #aaa);
+  --color-reset-card-background: var(--color-usage-card-background);
+  --color-reset-badge-available-background: #006b2c;
+  --color-reset-badge-available-foreground: #f0fff4;
 }
 
 * {

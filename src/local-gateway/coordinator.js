@@ -3,7 +3,14 @@ const { spawn } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const lockfile = require('proper-lockfile');
-const { appendProviderConfig, formatTomlFile, removeEnvValue, upsertEnvValue } = require('../provider-config');
+const {
+  appendProviderConfig,
+  findCompatibleEnvKey,
+  formatTomlFile,
+  removeEnvValue,
+  resolveProviderEnvKey,
+  upsertEnvValue,
+} = require('../provider-config');
 const { writeAtomic } = require('./registry');
 
 const LOCAL_PROVIDER_ID = 'codex_profiles';
@@ -93,12 +100,16 @@ async function updateProviderConfig(paths, profile) {
       fs.promises.readFile(paths.configPath, 'utf8'),
       fs.promises.readFile(paths.envPath, 'utf8'),
     ]);
-    const nextConfig = appendProviderConfig(config, profile);
+    const envKey = findCompatibleEnvKey(env, profile.envKey, profile.name);
+    const configuredProfile = { ...profile, envKey };
+    profile.envKey = envKey;
+    const nextConfig = appendProviderConfig(config, configuredProfile);
     const nextEnv = profile.token
-      ? upsertEnvValue(removeEnvValue(env, 'CODEX_PROFILES_LOCAL_TOKEN'), profile.envKey, profile.token)
+      ? upsertEnvValue(removeEnvValue(env, 'CODEX_PROFILES_LOCAL_TOKEN'), envKey, profile.token)
       : env;
     if (formatTomlFile(config) !== nextConfig) await writeAtomic(paths.configPath, nextConfig);
     if (env !== nextEnv) await writeAtomic(paths.envPath, nextEnv);
+    return envKey;
   } finally {
     await release();
   }
@@ -120,7 +131,7 @@ async function ensureExternalProviderConfig(paths, profile, token) {
     provider: profile.provider,
     name: profile.name,
     baseUrl: profile.baseUrl,
-    envKey: profile.envKey,
+    envKey: resolveProviderEnvKey(profile),
     token,
     transport: profile.transport || 'responses',
   });

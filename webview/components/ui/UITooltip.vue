@@ -6,11 +6,13 @@ interface Props {
   id: string
   text: string
   open: boolean
+  instant?: boolean
   placement?: 'horizontal' | 'above'
 }
 
 const props = withDefaults(defineProps<Props>(), {
   placement: 'above',
+  instant: false,
 })
 
 const tooltip = useTemplateRef<HTMLSpanElement>('tooltip')
@@ -24,7 +26,7 @@ function updatePosition() {
   const anchorRect = anchor.getBoundingClientRect()
   const tipRect = tip.getBoundingClientRect()
   const gap = 7
-  const edge = 6
+    const edge = 7
   let top: number
   let left: number
 
@@ -84,6 +86,7 @@ onUnmounted(() => {
         :id="id"
         ref="tooltip"
         class="tooltip"
+        :class="{ instant }"
         role="tooltip"
         :style="position"
       >{{ text }}</span>
@@ -96,21 +99,22 @@ onUnmounted(() => {
   position: fixed;
   z-index: 1100;
   box-sizing: border-box;
-  max-width: min(240px, calc(100vw - 12px));
-  padding: 4px 7px;
-  color: var(--vscode-editorHoverWidget-foreground, var(--vscode-foreground));
-  border: 1px solid var(--vscode-editorHoverWidget-border, var(--vscode-widget-border));
-  border-radius: 3px;
-  background: var(--vscode-editorHoverWidget-background, var(--vscode-editorWidget-background, var(--vscode-editor-background)));
-  box-shadow: 0 2px 8px var(--vscode-widget-shadow, rgb(0 0 0 / 36%));
+  max-width: min(240px, calc(100vw - 14px));
+  padding: 5px 8px;
+  color: var(--color-text-primary);
+  border: 1px solid var(--color-border-strong);
+  border-radius: 4px;
+  background: var(--color-bg-overlay);
+  box-shadow: var(--shadow-overlay);
   font-size: 12px;
   font-weight: 400;
-  line-height: 1.35;
+  line-height: 1.3;
   white-space: nowrap;
   pointer-events: none;
 }
-.tooltip-enter-active { transition: opacity 80ms ease 450ms; }
-.tooltip-leave-active { transition: opacity 80ms ease; }
+.tooltip-enter-active { transition: opacity 80ms ease 420ms; }
+.tooltip-enter-active.tooltip.instant { transition-delay: 0ms; }
+.tooltip-leave-active { transition: opacity 70ms ease; }
 .tooltip-enter-from, .tooltip-leave-to { opacity: 0; }
 @media (prefers-reduced-motion: reduce) {
   .tooltip-enter-active, .tooltip-leave-active { transition: none; }

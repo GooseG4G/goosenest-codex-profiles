@@ -7,6 +7,12 @@ function createEnvKey(name) {
   return `${key || 'PROVIDER'}_ACCESS_TOKEN`;
 }
 
+function resolveProviderEnvKey(profile, profiles = []) {
+  const existing = typeof profile?.envKey === 'string' ? profile.envKey.trim() : '';
+  if (existing) return existing;
+  return createUniqueEnvKey(profile?.name || profile?.provider || 'PROVIDER', profiles);
+}
+
 function createUniqueEnvKey(name, profiles) {
   const base = createEnvKey(name).replace(/_ACCESS_TOKEN$/, '');
   const occupied = new Set(profiles.map((profile) => profile.envKey).filter(Boolean));
@@ -69,11 +75,12 @@ function stripManagedProviderConfig(contents, providers) {
 
 function appendProviderConfig(contents, profile) {
   const base = stripManagedProviderConfig(contents, [profile.provider]);
+  const envKey = resolveProviderEnvKey(profile);
   const providerBlock = [
     `[model_providers.${tomlString(profile.provider)}]`,
     `name = ${tomlString(profile.name)}`,
     `base_url = ${tomlString(profile.baseUrl)}`,
-    `env_key = ${tomlString(profile.envKey)}`,
+    `env_key = ${tomlString(envKey)}`,
     'wire_api = "responses"',
     'requires_openai_auth = false',
     `supports_websockets = ${profile.transport === 'websocket' ? 'true' : 'false'}`,
@@ -111,6 +118,17 @@ function readEnvValue(contents, key) {
   return match ? match[1].trim() : '';
 }
 
+function findCompatibleEnvKey(contents, preferredKey, providerName) {
+  if (readEnvValue(contents, preferredKey)) return preferredKey;
+  const base = createEnvKey(providerName).replace(/_ACCESS_TOKEN$/, '');
+  const candidatePattern = new RegExp(`^${base}_(?:ACCESS_TOKEN|API_KEY|API_TOKEN|TOKEN)$`);
+  for (const line of String(contents || '').split(/\r?\n/)) {
+    const match = line.match(/^\s*(?:export\s+)?([A-Z][A-Z0-9_]*)\s*=\s*(.*)$/);
+    if (match && candidatePattern.test(match[1]) && match[2].trim()) return match[1];
+  }
+  return preferredKey;
+}
+
 function removeEnvValue(contents, key) {
   const escaped = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const pattern = new RegExp(`^\\s*(?:export\\s+)?${escaped}\\s*=`);
@@ -119,12 +137,15 @@ function removeEnvValue(contents, key) {
 
 module.exports = {
   appendProviderConfig,
+  createEnvKey,
   createProviderSlug,
   createUniqueEnvKey,
+  findCompatibleEnvKey,
   formatTomlFile,
   readEnvValue,
   readRootModelProvider,
   removeEnvValue,
+  resolveProviderEnvKey,
   stripManagedProviderConfig,
   upsertEnvValue,
 };

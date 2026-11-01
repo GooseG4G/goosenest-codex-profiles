@@ -9,6 +9,8 @@ const {
   createUniqueEnvKey,
 } = require('./provider-config');
 const { resolveReauthenticationProfile } = require('./profile-selection');
+const { startDeviceAuth } = require('./device-auth');
+const { normalizePendingAdd, readPendingAuth } = require('./pending-auth');
 const { SerialQueue } = require('./serial-queue');
 const { StoreTransactionQueue } = require('./store-transaction');
 const { ensureExternalProviderConfig, ensureLocalGateway } = require('./local-gateway/coordinator');
@@ -16,7 +18,7 @@ const { accountHome, createGatewayPaths, providerHome } = require('./local-gatew
 const { ProfileRegistry, normalizeUsage } = require('./local-gateway/registry');
 
 const VIEW_ID = 'codexProfiles.profilesView';
-const AUTH_READ_RETRY_COUNT = 5;
+const AUTH_READ_RETRY_COUNT = 20;
 const AUTH_READ_RETRY_DELAY_MS = 250;
 const DEFAULT_KIND = 'default';
 const PROVIDER_KIND = 'provider';
@@ -364,14 +366,7 @@ class ProfileStore {
               : profile.usage,
           }))
           : [],
-        pendingAdd: parsed.pendingAdd && typeof parsed.pendingAdd === 'object'
-          ? {
-            restoreProfileId: typeof parsed.pendingAdd.restoreProfileId === 'string' ? parsed.pendingAdd.restoreProfileId : null,
-            reauthenticateProfileId: typeof parsed.pendingAdd.reauthenticateProfileId === 'string'
-              ? parsed.pendingAdd.reauthenticateProfileId
-              : null,
-          }
-          : null,
+        pendingAdd: normalizePendingAdd(parsed.pendingAdd),
       };
     } catch (error) {
       if (error.code === 'ENOENT') return { version: 1, revision: 0, activeId: null, profiles: [], pendingAdd: null };
@@ -418,6 +413,7 @@ class ProfileStore {
           envKey: profile.envKey,
           transport: profile.transport || 'responses',
           active: profile.id === state.activeId,
+          lastUsedAt: profile.lastSeenAt || null,
         });
       } else if (await exists(this.profilePath(profile.id))) {
         profiles.push({
@@ -554,7 +550,7 @@ class ProfileStore {
     }
     if ((profile.kind || DEFAULT_KIND) === PROVIDER_KIND) {
       const credentials = JSON.parse(await fs.promises.readFile(this.providerCredentialsPath(profile.id), 'utf8'));
-      await ensureExternalProviderConfig(this.paths, profile, credentials.accessToken);
+      profile.envKey = await ensureExternalProviderConfig(this.paths, profile, credentials.accessToken);
     } else {
       await ensureLocalGateway(this.paths);
     }
@@ -628,6 +624,7 @@ class ProfileStore {
 
     await fs.promises.mkdir(providerHome(this.paths, profile.id), { recursive: true });
     await writeAtomic(this.providerCredentialsPath(profile.id), JSON.stringify({ accessToken: cleanToken }));
+    profile.envKey = await ensureExternalProviderConfig(this.paths, profile, cleanToken);
     state.profiles.push(profile);
     state.activeId = profile.id;
     profile.lastSeenAt = new Date().toISOString();
@@ -666,10 +663,10 @@ class ProfileStore {
     profile.updatedAt = new Date().toISOString();
     const active = state.activeId === profile.id;
     if (active) profile.lastSeenAt = new Date().toISOString();
-    await this.writeState(state);
     if (active) {
-      await ensureExternalProviderConfig(this.paths, profile, tokenToStore);
+      profile.envKey = await ensureExternalProviderConfig(this.paths, profile, tokenToStore);
     }
+    await this.writeState(state);
     return { name: profile.name, active };
   }
 
@@ -679,20 +676,11 @@ class ProfileStore {
     const loginHome = accountHome(this.paths, pending.loginId);
     const loginAuthPath = path.join(loginHome, 'auth.json');
     const attempts = retry ? AUTH_READ_RETRY_COUNT : 1;
-    let contents;
-    let lastError;
-    for (let attempt = 0; attempt < attempts; attempt += 1) {
-      try {
-        contents = await fs.promises.readFile(loginAuthPath);
-        JSON.parse(contents.toString('utf8'));
-        break;
-      } catch (error) {
-        lastError = error;
-        if (error.code === 'ENOENT') return state;
-        if (attempt + 1 < attempts) await delay(AUTH_READ_RETRY_DELAY_MS);
-      }
-    }
-    if (!contents) throw lastError || new Error('Could not read device authentication.');
+    const contents = await readPendingAuth(loginAuthPath, {
+      attempts,
+      delayMs: AUTH_READ_RETRY_DELAY_MS,
+    });
+    if (!contents) return state;
 
     const fingerprint = crypto.createHash('sha256').update(contents).digest('hex');
     const info = getProfileInfo(contents.toString('utf8'), 'The new authentication file');
@@ -969,6 +957,8 @@ class ProfilesViewProvider {
     this.view = undefined;
     this.usagePoller = undefined;
     this.messageQueue = new SerialQueue();
+    this.loginFlow = undefined;
+    this.deviceAuth = undefined;
   }
 
   async resolveWebviewView(view) {
@@ -1012,14 +1002,60 @@ class ProfilesViewProvider {
         const reauthenticateProfileId = message.type === 'reauthenticate' ? String(message.id || '') : null;
         const login = await this.store.beginAddProfile(reauthenticateProfileId);
         const executable = await findCodexExecutable();
-        this.loginTerminal?.dispose();
-        this.loginTerminal = vscode.window.createTerminal({
-          name: reauthenticateProfileId ? 'Re-authenticate Codex profile' : 'Add Codex profile',
-          shellPath: executable,
-          shellArgs: ['login', '--device-auth'],
-          env: { CODEX_HOME: login.loginHome },
-        });
-        this.loginTerminal.show(true);
+        await this.loginFlow?.cancel();
+        this.deviceAuth = undefined;
+        let started;
+        try {
+          started = await startDeviceAuth({
+            executable,
+            codexHome: login.loginHome,
+            onComplete: () => {
+              void this.messageQueue.run(async () => {
+                try {
+                  // Codex emits login/completed before its auth.json rename is
+                  // always visible on disk. Keep polling the pending state so
+                  // the UI cannot finish in a false-success state.
+                  let completedState = await this.store.syncCurrent({ retry: true });
+                  for (let attempt = 0; completedState.pendingAdd && attempt < 6; attempt += 1) {
+                    await new Promise((resolve) => setTimeout(resolve, AUTH_READ_RETRY_DELAY_MS));
+                    completedState = await this.store.syncCurrent({ retry: true });
+                  }
+                  if (completedState.pendingAdd) {
+                    this.deviceAuth = this.deviceAuth
+                      ? { ...this.deviceAuth, error: 'Sign-in completed, but Codex credentials were not saved. Retry the sign-in.' }
+                      : undefined;
+                  } else {
+                    this.deviceAuth = undefined;
+                  }
+                } catch (error) {
+                  this.deviceAuth = this.deviceAuth
+                    ? { ...this.deviceAuth, error: error.message || String(error) }
+                    : undefined;
+                } finally {
+                  await this.loginFlow?.stop();
+                  this.loginFlow = undefined;
+                }
+                await this.sendState();
+              });
+            },
+            onError: (error) => {
+              void this.messageQueue.run(async () => {
+                this.deviceAuth = this.deviceAuth
+                  ? { ...this.deviceAuth, error: error.message || String(error) }
+                  : undefined;
+                await this.sendState();
+              });
+            },
+          });
+        } catch (error) {
+          await this.store.cancelAddProfile();
+          throw error;
+        }
+        this.loginFlow = started.flow;
+        this.deviceAuth = {
+          userCode: started.userCode,
+          verificationUrl: started.verificationUrl,
+        };
         await this.sendState();
         return;
       }
@@ -1046,14 +1082,21 @@ class ProfilesViewProvider {
         return;
       }
       if (message.type === 'cancelAdd') {
+        await this.loginFlow?.cancel();
+        this.loginFlow = undefined;
+        this.deviceAuth = undefined;
         await this.store.cancelAddProfile();
-        this.loginTerminal?.dispose();
-        this.loginTerminal = undefined;
         await this.sendState();
         return;
       }
       if (message.type === 'signIn') {
-        this.loginTerminal?.show(true);
+        if (this.deviceAuth?.verificationUrl) {
+          await vscode.env.openExternal(vscode.Uri.parse(this.deviceAuth.verificationUrl));
+        }
+        return;
+      }
+      if (message.type === 'copyDeviceCode') {
+        if (this.deviceAuth?.userCode) await vscode.env.clipboard.writeText(this.deviceAuth.userCode);
         return;
       }
       if (message.type === 'retryAdd') return await this.sendState({ retry: true });
@@ -1077,6 +1120,7 @@ class ProfilesViewProvider {
     this.post({
       type: 'state',
       ...state,
+      deviceAuth: this.deviceAuth,
       profiles: state.profiles.map((profile) => ({
         ...profile,
         authExpired: profile.usage?.errorCode === 'AUTH_EXPIRED',

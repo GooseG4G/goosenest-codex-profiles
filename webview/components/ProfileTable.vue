@@ -2,6 +2,7 @@
 import { computed, nextTick, onMounted, onUnmounted, shallowRef, useTemplateRef, watch, type CSSProperties } from 'vue'
 import type { Profile, ProviderDraft, ProviderTransport, ProviderUpdate } from '../types'
 import UIConfirmDialog from './ui/UIConfirmDialog.vue'
+import DeviceAuthDialog from './DeviceAuthDialog.vue'
 import UIIconButton from './ui/UIIconButton.vue'
 import ProfileListItem from './ProfileListItem.vue'
 import UIButton from './ui/UIButton.vue'
@@ -13,6 +14,7 @@ const props = defineProps<{
   error: string
   awaitingSignIn: boolean
   addError: string
+  deviceAuth: { userCode: string; verificationUrl: string; error?: string } | null
   activationFailureCount: number
   activationWaitingProfileId: string | null
   providerUpdateCount: number
@@ -25,6 +27,7 @@ const emit = defineEmits<{
   updateProvider: [update: ProviderUpdate]
   cancelAdd: []
   signIn: []
+  copyDeviceCode: []
   retryAdd: []
   reauthenticate: [id: string]
   expandedUsageChange: [ids: string[]]
@@ -267,18 +270,21 @@ function submitProvider() {
   }
 }
 
-function isUsageExpanded(profile: Profile) {
+function isProfileExpanded(profile: Profile) {
   return expandedUsageIds.value.has(profile.id)
 }
 
-function toggleUsage(profile: Profile, event: MouseEvent) {
-  if (event.detail > 0 && event.currentTarget instanceof HTMLElement) event.currentTarget.blur()
+function toggleProfileDetails(profile: Profile, event?: MouseEvent | KeyboardEvent) {
+  if (event instanceof MouseEvent && event.detail > 0 && event.currentTarget instanceof HTMLElement) event.currentTarget.blur()
   const opening = !expandedUsageIds.value.has(profile.id)
   expandedUsageIds.value = opening ? new Set([profile.id]) : new Set()
 }
 
 function publishExpandedUsage() {
-  emit('expandedUsageChange', document.hidden ? [] : [...expandedUsageIds.value])
+  const expandedDefaultProfileIds = [...expandedUsageIds.value].filter((id) =>
+    props.profiles.some((profile) => profile.id === id && profile.kind !== 'provider'),
+  )
+  emit('expandedUsageChange', document.hidden ? [] : expandedDefaultProfileIds)
 }
 
 function persistUiState() {
@@ -425,17 +431,17 @@ onUnmounted(() => {
     </div>
 
     <div class="table-card">
-      <div class="list-header">Profile</div>
+      <div class="list-header">Profiles</div>
       <div class="profile-list">
         <ProfileListItem
           v-for="profile in visibleProfiles"
           :key="profile.id"
           :profile="profile"
-          :usage-expanded="isUsageExpanded(profile)"
+          :expanded="isProfileExpanded(profile)"
           @activate="requestActivation(profile)"
           @edit="openProviderEditor(profile, $event)"
           @delete="requestDeletion(profile)"
-          @toggle-usage="toggleUsage(profile, $event)"
+          @toggle-details="toggleProfileDetails(profile, $event)"
         />
         <div v-if="!visibleProfiles.length" class="empty">
           {{ props.profiles.length ? 'No profiles found' : 'No profiles yet' }}
@@ -446,19 +452,18 @@ onUnmounted(() => {
     <UIConfirmDialog
       :open="pendingReauthProfile !== null"
       title="Authentication expired"
-      :message="`Authentication for ${pendingReauthProfile?.name ?? 'this profile'} has expired. Sign in again to refresh it.`"
+      :description="`Authentication for ${pendingReauthProfile?.name ?? 'this profile'} has expired. Sign in again to refresh it.`"
       confirm-label="Re-authenticate"
-      cancel-label="Cancel"
       @confirm="confirmReauth"
-      @cancel="pendingReauthProfile = null"
+      @close="pendingReauthProfile = null"
     />
     <UIConfirmDialog
       :open="isAddPending"
       title="Add OpenAI profile?"
-      message="A terminal will open with an isolated device-code sign-in. The current profile and running chats will not be changed."
+      description="An isolated device-code sign-in will run in the background. The current profile and running chats will not be changed."
       confirm-label="Continue"
       @confirm="confirmAdd"
-      @cancel="isAddPending = false"
+      @close="isAddPending = false"
     />
     <Transition name="provider-layer">
       <div
@@ -549,33 +554,32 @@ onUnmounted(() => {
         </form>
       </div>
     </Transition>
-    <UIConfirmDialog
+    <DeviceAuthDialog
       :open="props.awaitingSignIn"
-      :title="props.addError ? 'Authentication problem' : 'Waiting for sign-in'"
-      :message="props.addError || 'Complete the device-code sign-in in the terminal. The profile will be added automatically.'"
-      confirm-label="Show terminal"
-      cancel-label="Cancel"
-      :secondary-label="props.addError ? 'Retry' : undefined"
-      @confirm="emit('signIn')"
+      :user-code="props.deviceAuth?.userCode"
+      :verification-url="props.deviceAuth?.verificationUrl"
+      :error="props.deviceAuth?.error || props.addError"
+      @open-browser="emit('signIn')"
+      @copy-code="emit('copyDeviceCode')"
       @cancel="emit('cancelAdd')"
-      @secondary="emit('retryAdd')"
+      @retry="emit('retryAdd')"
     />
     <UIConfirmDialog
       :open="pendingSwitchProfile !== null"
       title="Switch profile?"
-      :message="`Use ${pendingSwitchProfile?.name ?? ''} for new Codex requests? Existing WebSocket connections remain pinned to their current profile.`"
+      :description="`Use ${pendingSwitchProfile?.name ?? ''} for new Codex requests? Existing WebSocket connections remain pinned to their current profile.`"
       confirm-label="Switch"
-      :confirm-pending="isSwitchPending"
+      :pending="isSwitchPending"
       @confirm="confirmActivation"
-      @cancel="cancelActivation"
+      @close="cancelActivation"
     />
     <UIConfirmDialog
       :open="pendingDeleteProfile !== null"
       title="Delete profile?"
-      :message="`Delete ${pendingDeleteProfile?.name ?? ''} from saved profiles? This cannot be undone.`"
+      :description="`Delete ${pendingDeleteProfile?.name ?? ''} from saved profiles? This cannot be undone.`"
       confirm-label="Delete"
       @confirm="confirmDeletion"
-      @cancel="cancelDeletion"
+      @close="cancelDeletion"
     />
   </div>
 </template>
@@ -640,6 +644,7 @@ onUnmounted(() => {
 .table-card {
   max-height: calc(100vh - 82px);
   overflow: auto;
+  overflow-anchor: none;
   scrollbar-width: none;
   border: 1px solid var(--color-border-default);
   border-radius: 7px;
@@ -690,12 +695,13 @@ onUnmounted(() => {
 .field { position: relative; display: flex; flex-direction: column; gap: 5px; }
 .field-label { color: var(--vscode-descriptionForeground, var(--color-text-secondary)); font-size: 11px; font-weight: 600; }
 .transport-field { min-width: 0; margin: 0; padding: 0; border: 0; }
+.transport-field > .field-label { margin-bottom: 5px; }
 .transport-switch { position: relative; display: grid; grid-template-columns: 1fr 1fr; gap: 2px; padding: 2px; border: 1px solid var(--vscode-widget-border, var(--color-border-default)); border-radius: 999px; background: var(--vscode-input-background, var(--color-bg-surface)); }
 .transport-selection { position: absolute; z-index: 0; top: 2px; bottom: 2px; left: 2px; width: calc(50% - 3px); border-radius: 999px; background: var(--vscode-button-background, var(--color-button-primary-background)); box-shadow: 0 1px 2px rgb(0 0 0 / 22%); transition: transform 220ms cubic-bezier(.22,1,.36,1); }
 .transport-selection.websocket { transform: translateX(calc(100% + 2px)); }
 .transport-option { position: relative; z-index: 1; min-height: 32px; padding: 5px 10px; color: var(--vscode-descriptionForeground, var(--color-text-secondary)); border: 0; border-radius: 999px; outline: none; background: transparent; cursor: pointer; font-size: 11px; transition: color 140ms ease, transform 180ms cubic-bezier(.22,1,.36,1); }
 .transport-option.selected { color: var(--vscode-button-foreground, var(--color-text-on-emphasis)); }
-.transport-option:hover:not(.selected) { color: var(--vscode-foreground, var(--color-text-primary)); background: var(--vscode-toolbar-hoverBackground, var(--color-bg-control-hover)); }
+.transport-option:hover:not(.selected) { color: var(--vscode-foreground, var(--color-text-primary)); background: transparent; }
 .transport-option:active { transform: scale(.98); }
 .transport-option:focus-visible { box-shadow: inset 0 0 0 1px var(--vscode-focusBorder); }
 .field-input {

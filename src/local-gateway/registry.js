@@ -3,6 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const lockfile = require('proper-lockfile');
 const { accountHome, providerHome, safeId } = require('./paths');
+const { resolveProviderEnvKey } = require('../provider-config');
 
 const INDEX_VERSION = 1;
 
@@ -49,16 +50,24 @@ function normalizeUsage(usage, now = Date.now()) {
 
 function normalizeState(value, now = Date.now()) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return emptyState();
-  const profiles = Array.isArray(value.profiles)
-    ? value.profiles
-      .filter((profile) => profile && typeof profile === 'object' && typeof profile.id === 'string')
-      .map((profile) => ({
-        ...profile,
-        kind: profile.kind === 'provider' ? 'provider' : 'default',
-        transport: profile.kind === 'provider' && profile.transport === 'websocket' ? 'websocket' : 'responses',
-        usage: normalizeUsage(profile.usage, now),
-      }))
+  const rawProfiles = Array.isArray(value.profiles)
+    ? value.profiles.filter((profile) => profile && typeof profile === 'object' && typeof profile.id === 'string')
     : [];
+  const normalizedProfiles = [];
+  const profiles = rawProfiles.map((profile) => {
+    const kind = profile.kind === 'provider' ? 'provider' : 'default';
+    const normalized = {
+      ...profile,
+      kind,
+      ...(kind === 'provider'
+        ? { envKey: resolveProviderEnvKey(profile, normalizedProfiles) }
+        : {}),
+      transport: kind === 'provider' && profile.transport === 'websocket' ? 'websocket' : 'responses',
+      usage: normalizeUsage(profile.usage, now),
+    };
+    normalizedProfiles.push(normalized);
+    return normalized;
+  });
   const activeId = profiles.some((profile) => profile.id === value.activeId) ? value.activeId : null;
   return {
     version: INDEX_VERSION,
@@ -72,6 +81,7 @@ function normalizeState(value, now = Date.now()) {
 class ProfileRegistry {
   constructor(paths) {
     this.paths = paths;
+    this.operationTail = Promise.resolve();
   }
 
   async ensure() {
@@ -93,7 +103,14 @@ class ProfileRegistry {
     return normalizeState(JSON.parse(await fs.promises.readFile(this.paths.indexPath, 'utf8')));
   }
 
-  async runExclusive(operation) {
+  runExclusive(operation) {
+    const run = () => this.runLocked(operation);
+    const result = this.operationTail.then(run, run);
+    this.operationTail = result.then(() => undefined, () => undefined);
+    return result;
+  }
+
+  async runLocked(operation) {
     await this.ensure();
     const release = await lockfile.lock(this.paths.indexPath, {
       realpath: false,

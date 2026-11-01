@@ -3,9 +3,9 @@ import ProfileTable from './components/ProfileTable.vue'
 import { useAuthProfiles } from './composables/useAuthProfiles'
 
 const {
-  profiles, error, awaitingSignIn, addError,
+  profiles, error, awaitingSignIn, addError, deviceAuth,
   activationFailureCount, activationWaitingProfileId, providerUpdateCount,
-  activate, deleteProfile, beginAdd, addProvider, updateProvider, cancelAdd, signIn, retryAdd, setExpandedUsage,
+  activate, deleteProfile, beginAdd, addProvider, updateProvider, cancelAdd, signIn, copyDeviceCode, retryAdd, setExpandedUsage,
   reauthenticate,
 } = useAuthProfiles()
 </script>
@@ -18,6 +18,7 @@ const {
       :error="error"
       :awaiting-sign-in="awaitingSignIn"
       :add-error="addError"
+      :device-auth="deviceAuth"
       :activation-failure-count="activationFailureCount"
       :activation-waiting-profile-id="activationWaitingProfileId"
       :provider-update-count="providerUpdateCount"
@@ -28,6 +29,7 @@ const {
       @update-provider="updateProvider"
       @cancel-add="cancelAdd"
       @sign-in="signIn"
+      @copy-device-code="copyDeviceCode"
       @retry-add="retryAdd"
       @reauthenticate="reauthenticate"
       @expanded-usage-change="setExpandedUsage"

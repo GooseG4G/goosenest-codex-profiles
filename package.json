@@ -47,6 +47,7 @@
     "check": "vue-tsc --noEmit",
     "test": "node --test test/*.test.js",
     "test:vue": "vitest run --config vitest.config.ts",
+    "test:e2e": "playwright test",
     "package": "vsce package --githubBranch main"
   },
   "contributes": {
@@ -111,6 +112,7 @@
     "@types/vscode": "^1.106.0",
     "@vitejs/plugin-vue": "^6.0.1",
     "@vscode/vsce": "^3.6.2",
+    "@playwright/test": "^1.64.1",
     "@vue/test-utils": "^2.5.1",
     "happy-dom": "^21.0.4",
     "typescript": "^5.9.3",

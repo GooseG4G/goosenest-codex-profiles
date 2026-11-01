@@ -23,5 +23,10 @@ interface Window {
     }>
     awaitingSignIn?: boolean
     addError?: string | null
+    deviceAuth?: {
+      userCode: string
+      verificationUrl: string
+      error?: string
+    } | null
   }
 }

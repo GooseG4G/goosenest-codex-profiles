@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, shallowRef, useId, useTemplateRef } from 'vue'
+import { useDelayedVisibility } from '../../composables/useDelayedVisibility'
 import UITooltip from './UITooltip.vue'
 
 export type IconButtonBackground = 'always' | 'hover' | 'never'
@@ -10,6 +11,7 @@ interface Props {
   accessibleLabel: string
   title?: string
   disabled?: boolean
+  pending?: boolean
   selected?: boolean
   tone?: 'neutral' | 'danger'
   background?: IconButtonBackground
@@ -21,6 +23,7 @@ interface Props {
 const props = withDefaults(defineProps<Props>(), {
   title: undefined,
   disabled: false,
+  pending: false,
   tone: 'neutral',
   background: 'hover',
   surfaceMotion: 'lift',
@@ -40,6 +43,7 @@ const button = useTemplateRef<HTMLButtonElement>('button')
 const isTooltipHovered = shallowRef(false)
 const isTooltipFocused = shallowRef(false)
 const isTooltipOpen = computed(() => isTooltipHovered.value || isTooltipFocused.value)
+const showPending = useDelayedVisibility(() => props.pending)
 
 const buttonClasses = computed(() => [
   `background-${props.background}`,
@@ -47,7 +51,7 @@ const buttonClasses = computed(() => [
   `icon-${props.iconMotion}`,
   `size-${props.size}`,
   `tone-${props.tone}`,
-  { 'is-selected': props.selected },
+    { 'is-selected': props.selected, 'is-pending': showPending.value },
 ])
 </script>
 
@@ -59,7 +63,8 @@ const buttonClasses = computed(() => [
     type="button"
     :aria-label="accessibleLabel"
     :aria-describedby="tooltipId"
-    :disabled="disabled"
+    :disabled="disabled || pending"
+    :aria-busy="pending || undefined"
     :aria-pressed="selected === undefined ? undefined : selected"
     @click="$emit('click', $event)"
     @mouseenter="isTooltipHovered = true"
@@ -108,9 +113,10 @@ const buttonClasses = computed(() => [
 .background-always { background: var(--button-background); }
 .background-always:hover, .background-always:focus-visible { background: var(--button-hover-background); }
 .background-hover { color: var(--button-foreground); background: transparent; }
-.background-hover:hover, .background-hover:focus-visible { color: var(--button-foreground); background: var(--button-hover-background); }
+.background-hover:hover, .background-hover:focus-visible { color: var(--color-text-primary); background: var(--button-hover-background); }
 .background-never { color: var(--button-foreground); background: transparent; }
-.background-never:hover, .background-never:focus-visible { color: var(--button-foreground); background: transparent; }
+.background-never:hover, .background-never:focus-visible { color: var(--color-text-primary); background: transparent; }
+.tone-danger.background-hover:hover, .tone-danger.background-hover:focus-visible { color: var(--color-icon-button-danger-hover-foreground); }
 .icon-button:focus-visible { border-color: var(--color-focus); }
 .icon-button.is-selected { color: var(--button-foreground); background: var(--button-hover-background); }
 .icon-button:active { background: var(--button-pressed-background); }

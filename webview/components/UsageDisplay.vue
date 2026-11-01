@@ -143,7 +143,7 @@ function resetLabel(timestamp: number): string {
 .skeleton-reset { width: 76px; height: 12px; }
 .skeleton-percent { width: 40px; height: 12px; justify-self: end; }
 .unavailable { grid-template-columns: 1fr; }
-.reset-card { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 12px; min-height: 42px; padding: 8px 14px; border: 1px solid var(--color-border-default); border-radius: 7px; background: var(--color-usage-card-background); }
+.reset-card { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 12px; min-height: 42px; padding: 8px 14px; border: 1px solid var(--color-border-default); border-radius: 7px; background: var(--color-reset-card-background); }
 .reset-card > strong { overflow: hidden; font-size: 13px; font-weight: 600; line-height: 16px; text-overflow: ellipsis; white-space: nowrap; }
 .reset-count { min-width: 76px; padding: 4px 9px; border-radius: 999px; color: var(--color-reset-badge-available-foreground, var(--color-text-primary)); font-size: 11px; font-weight: 650; line-height: 14px; text-align: center; background: var(--color-reset-badge-available-background, var(--color-bg-control-hover)); }
 .reset-count.empty { color: var(--color-text-secondary); background: var(--color-bg-control-hover); }

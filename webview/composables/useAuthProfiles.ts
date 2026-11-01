@@ -7,6 +7,7 @@ export function useAuthProfiles() {
   const error = shallowRef('')
   const awaitingSignIn = shallowRef(window.__CODEX_PROFILES_INITIAL_STATE__?.awaitingSignIn ?? false)
   const addError = shallowRef(window.__CODEX_PROFILES_INITIAL_STATE__?.addError ?? '')
+  const deviceAuth = shallowRef(window.__CODEX_PROFILES_INITIAL_STATE__?.deviceAuth ?? null)
   const activationFailureCount = shallowRef(0)
   const activationWaitingProfileId = shallowRef<string | null>(null)
   const providerUpdateCount = shallowRef(0)
@@ -23,6 +24,7 @@ export function useAuthProfiles() {
       profiles.value = message.profiles
       awaitingSignIn.value = Boolean(message.awaitingSignIn)
       addError.value = String(message.addError || '')
+      deviceAuth.value = message.deviceAuth ?? null
     } else if (message.type === 'error') {
       error.value = String(message.message || 'Unknown error')
     } else if (message.type === 'activationFailed') {
@@ -44,7 +46,7 @@ export function useAuthProfiles() {
 
   return {
     profiles: readonly(orderedProfiles), error: readonly(error), awaitingSignIn: readonly(awaitingSignIn),
-    addError: readonly(addError), activationFailureCount: readonly(activationFailureCount),
+    addError: readonly(addError), deviceAuth: readonly(deviceAuth), activationFailureCount: readonly(activationFailureCount),
     activationWaitingProfileId: readonly(activationWaitingProfileId),
     providerUpdateCount: readonly(providerUpdateCount),
     activate: (id: string) => post('activate', { id }),
@@ -55,6 +57,7 @@ export function useAuthProfiles() {
     updateProvider: (update: ProviderUpdate) => post('updateProvider', update),
     cancelAdd: () => post('cancelAdd'),
     signIn: () => post('signIn'),
+    copyDeviceCode: () => post('copyDeviceCode'),
     retryAdd: () => post('retryAdd'),
     setExpandedUsage: (ids: string[]) => post('setExpandedUsage', { ids }),
   }
