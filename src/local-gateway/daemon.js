@@ -7,7 +7,7 @@ const { createWebSocketProxy, proxyHttpResponse } = require('./proxy');
 
 const paths = createGatewayPaths(process.env.CODEX_ROOT);
 const registry = new ProfileRegistry(paths);
-const token = process.env.CODEX_PROFILES_DAEMON_TOKEN || crypto.randomBytes(32).toString('base64url');
+const token = process.env.GATEWAY_ACCESS_TOKEN || crypto.randomBytes(32).toString('base64url');
 
 function authorize(request) {
   return request.headers.authorization === `Bearer ${token}`;

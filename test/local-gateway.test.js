@@ -220,9 +220,9 @@ test('local daemon proxies Responses over HTTP and WebSocket', { timeout: 20_000
     }];
   });
 
-  const daemonToken = 'local-daemon-token';
+  const gatewayToken = 'local-gateway-token';
   const daemon = spawn(process.execPath, [path.join(__dirname, '..', 'src', 'local-gateway', 'daemon.js')], {
-    env: { ...process.env, CODEX_ROOT: temporaryRoot, CODEX_PROFILES_DAEMON_TOKEN: daemonToken },
+    env: { ...process.env, CODEX_ROOT: temporaryRoot, GATEWAY_ACCESS_TOKEN: gatewayToken },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
   t.after(async () => {
@@ -253,7 +253,7 @@ test('local daemon proxies Responses over HTTP and WebSocket', { timeout: 20_000
   const response = await fetch(`http://127.0.0.1:${runtime.port}/v1/responses`, {
     method: 'POST',
     headers: {
-      authorization: `Bearer ${daemonToken}`,
+      authorization: `Bearer ${gatewayToken}`,
       'content-type': 'application/json',
       'x-session-id': 'session-http',
     },
@@ -270,7 +270,7 @@ test('local daemon proxies Responses over HTTP and WebSocket', { timeout: 20_000
   assert.equal(httpState.profiles[0].usage.lastResponseUsage.input_tokens, 1);
 
   const downstreamWebSocket = new WebSocket(`ws://127.0.0.1:${runtime.port}/v1/responses`, {
-    headers: { authorization: `Bearer ${daemonToken}`, 'x-session-id': 'session-ws' },
+    headers: { authorization: `Bearer ${gatewayToken}`, 'x-session-id': 'session-ws' },
   });
   await once(downstreamWebSocket, 'open');
   downstreamWebSocket.send(JSON.stringify({ type: 'response.create', model: 'test' }));

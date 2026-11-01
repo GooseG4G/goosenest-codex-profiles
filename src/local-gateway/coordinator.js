@@ -13,8 +13,8 @@ const {
 } = require('../provider-config');
 const { writeAtomic } = require('./registry');
 
-const LOCAL_PROVIDER_ID = 'codex_profiles';
-const LOCAL_TOKEN_ENV = 'CODEX_PROFILES_TOKEN';
+const LOCAL_PROVIDER_ID = 'gateway';
+const LOCAL_TOKEN_ENV = 'GATEWAY_ACCESS_TOKEN';
 
 async function readRuntime(paths) {
   try {
@@ -62,7 +62,7 @@ async function ensureDaemon(paths) {
   try {
     const current = await readRuntime(paths);
     if (await isHealthy(current)) return current;
-    const daemonToken = crypto.randomBytes(32).toString('base64url');
+    const gatewayToken = crypto.randomBytes(32).toString('base64url');
     const daemonPath = path.join(__dirname, 'daemon.js');
     const startedAfter = Date.now() - 1_000;
     const child = spawn(process.execPath, [daemonPath], {
@@ -73,7 +73,7 @@ async function ensureDaemon(paths) {
         ...process.env,
         ELECTRON_RUN_AS_NODE: '1',
         CODEX_ROOT: paths.codexRoot,
-        CODEX_PROFILES_DAEMON_TOKEN: daemonToken,
+        GATEWAY_ACCESS_TOKEN: gatewayToken,
       },
     });
     child.unref();
@@ -100,13 +100,13 @@ async function updateProviderConfig(paths, profile) {
       fs.promises.readFile(paths.configPath, 'utf8'),
       fs.promises.readFile(paths.envPath, 'utf8'),
     ]);
-    const envKey = findCompatibleEnvKey(env, profile.envKey, profile.name);
+    const envKey = profile.strictEnvKey
+      ? profile.envKey
+      : findCompatibleEnvKey(env, profile.envKey, profile.name);
     const configuredProfile = { ...profile, envKey };
     profile.envKey = envKey;
     const nextConfig = appendProviderConfig(config, configuredProfile);
-    const nextEnv = profile.token
-      ? upsertEnvValue(removeEnvValue(env, 'CODEX_PROFILES_LOCAL_TOKEN'), envKey, profile.token)
-      : env;
+    const nextEnv = profile.token ? upsertEnvValue(env, envKey, profile.token) : env;
     if (formatTomlFile(config) !== nextConfig) await writeAtomic(paths.configPath, nextConfig);
     if (env !== nextEnv) await writeAtomic(paths.envPath, nextEnv);
     return envKey;
@@ -123,6 +123,7 @@ async function ensureLocalProviderConfig(paths, runtime) {
     envKey: LOCAL_TOKEN_ENV,
     token: runtime.token,
     transport: 'websocket',
+    strictEnvKey: true,
   });
 }
 

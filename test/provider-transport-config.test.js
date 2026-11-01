@@ -11,7 +11,12 @@ const fs = require('node:fs/promises');
 const os = require('node:os');
 const path = require('node:path');
 const { createGatewayPaths } = require('../src/local-gateway/paths');
-const { ensureExternalProviderConfig } = require('../src/local-gateway/coordinator');
+const {
+  ensureExternalProviderConfig,
+  ensureLocalProviderConfig,
+  LOCAL_PROVIDER_ID,
+  LOCAL_TOKEN_ENV,
+} = require('../src/local-gateway/coordinator');
 
 test('provider env keys are deterministic and migrate missing legacy keys', () => {
   assert.equal(createEnvKey('Open Router'), 'OPEN_ROUTER_ACCESS_TOKEN');
@@ -86,6 +91,30 @@ test('external provider config reuses a compatible existing env name', async () 
     const config = await fs.readFile(paths.configPath, 'utf8');
     assert.match(env, /^OPENROUTER_API_KEY=new-token$/m);
     assert.match(config, /env_key = "OPENROUTER_API_KEY"/);
+  } finally {
+    await fs.rm(root, { recursive: true, force: true });
+  }
+});
+
+test('local gateway uses the stable gateway provider and token names', async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-local-provider-'));
+  try {
+    const paths = createGatewayPaths(root);
+    await fs.mkdir(path.dirname(paths.envPath), { recursive: true });
+    await fs.writeFile(paths.envPath, 'GATEWAY_ACCESS_TOKEN=old-token\n');
+    await ensureLocalProviderConfig(paths, {
+      port: 62656,
+      token: 'gateway-token',
+    });
+    const env = await fs.readFile(paths.envPath, 'utf8');
+    const config = await fs.readFile(paths.configPath, 'utf8');
+    assert.equal(LOCAL_PROVIDER_ID, 'gateway');
+    assert.equal(LOCAL_TOKEN_ENV, 'GATEWAY_ACCESS_TOKEN');
+    assert.match(config, /model_provider = "gateway"/);
+    assert.match(config, /\[model_providers\."gateway"\]/);
+    assert.match(config, /name = "Codex Profiles"/);
+    assert.match(config, /env_key = "GATEWAY_ACCESS_TOKEN"/);
+    assert.match(env, /^GATEWAY_ACCESS_TOKEN=gateway-token$/m);
   } finally {
     await fs.rm(root, { recursive: true, force: true });
   }
