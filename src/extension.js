@@ -13,7 +13,7 @@ const { SerialQueue } = require('./serial-queue');
 const { StoreTransactionQueue } = require('./store-transaction');
 const { ensureExternalProviderConfig, ensureLocalGateway } = require('./local-gateway/coordinator');
 const { accountHome, createGatewayPaths, providerHome } = require('./local-gateway/paths');
-const { ProfileRegistry } = require('./local-gateway/registry');
+const { ProfileRegistry, normalizeUsage } = require('./local-gateway/registry');
 
 const VIEW_ID = 'codexProfiles.profilesView';
 const AUTH_READ_RETRY_COUNT = 5;
@@ -357,7 +357,10 @@ class ProfileStore {
             ...profile,
             kind: profile.kind || DEFAULT_KIND,
             usage: profile.usage
-              ? { ...profile.usage, fetchedAt: profile.usage.fetchedAt || profile.usage.checkedAt || null }
+              ? normalizeUsage({
+                ...profile.usage,
+                fetchedAt: profile.usage.fetchedAt || profile.usage.checkedAt || null,
+              })
               : profile.usage,
           }))
           : [],
