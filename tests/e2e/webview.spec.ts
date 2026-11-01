@@ -201,6 +201,17 @@ test('add profile confirmation uses the primary action style', async ({ page }) 
   await expect(page.getByRole('button', { name: 'Sign in' }).locator('.line-button-surface')).toHaveCSS('background-color', 'rgb(237, 237, 237)')
 })
 
+test('add profile keeps confirmation open while device auth is starting', async ({ page }) => {
+  await page.goto('/?state=ready')
+  await page.getByRole('button', { name: 'Add profile' }).click()
+  const dialog = page.getByRole('dialog')
+  const signIn = page.getByRole('button', { name: 'Sign in' })
+  await signIn.click()
+  await expect(dialog).toBeVisible()
+  await expect(signIn).toHaveAttribute('aria-busy', 'true')
+  await expect(signIn).toHaveClass(/is-pending/)
+})
+
 test('switch confirmation is concise and uses the primary action style', async ({ page }) => {
   await page.goto('/?state=ready')
   const provider = page.locator('.profile-item').filter({ hasText: 'Local provider' })
