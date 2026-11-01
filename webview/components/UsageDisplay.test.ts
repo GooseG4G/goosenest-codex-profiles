@@ -19,8 +19,6 @@ describe('UsageDisplay', () => {
           updatedAt: '2026-10-31T20:00:00.000Z',
           status: 'stale',
           primary: { usedPercent: 25, windowDurationMins: 300, resetsAt: 2_000_000_000 },
-          availableResetCount: 1,
-          resetCredits: [{ id: 'reset-1', status: 'available' }],
         },
       },
     })
@@ -30,20 +28,4 @@ describe('UsageDisplay', () => {
     expect(wrapper.find('.usage-card.stale').exists()).toBe(true)
   })
 
-  it('derives available reset count from credit details when summary is absent', () => {
-    const wrapper = mount(UsageDisplay, {
-      props: {
-        usage: {
-          fetchedAt: '2026-10-31T20:00:00.000Z',
-          status: 'ready',
-          primary: { usedPercent: 10, windowDurationMins: 300, resetsAt: 2_000_000_000 },
-          resetCredits: [
-            { id: 'available', status: 'available' },
-            { id: 'redeemed', status: 'redeemed' },
-          ],
-        },
-      },
-    })
-
-  })
 })

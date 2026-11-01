@@ -32,6 +32,9 @@ export interface ProfileUsage {
   errorCode?: 'AUTH_EXPIRED' | 'TIMEOUT' | 'NETWORK' | 'UNKNOWN'
 }
 
+export type ProfileUsageLimits = Pick<ProfileUsage, 'primary' | 'secondary' | 'status' | 'fetchedAt' | 'updatedAt' | 'error' | 'errorCode'>
+export type ProfileUsageResets = Pick<ProfileUsage, 'resetCredits' | 'availableResetCount' | 'pendingResetId' | 'pendingResetRequestId' | 'status' | 'fetchedAt' | 'updatedAt' | 'error' | 'errorCode'>
+
 export interface Profile {
   id: string
   kind: ProfileKind
@@ -43,6 +46,8 @@ export interface Profile {
   provider?: string
   transport?: ProviderTransport
   usage?: ProfileUsage | null
+  usageLimits?: ProfileUsageLimits | null
+  usageResets?: ProfileUsageResets | null
   authExpired?: boolean
   lastUsedAt?: string | null
 }

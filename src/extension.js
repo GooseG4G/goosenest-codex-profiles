@@ -397,6 +397,27 @@ class ProfileStore {
           lastUsedAt: profile.lastSeenAt || null,
         });
       } else if (await exists(this.profilePath(profile.id))) {
+        const usage = profile.usage || null;
+        const usageLimits = usage ? {
+          primary: usage.primary || null,
+          secondary: usage.secondary || null,
+          status: usage.status,
+          fetchedAt: usage.fetchedAt || null,
+          updatedAt: usage.updatedAt || null,
+          error: usage.error,
+          errorCode: usage.errorCode,
+        } : null;
+        const usageResets = usage ? {
+          resetCredits: usage.resetCredits || [],
+          availableResetCount: usage.availableResetCount ?? 0,
+          pendingResetId: usage.pendingResetId || null,
+          pendingResetRequestId: usage.pendingResetRequestId || null,
+          status: usage.status,
+          fetchedAt: usage.fetchedAt || null,
+          updatedAt: usage.updatedAt || null,
+          error: usage.error,
+          errorCode: usage.errorCode,
+        } : null;
         profiles.push({
           id: profile.id,
           kind,
@@ -404,6 +425,8 @@ class ProfileStore {
           active: profile.id === state.activeId,
             lastUsedAt: profile.lastSeenAt || null,
           usage: profile.usage || null,
+          usageLimits,
+          usageResets,
         });
       }
     }

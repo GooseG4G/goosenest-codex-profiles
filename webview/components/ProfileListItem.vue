@@ -23,7 +23,7 @@ const emit = defineEmits<{
 }>()
 const detailsAnimation = useCollapseAnimation()
 const needsAuthentication = computed(() => Boolean(props.profile.authExpired))
-const hasUsage = computed(() => props.profile.kind !== 'provider' && Boolean(props.profile.usage?.primary || props.profile.usage?.secondary))
+const hasUsage = computed(() => props.profile.kind !== 'provider' && Boolean(props.profile.usageLimits?.primary || props.profile.usageLimits?.secondary || props.profile.usage?.primary || props.profile.usage?.secondary))
 const hasDetails = computed(() => !needsAuthentication.value && (props.profile.kind === 'provider' || hasUsage.value))
 const subtitle = computed(() => {
   const relativeAge = props.profile.active ? 'just now' : props.profile.lastUsedAt ? formatRelativeAge(props.profile.lastUsedAt) : ''
@@ -102,11 +102,11 @@ function toggleKeyboard(event: KeyboardEvent) {
           <div class="details-wrap">
             <ProviderDetails v-if="profile.kind === 'provider'" :profile="profile" @edit="emit('edit', $event)" />
             <template v-else>
-              <UsageDisplay :usage="profile.usage" :busy="profile.busy" />
+              <UsageDisplay :usage="profile.usageLimits || profile.usage" :busy="profile.busy" />
               <UsageResetWidget
-                :credits="profile.usage?.resetCredits"
-                :stale="profile.usage?.status === 'stale'"
-                :pending-id="profile.usage?.pendingResetId || resetPendingId"
+                :credits="profile.usageResets?.resetCredits || profile.usage?.resetCredits"
+                :stale="profile.usageResets?.status === 'stale' || profile.usage?.status === 'stale'"
+                :pending-id="profile.usageResets?.pendingResetId || profile.usage?.pendingResetId || resetPendingId"
                 @use-reset="emit('useReset', $event)"
               />
             </template>

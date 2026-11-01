@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useMinuteClock } from '../composables/useMinuteClock'
-import type { ProfileUsage } from '../types'
+import type { ProfileUsageLimits } from '../types'
 
 const props = defineProps<{
-  usage?: ProfileUsage | null
+  usage?: ProfileUsageLimits | null
   busy?: boolean
 }>()
 
