@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import { RefreshCw } from '@lucide/vue'
 import type { Profile } from '../types'
 import { useCollapseAnimation } from '../composables/useCollapseAnimation'
 import ProfileRowActions from './ProfileRowActions.vue'
@@ -19,8 +20,9 @@ const emit = defineEmits<{
   toggleDetails: [event?: MouseEvent | KeyboardEvent]
 }>()
 const detailsAnimation = useCollapseAnimation()
+const needsAuthentication = computed(() => Boolean(props.profile.authExpired))
 const hasUsage = computed(() => props.profile.kind !== 'provider' && Boolean(props.profile.usage?.primary || props.profile.usage?.secondary))
-const hasDetails = computed(() => props.profile.kind === 'provider' || hasUsage.value)
+const hasDetails = computed(() => !needsAuthentication.value && (props.profile.kind === 'provider' || hasUsage.value))
 const subtitle = computed(() => {
   const relativeAge = props.profile.active ? 'just now' : props.profile.lastUsedAt ? formatRelativeAge(props.profile.lastUsedAt) : ''
   if (props.profile.kind === 'provider') {
@@ -62,8 +64,13 @@ function toggleKeyboard(event: KeyboardEvent) {
 <template>
   <UICollectionItem class="profile-item" @keydown="toggleKeyboard">
     <template #interaction>
+      <UIActionItem
+        v-if="needsAuthentication"
+        :accessible-label="`Sign in to ${profile.name} again`"
+        @activate="emit('activate')"
+      />
       <UIDisclosureItem
-        v-if="hasDetails"
+        v-else-if="hasDetails"
         :accessible-label="`${expanded ? 'Hide' : 'Show'} details for ${profile.name}`"
         :expanded="expanded"
         :controls="`details-${profile.id}`"
@@ -73,7 +80,10 @@ function toggleKeyboard(event: KeyboardEvent) {
     </template>
     <UICollectionItemIdentity disclosure>
       <template #disclosure>
-        <span class="disclosure" :class="{ disabled: !hasDetails }" aria-hidden="true"><UIChevronIcon :expanded="expanded" /></span>
+        <span class="disclosure" :class="{ disabled: !hasDetails }" aria-hidden="true">
+          <RefreshCw v-if="needsAuthentication" class="reauth-icon" />
+          <UIChevronIcon v-else :expanded="expanded" />
+        </span>
       </template>
       <template #status><span class="status-dot" :class="{ active: profile.active, expired: profile.authExpired }" aria-hidden="true" /></template>
       <span class="profile-copy">
@@ -106,6 +116,8 @@ function toggleKeyboard(event: KeyboardEvent) {
 .status-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--color-profile-status-inactive); }
 .status-dot.active { background: var(--color-profile-status-active); }
 .status-dot.expired { background: var(--color-profile-status-auth-required); }
+.reauth-icon { width: 17px; height: 17px; animation: profile-reauth-spin .9s linear infinite; }
+@keyframes profile-reauth-spin { to { transform: rotate(360deg); } }
 .disclosure { display: inline-flex; width: 24px; height: 28px; margin-left: -4px; align-items: center; justify-content: center; color: var(--color-profile-disclosure-icon); border-radius: 5px; }
 .disclosure.disabled { color: var(--color-text-tertiary); opacity: .55; }
 .details-collapse { display: grid; overflow: hidden; opacity: 1; }

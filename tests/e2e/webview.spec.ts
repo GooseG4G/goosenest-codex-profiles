@@ -194,6 +194,24 @@ test('reauth completion updates the expired profile in the visible list', async 
   await expect(profile.locator('.profile-copy')).toContainText('just now')
 })
 
+test('expired profile replaces disclosure chevron with reauth indicator', async ({ page }) => {
+  await page.goto('/?state=ready')
+  await expect(page.locator('.profile-item').first()).toBeVisible()
+  await page.evaluate(() => {
+    window.dispatchEvent(new MessageEvent('message', { data: {
+      type: 'state',
+      profiles: [{ id: 'expired-profile', kind: 'default', name: 'expired@example.com', active: false, authExpired: true, lastUsedAt: null, usage: { planType: 'Pro', primary: { usedPercent: 20 } } }],
+      awaitingSignIn: false,
+      addError: '',
+      deviceAuth: null,
+    } }))
+  })
+  const profile = page.locator('.profile-item').filter({ hasText: 'expired@example.com' })
+  await expect(profile.locator('.reauth-icon')).toBeVisible()
+  await expect(profile.locator('.chevron-icon')).toHaveCount(0)
+  await expect(profile.getByRole('button', { name: 'Sign in to expired@example.com again' })).toBeVisible()
+})
+
 test('add profile confirmation uses the primary action style', async ({ page }) => {
   await page.goto('/?state=ready')
   await page.getByRole('button', { name: 'Add profile' }).click()
