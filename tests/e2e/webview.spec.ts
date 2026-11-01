@@ -16,8 +16,7 @@ test('profile header uses the Gateway table-header color token', async ({ page }
   await expect(page.locator('.list-header')).toHaveCSS('background-color', 'rgb(28, 29, 30)')
 })
 
-test('provider row hover and action motion match the Gateway controls', async ({ page, isMobile }) => {
-  test.skip(isMobile, 'Gateway deliberately disables hover motion on touch layouts')
+test('provider row hover and action motion match the Gateway controls', async ({ page }) => {
   await page.goto('/?state=ready')
   const provider = page.locator('.profile-item').filter({ hasText: 'Local provider' })
   const row = provider.locator('.profile-row')
@@ -42,8 +41,7 @@ test('provider row hover and action motion match the Gateway controls', async ({
   await expect(editButton.locator('.content')).toHaveCSS('transform', 'matrix(1.04, 0, 0, 1.04, 0, 0)')
 })
 
-test('selected provider switch stays muted while its row is hovered', async ({ page, isMobile }) => {
-  test.skip(isMobile, 'Touch layouts do not expose hover')
+test('selected provider switch stays muted while its row is hovered', async ({ page }) => {
   await page.goto('/?state=provider-active')
   const provider = page.locator('.profile-item').filter({ hasText: 'Local provider' })
   await expect(provider.locator('.profile-copy')).toContainText('provider.example, used just now')

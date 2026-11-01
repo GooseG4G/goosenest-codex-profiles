@@ -20,13 +20,16 @@ const emit = defineEmits<{
       </UIIconButton>
     </span>
     <span class="row-action-divider" aria-hidden="true" />
-    <UITrashButton class="row-action-delete" accessible-label="Delete profile" title="Delete profile" @click.stop="emit('delete', $event)" />
+    <span class="row-action-slot">
+      <UITrashButton accessible-label="Delete profile" title="Delete profile" @click.stop="emit('delete', $event)" />
+    </span>
   </div>
 </template>
 
 <style scoped>
-.row-actions { position: relative; z-index: 2; display: inline-grid; height: 28px; grid-template-columns: 28px 1px 28px; align-items: center; gap: 10px; pointer-events: auto; }
+.row-actions { position: relative; z-index: 2; display: inline-grid; height: 28px; grid-template-columns: 28px 1px 28px; align-items: center; gap: 10px; pointer-events: none; }
 .row-action-slot { display: inline-flex; width: 28px; height: 28px; }
+.row-action-slot { pointer-events: auto; }
 .row-action-activate :deep(.icon) { width: 17px; height: 17px; }
 .row-action-divider { width: 1px; height: 22px; background: var(--color-border-default); }
 </style>

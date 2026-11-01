@@ -4,6 +4,7 @@ import UICancelButton from './ui/UICancelButton.vue'
 import UIConfirmButton from './ui/UIConfirmButton.vue'
 import UICopyField from './ui/UICopyField.vue'
 import UIDialog from './ui/UIDialog.vue'
+import UICloseButton from './ui/UICloseButton.vue'
 
 const props = defineProps<{
   open: boolean
@@ -43,6 +44,7 @@ watch(
     :close-disabled="authOpened"
     @close="emit('cancel')"
   >
+    <template #close="{ close }"><UICloseButton :disabled="authOpened" @click="close" /></template>
         <p v-if="error" class="message error" role="alert">{{ error }}</p>
         <template v-else>
           <p class="message">Continue in OpenAI and enter this one-time code.</p>
