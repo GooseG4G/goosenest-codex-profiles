@@ -135,7 +135,7 @@ test('device sign-in presents a copyable code without a terminal', async ({ page
   await expect(page.getByRole('button', { name: 'Copy code' })).toContainText('ABCD-EFGH')
   const openButton = page.getByRole('button', { name: 'Go to OpenAI' })
   await expect(openButton).toBeEnabled()
-  await expect(page.getByText('https://auth.openai.com/device')).toBeVisible()
+  await expect(page.getByText('pending, expires in about 15 minutes')).toBeVisible()
   await openButton.click()
   await expect(openButton).toHaveAttribute('aria-busy', 'true')
   await expect(openButton).toContainText('Go to OpenAI')

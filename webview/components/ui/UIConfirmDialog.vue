@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import UICancelButton from './UICancelButton.vue'
 import UIConfirmButton from './UIConfirmButton.vue'
+import UIDeleteButton from './UIDeleteButton.vue'
 import UICloseButton from './UICloseButton.vue'
 import UIDialog from './UIDialog.vue'
 
@@ -21,7 +22,8 @@ defineEmits<{ close: []; confirm: [] }>()
     <template #close="{ close }"><UICloseButton :disabled="pending" @click="close" /></template>
     <template #footer="{ close }">
       <UICancelButton :disabled="pending" @click="close" />
-      <UIConfirmButton :variant="confirmVariant" :pending="pending" @click="$emit('confirm')">{{ confirmLabel }}</UIConfirmButton>
+      <UIDeleteButton v-if="confirmVariant === 'danger'" :pending="pending" @click="$emit('confirm')">{{ confirmLabel }}</UIDeleteButton>
+      <UIConfirmButton v-else :pending="pending" @click="$emit('confirm')">{{ confirmLabel }}</UIConfirmButton>
     </template>
   </UIDialog>
 </template>

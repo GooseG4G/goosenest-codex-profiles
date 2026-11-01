@@ -1,11 +1,41 @@
 <script setup lang="ts">
+import { computed, onBeforeUnmount, onMounted, shallowRef, useId, useTemplateRef } from 'vue'
 import UIIcon from './UIIcon.vue'
+import UITooltip from './UITooltip.vue'
 defineOptions({ inheritAttrs: false })
 const props = withDefaults(defineProps<{ accessibleLabel: string; title?: string; disabled?: boolean; pending?: boolean; size?: 'small' | 'medium' }>(), { title: undefined, disabled: false, pending: false, size: 'medium' })
 defineEmits<{ click: [event: MouseEvent] }>()
 defineSlots<{ icon(): unknown }>()
+const button = useTemplateRef<HTMLButtonElement>('button')
+const tooltipId = useId()
+const hovered = shallowRef(false)
+const focused = shallowRef(false)
+const tooltipDismissed = shallowRef(false)
+const tooltipText = computed(() => props.title ?? props.accessibleLabel)
+const tooltipOpen = computed(() => !props.disabled && !props.pending && !tooltipDismissed.value && (hovered.value || focused.value))
+function onDocumentKeydown(event: KeyboardEvent) {
+  if (event.key !== 'Escape') return
+  tooltipDismissed.value = true
+  hovered.value = false
+  focused.value = false
+}
+function onPointerEnter(event: PointerEvent) {
+  if (event.pointerType === 'touch') return
+  hovered.value = true
+  tooltipDismissed.value = false
+}
+function onPointerLeave(event: PointerEvent) {
+  if (event.pointerType === 'touch') return
+  hovered.value = false
+  tooltipDismissed.value = false
+}
+onMounted(() => document.addEventListener('keydown', onDocumentKeydown))
+onBeforeUnmount(() => document.removeEventListener('keydown', onDocumentKeydown))
 </script>
-<template><button v-bind="$attrs" class="toolbar-button" :class="[`size-${props.size}`, { 'is-pending': props.pending }]" type="button" :aria-label="props.accessibleLabel" :title="props.title ?? props.accessibleLabel" :aria-busy="props.pending || undefined" :disabled="props.disabled || props.pending" @click="$emit('click', $event)"><span class="toolbar-button-surface" aria-hidden="true" /><UIIcon class="toolbar-button-icon"><slot name="icon" /></UIIcon></button></template>
+<template>
+  <button ref="button" v-bind="$attrs" class="toolbar-button" :class="[`size-${props.size}`, { 'is-pending': props.pending }]" type="button" :aria-label="props.accessibleLabel" :aria-describedby="tooltipId" :aria-busy="props.pending || undefined" :disabled="props.disabled || props.pending" @click="$emit('click', $event)" @pointerdown="focused = false" @pointerenter="onPointerEnter" @pointerleave="onPointerLeave" @focus="focused = (button?.matches(':focus-visible') ?? false) && !button?.dataset.focusRestored; tooltipDismissed = false" @blur="focused = false; tooltipDismissed = false"><span class="toolbar-button-surface" aria-hidden="true" /><UIIcon class="toolbar-button-icon"><slot name="icon" /></UIIcon></button>
+  <UITooltip :id="tooltipId" :anchor="button" :text="tooltipText" :open="tooltipOpen" :instant="focused" />
+</template>
 <style scoped>
 .toolbar-button { --toolbar-button-background: var(--color-bg-surface); --toolbar-button-hover-background: var(--color-bg-control-hover); --toolbar-button-border: var(--color-border-default); --toolbar-button-hover-border: var(--color-border-strong); position: relative; display: inline-flex; width: 46px; height: 46px; padding: 0; align-items: center; justify-content: center; color: var(--color-icon-button-foreground); border: 0; border-radius: 6px; outline: none; background: transparent; transition: color 160ms ease; }
 .toolbar-button.size-small { width: 28px; height: 28px; }

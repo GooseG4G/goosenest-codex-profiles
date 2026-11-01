@@ -116,5 +116,8 @@ function toggleKeyboard(event: KeyboardEvent) {
 .details-collapse { display: grid; overflow: hidden; opacity: 1; }
 .details-wrap { min-height: 0; padding: 0 12px 12px; overflow: hidden; }
 @keyframes plan-shimmer { to { transform: translateX(100%); } }
+@media (hover: hover) and (pointer: fine) {
+  .profile-item:hover { background: var(--color-bg-row-hover); }
+}
 @media (prefers-reduced-motion: reduce) { .profile-item, .plan-pending::after { animation: none; transition: none; } }
 </style>

@@ -10,6 +10,7 @@
   --color-text-tertiary: var(--vscode-disabledForeground, #737373);
   --color-text-on-emphasis: var(--vscode-button-foreground, #fff);
   --color-bg-canvas: var(--vscode-sideBar-background, #101112);
+  --color-bg-sunken: #141516;
   --color-bg-surface: var(--vscode-editor-background, #18191a);
   --color-bg-raised: var(--vscode-editorWidget-background, #1e1f20);
   --color-bg-overlay: var(--vscode-editorHoverWidget-background, #202122);

@@ -607,7 +607,7 @@ onUnmounted(() => {
   scrollbar-width: none;
   border: 1px solid var(--color-border-default);
   border-radius: 7px;
-  background: var(--color-bg-surface);
+  background: var(--color-bg-sunken);
 }
 .table-card::-webkit-scrollbar { display: none; }
 .list-header {
