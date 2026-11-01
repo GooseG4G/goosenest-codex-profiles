@@ -14,7 +14,7 @@
   --color-bg-raised: var(--vscode-editorWidget-background, #1e1f20);
   --color-bg-dialog: var(--vscode-editorWidget-background, #191a1b);
   --color-bg-backdrop: rgb(5 6 7 / 78%);
-  --color-bg-table-header: color-mix(in srgb, var(--color-bg-surface) 88%, var(--color-text-primary) 12%);
+  --color-bg-table-header: var(--vscode-sideBarSectionHeader-background, #1c1d1e);
   --color-bg-row-hover: var(--vscode-list-hoverBackground, #1c1d1e);
   --color-bg-control-hover: var(--vscode-toolbar-hoverBackground, rgb(255 255 255 / 4%));
   --color-bg-control-pressed: var(--vscode-toolbar-activeBackground, rgb(255 255 255 / 7%));
