@@ -21,8 +21,6 @@ const emit = defineEmits<{
 const detailsAnimation = useCollapseAnimation()
 const hasUsage = computed(() => props.profile.kind !== 'provider' && Boolean(props.profile.usage?.primary || props.profile.usage?.secondary))
 const hasDetails = computed(() => props.profile.kind === 'provider' || hasUsage.value)
-const planPending = computed(() => props.profile.kind !== 'provider' && Boolean(props.profile.busy) && !props.profile.usage?.planType)
-
 const subtitle = computed(() => {
   const relativeAge = props.profile.active ? 'just now' : props.profile.lastUsedAt ? formatRelativeAge(props.profile.lastUsedAt) : ''
   if (props.profile.kind === 'provider') {
@@ -80,8 +78,7 @@ function toggleKeyboard(event: KeyboardEvent) {
       <template #status><span class="status-dot" :class="{ active: profile.active, expired: profile.authExpired }" aria-hidden="true" /></template>
       <span class="profile-copy">
         <strong>{{ profile.name }}</strong>
-        <span v-if="planPending" class="plan-pending" aria-label="Loading plan" />
-        <small v-else>{{ subtitle }}</small>
+        <small>{{ subtitle }}</small>
       </span>
     </UICollectionItemIdentity>
     <template #actions>
@@ -111,13 +108,10 @@ function toggleKeyboard(event: KeyboardEvent) {
 .status-dot.expired { background: var(--color-profile-status-auth-required); }
 .disclosure { display: inline-flex; width: 24px; height: 28px; margin-left: -4px; align-items: center; justify-content: center; color: var(--color-profile-disclosure-icon); border-radius: 5px; }
 .disclosure.disabled { color: var(--color-text-tertiary); opacity: .55; }
-.plan-pending { position: relative; display: block; width: 32px; height: 10px; overflow: hidden; border-radius: 3px; background: var(--color-bg-control-hover); }
-.plan-pending::after { position: absolute; inset: 0; background: linear-gradient(105deg, transparent 20%, var(--color-shimmer-light) 50%, transparent 80%); content: ''; animation: plan-shimmer 1.25s linear infinite; }
 .details-collapse { display: grid; overflow: hidden; opacity: 1; }
 .details-wrap { min-height: 0; padding: 0 12px 12px; overflow: hidden; }
-@keyframes plan-shimmer { to { transform: translateX(100%); } }
 @media (hover: hover) and (pointer: fine) {
   .profile-item:hover .disclosure { color: var(--color-text-primary); }
 }
-@media (prefers-reduced-motion: reduce) { .profile-item, .plan-pending::after { animation: none; transition: none; } }
+@media (prefers-reduced-motion: reduce) { .profile-item { animation: none; transition: none; } }
 </style>

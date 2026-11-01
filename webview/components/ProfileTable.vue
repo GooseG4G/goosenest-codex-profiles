@@ -435,14 +435,16 @@ onUnmounted(() => {
       title="Authentication expired"
       :description="`Authentication for ${pendingReauthProfile?.name ?? 'this profile'} has expired. Sign in again to refresh it.`"
       confirm-label="Re-authenticate"
+      confirm-variant="primary"
       @confirm="confirmReauth"
       @close="pendingReauthProfile = null"
     />
     <UIConfirmDialog
       :open="isAddPending"
-      title="Add OpenAI profile?"
-      description="An isolated device-code sign-in will run in the background. The current profile and running chats will not be changed."
-      confirm-label="Continue"
+      title="Add profile"
+      description="Start Codex sign-in to connect another profile."
+      confirm-label="Sign in"
+      confirm-variant="primary"
       @confirm="confirmAdd"
       @close="isAddPending = false"
     />

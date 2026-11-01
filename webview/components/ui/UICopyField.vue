@@ -66,7 +66,7 @@ onUnmounted(() => {
 .copy-field:focus-visible { color: var(--color-copy-info-foreground); border-color: var(--color-copy-info-border); background: var(--color-copy-info-background); box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-focus) 20%, transparent); }
 .copy-field:active:not(:disabled) { transform: scale(.995); }
 .copy-field.copied { color: var(--color-copy-success-foreground); border-color: var(--color-copy-success-border); background: var(--color-copy-success-background); }
-.copy-field code { overflow: hidden; font: 500 12px/1.5 var(--vscode-editor-font-family, ui-monospace, Consolas, monospace); text-overflow: ellipsis; white-space: nowrap; }
+.copy-field code { overflow: hidden; padding: 0; border: 0; background: transparent; font: 500 12px/1.5 var(--vscode-editor-font-family, ui-monospace, Consolas, monospace); text-overflow: ellipsis; white-space: nowrap; }
 .copy-field.prominent code { font-size: 25px; font-weight: 700; letter-spacing: .13em; text-align: center; }
 .copy-icon { display: inline-flex; width: 16px; height: 16px; }
 .copy-icon svg { width: 100%; height: 100%; fill: none; stroke: currentColor; stroke-width: 1.5; }

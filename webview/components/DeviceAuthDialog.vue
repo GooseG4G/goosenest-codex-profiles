@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { shallowRef, watch } from 'vue'
+import { computed, shallowRef, watch } from 'vue'
 import UICancelButton from './ui/UICancelButton.vue'
 import UIConfirmButton from './ui/UIConfirmButton.vue'
 import UICopyField from './ui/UICopyField.vue'
@@ -21,6 +21,8 @@ const emit = defineEmits<{
 }>()
 
 const authOpened = shallowRef(false)
+const dismissed = shallowRef(false)
+const dialogOpen = computed(() => props.open && !dismissed.value)
 
 function openBrowser() {
   if (!props.verificationUrl || authOpened.value) return
@@ -28,10 +30,24 @@ function openBrowser() {
   emit('openBrowser')
 }
 
+function cancel() {
+  dismissed.value = true
+  emit('cancel')
+}
+
+function retry() {
+  dismissed.value = false
+  emit('retry')
+}
+
 watch(
   () => [props.open, props.userCode, props.error] as const,
   async ([open, userCode, error], previous) => {
-    if (!open) return
+    if (!open) {
+      dismissed.value = false
+      return
+    }
+    dismissed.value = false
     if (!previous?.[0] || userCode !== previous[1] || error !== previous[2]) authOpened.value = false
   },
 )
@@ -39,12 +55,11 @@ watch(
 
 <template>
   <UIDialog
-    :open="open"
+    :open="dialogOpen"
     :title="error ? 'Authentication problem' : 'Sign in to Codex'"
-    :close-disabled="authOpened"
-    @close="emit('cancel')"
+    @close="cancel"
   >
-    <template #close="{ close }"><UICloseButton :disabled="authOpened" @click="close" /></template>
+    <template #close="{ close }"><UICloseButton @click="close" /></template>
         <p v-if="error" class="message error" role="alert">{{ error }}</p>
         <template v-else>
           <p class="message">Continue in OpenAI and enter this one-time code.</p>
@@ -59,8 +74,8 @@ watch(
           <p class="auth-status">pending, expires in about 15 minutes</p>
         </template>
     <template #footer="{ close }">
-      <UICancelButton :disabled="authOpened" @click="close" />
-      <UIConfirmButton v-if="error" @click="emit('retry')">Retry</UIConfirmButton>
+      <UICancelButton @click="close" />
+      <UIConfirmButton v-if="error" @click="retry">Retry</UIConfirmButton>
       <UIConfirmButton v-else :pending="!verificationUrl || authOpened" @click="openBrowser">Go to OpenAI</UIConfirmButton>
     </template>
   </UIDialog>

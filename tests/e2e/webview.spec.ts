@@ -121,10 +121,9 @@ test('empty state explains that no profiles are available', async ({ page }) => 
   await expect(page.locator('.empty')).toHaveText('No profiles yet')
 })
 
-test('loading state keeps the compact plan skeleton', async ({ page }) => {
+test('loading state shows an explicit unknown plan', async ({ page }) => {
   await page.goto('/?state=loading')
-  await expect(page.locator('.plan-pending')).toHaveCSS('width', '32px')
-  await expect(page.locator('.plan-pending')).toHaveCSS('height', '10px')
+  await expect(page.getByText('Unknown', { exact: true })).toBeVisible()
 })
 
 test('device sign-in presents a copyable code without a terminal', async ({ page }) => {
@@ -180,7 +179,7 @@ test('reauth completion updates the expired profile in the visible list', async 
   const profile = page.locator('.profile-item').filter({ hasText: 'expired@example.com' })
   await profile.getByRole('button', { name: 'Use profile' }).click()
   await expect(page.getByRole('dialog')).toContainText('Re-authenticate')
-  await expect(page.getByRole('button', { name: 'Re-authenticate' }).locator('.line-button-surface')).toHaveCSS('background-color', 'rgb(123, 51, 47)')
+  await expect(page.getByRole('button', { name: 'Re-authenticate' }).locator('.line-button-surface')).toHaveCSS('background-color', 'rgb(237, 237, 237)')
   await page.getByRole('button', { name: 'Re-authenticate' }).click()
   await page.evaluate(() => {
     window.dispatchEvent(new MessageEvent('message', { data: {
@@ -193,6 +192,13 @@ test('reauth completion updates the expired profile in the visible list', async 
   })
   await expect(profile.locator('.status-dot.expired')).toHaveCount(0)
   await expect(profile.locator('.profile-copy')).toContainText('just now')
+})
+
+test('add profile confirmation uses the primary action style', async ({ page }) => {
+  await page.goto('/?state=ready')
+  await page.getByRole('button', { name: 'Add profile' }).click()
+  await expect(page.getByRole('dialog')).toContainText('Add profile')
+  await expect(page.getByRole('button', { name: 'Sign in' }).locator('.line-button-surface')).toHaveCSS('background-color', 'rgb(237, 237, 237)')
 })
 
 test('provider form exposes the Responses and WebSocket transport selector', async ({ page }) => {
