@@ -7,7 +7,6 @@ describe('UsageDisplay', () => {
     const wrapper = mount(UsageDisplay, { props: { usage: null, busy: true } })
 
     expect(wrapper.text()).toContain('Fetching usage limits…')
-    expect(wrapper.find('.reset-count.skeleton').exists()).toBe(true)
     expect(wrapper.find('.usage-card:not(.unavailable)').exists()).toBe(false)
   })
 
@@ -27,9 +26,7 @@ describe('UsageDisplay', () => {
     })
 
     expect(wrapper.text()).toContain('75% left')
-    expect(wrapper.text()).toContain('1 available')
     expect(wrapper.find('.usage-card .skeleton').exists()).toBe(false)
-    expect(wrapper.find('.reset-count.skeleton').exists()).toBe(false)
     expect(wrapper.find('.usage-card.stale').exists()).toBe(true)
   })
 
@@ -48,6 +45,5 @@ describe('UsageDisplay', () => {
       },
     })
 
-    expect(wrapper.text()).toContain('1 available')
   })
 })

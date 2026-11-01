@@ -297,6 +297,25 @@ async function readCodexUsage(codexHome) {
   return normalizeUsageResponse(normalized);
 }
 
+async function consumeCodexReset(codexHome, resetId, requestId = crypto.randomUUID()) {
+  const { token, accountId } = await ensureFresh(codexHome);
+  const headers = { authorization: `Bearer ${token}`, 'content-type': 'application/json', 'user-agent': 'codex-cli' };
+  if (accountId) headers['chatgpt-account-id'] = accountId;
+  const response = await fetch('https://chatgpt.com/backend-api/wham/rate-limit-reset-credits/consume', {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ credit_id: resetId, redeem_request_id: requestId }),
+    signal: AbortSignal.timeout(USAGE_REQUEST_TIMEOUT_MS),
+  });
+  if (response.status === 401 || response.status === 403) {
+    const error = new Error('Codex access token was rejected.');
+    error.code = 'AUTH_EXPIRED';
+    throw error;
+  }
+  if (!response.ok) throw new Error(`Codex reset request failed (${response.status}).`);
+  return response.json().catch(() => ({}));
+}
+
 class ProfileStore {
   constructor(context, paths) {
     this.context = context;
@@ -797,6 +816,11 @@ class UsagePoller {
     }
   }
 
+  request(ids) {
+    for (const id of ids.filter(Boolean)) this.pendingIds.add(id);
+    if (this.pendingIds.size && !this.running) void this.tick();
+  }
+
   async getScratchHome() {
     if (!this.scratchHomePromise) {
       const scratchHome = path.join(SCRATCH_ROOT, crypto.randomUUID());
@@ -879,8 +903,8 @@ class UsagePoller {
               || null;
             await this.store.commitUsage(target, {
               ...target.usage,
-              status: 'error',
-              fetchedAt: new Date().toISOString(),
+              status: target.usage?.pendingResetId ? 'stale' : 'error',
+              fetchedAt: target.usage?.pendingResetId ? null : new Date().toISOString(),
               updatedAt: lastSuccessfulUpdate,
               errorCode: usageError.code,
               error: usageError.message,
@@ -952,6 +976,33 @@ class ProfilesViewProvider {
       if (message.type === 'setExpandedUsage') {
         const ids = Array.isArray(message.ids) ? message.ids.map(String) : [];
         this.usagePoller?.setExpanded(ids);
+        return;
+      }
+      if (message.type === 'useReset') {
+        const profileId = String(message.profileId || '');
+        const resetId = String(message.resetId || '');
+        if (!profileId || !resetId) return;
+        const state = await this.store.list();
+        const profile = state.profiles.find((item) => item.id === profileId && item.kind !== PROVIDER_KIND);
+        if (!profile) throw new Error('Profile not found.');
+        if (profile.usage?.pendingResetId) return;
+        const available = profile.usage?.resetCredits?.some((credit) => credit.id === resetId && credit.status === 'available');
+        if (profile.usage?.resetCredits && !available) return;
+        const requestId = crypto.randomUUID();
+        await this.store.updateUsage(profileId, {
+          pendingResetId: resetId,
+          pendingResetRequestId: requestId,
+          status: 'stale',
+        });
+        await this.sendState();
+        try {
+          await consumeCodexReset(accountHome(this.store.paths, profileId), resetId, requestId);
+          this.usagePoller?.request([profileId]);
+        } catch (error) {
+          await this.store.updateUsage(profileId, { pendingResetId: null, pendingResetRequestId: null, status: 'ready' });
+          await this.sendState();
+          throw error;
+        }
         return;
       }
       if (message.type === 'activate') {

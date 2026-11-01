@@ -165,7 +165,9 @@ class ProfileRegistry {
       profile.usage = normalizeUsage({ ...(profile.usage || {}), ...(patch || {}) }, now);
       profile.usage.updatedAt = new Date(now).toISOString();
       profile.usage.fetchedAt = profile.usage.updatedAt;
-      profile.usage.status = 'ready';
+      if (!Object.prototype.hasOwnProperty.call(patch || {}, 'status')) {
+        profile.usage.status = 'ready';
+      }
       profile.updatedAt = profile.usage.updatedAt;
       return profile.usage;
     });

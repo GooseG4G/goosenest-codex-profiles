@@ -26,6 +26,8 @@ export interface ProfileUsage {
   secondary?: UsageWindow | null
   resetCredits?: readonly UsageResetCredit[]
   availableResetCount?: number
+  pendingResetId?: string | null
+  pendingResetRequestId?: string | null
   error?: string
   errorCode?: 'AUTH_EXPIRED' | 'TIMEOUT' | 'NETWORK' | 'UNKNOWN'
 }

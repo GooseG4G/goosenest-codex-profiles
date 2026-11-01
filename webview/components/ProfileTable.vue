@@ -34,6 +34,7 @@ const emit = defineEmits<{
   retryAdd: []
   reauthenticate: [id: string]
   expandedUsageChange: [ids: string[]]
+  useReset: [profileId: string, resetId: string]
 }>()
 
 const restoredUiState = vscode.getState()
@@ -437,6 +438,7 @@ onUnmounted(() => {
           @edit="openProviderEditor(profile, $event)"
           @delete="requestDeletion(profile)"
           @toggle-details="toggleProfileDetails(profile, $event)"
+          @use-reset="emit('useReset', profile.id, $event)"
         />
         <div v-if="!visibleProfiles.length" class="empty">
           {{ props.profiles.length ? 'No profiles found' : 'No profiles yet' }}

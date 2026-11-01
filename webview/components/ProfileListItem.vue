@@ -6,18 +6,20 @@ import { useCollapseAnimation } from '../composables/useCollapseAnimation'
 import ProfileRowActions from './ProfileRowActions.vue'
 import ProviderDetails from './ProviderDetails.vue'
 import UsageDisplay from './UsageDisplay.vue'
+import UsageResetWidget from './UsageResetWidget.vue'
 import UIActionItem from './ui/UIActionItem.vue'
 import UIChevronIcon from './ui/UIChevronIcon.vue'
 import UICollectionItem from './ui/UICollectionItem.vue'
 import UICollectionItemIdentity from './ui/UICollectionItemIdentity.vue'
 import UIDisclosureItem from './ui/UIDisclosureItem.vue'
 
-const props = defineProps<{ profile: Profile; expanded: boolean }>()
+const props = defineProps<{ profile: Profile; expanded: boolean; resetPendingId?: string }>()
 const emit = defineEmits<{
   activate: []
   edit: [event: MouseEvent]
   delete: [event: MouseEvent]
   toggleDetails: [event?: MouseEvent | KeyboardEvent]
+  useReset: [id: string]
 }>()
 const detailsAnimation = useCollapseAnimation()
 const needsAuthentication = computed(() => Boolean(props.profile.authExpired))
@@ -99,7 +101,15 @@ function toggleKeyboard(event: KeyboardEvent) {
         <div v-if="expanded" :id="`details-${profile.id}`" class="details-collapse">
           <div class="details-wrap">
             <ProviderDetails v-if="profile.kind === 'provider'" :profile="profile" @edit="emit('edit', $event)" />
-            <UsageDisplay v-else :usage="profile.usage" :busy="profile.busy" />
+            <template v-else>
+              <UsageDisplay :usage="profile.usage" :busy="profile.busy" />
+              <UsageResetWidget
+                :credits="profile.usage?.resetCredits"
+                :stale="profile.usage?.status === 'stale'"
+                :pending-id="profile.usage?.pendingResetId || resetPendingId"
+                @use-reset="emit('useReset', $event)"
+              />
+            </template>
           </div>
         </div>
       </Transition>

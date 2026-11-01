@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import ProfileTable from './components/ProfileTable.vue'
 import { useAuthProfiles } from './composables/useAuthProfiles'
+import { vscode } from './vscode'
 
 const {
   profiles, error, awaitingSignIn, addError, deviceAuth,
@@ -33,6 +34,7 @@ const {
       @retry-add="retryAdd"
       @reauthenticate="reauthenticate"
       @expanded-usage-change="setExpandedUsage"
+      @use-reset="(profileId, resetId) => vscode.postMessage({ type: 'useReset', profileId, resetId })"
     />
   </main>
 </template>

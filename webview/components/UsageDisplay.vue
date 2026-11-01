@@ -44,27 +44,6 @@ const isLoading = computed(() => {
   return Boolean(props.busy || props.usage?.status === 'fetching')
 })
 
-const availableResetCount = computed(() => {
-  const credits = props.usage?.resetCredits
-  const fromCredits = credits?.filter((credit) => credit.status === 'available').length ?? 0
-  return Math.max(fromCredits, props.usage?.availableResetCount ?? 0)
-})
-
-const resetSnapshotKnown = computed(() => {
-  const usage = props.usage
-  return Boolean(
-    usage
-    && (usage.status === 'ready'
-      || usage.updatedAt
-      || usage.resetCredits !== undefined
-      || usage.availableResetCount !== undefined),
-  )
-})
-
-const resetLoading = computed(() =>
-  !resetSnapshotKnown.value && Boolean(props.busy || props.usage?.status === 'fetching'),
-)
-
 const isStale = computed(() => {
   if (!windows.value.length) return false
   if (props.usage?.status === 'stale') return true
@@ -111,17 +90,6 @@ function resetLabel(timestamp: number): string {
       <span class="usage-copy">
         <strong>Usage limits</strong>
         <small>{{ isLoading ? 'Fetching usage limits…' : 'Usage limits unavailable' }}</small>
-      </span>
-    </section>
-    <section v-if="windows.length || resetSnapshotKnown || resetLoading" class="reset-card">
-      <strong>Usage limit resets</strong>
-      <span
-        v-if="resetLoading"
-        class="reset-count skeleton"
-        aria-label="Loading usage limit resets"
-      />
-      <span v-else class="reset-count" :class="{ empty: availableResetCount === 0 }">
-        {{ availableResetCount }} available
       </span>
     </section>
   </div>
