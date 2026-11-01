@@ -974,7 +974,7 @@ class ProfilesViewProvider {
       this.usagePoller?.setExpanded([]);
     });
     view.webview.html = this.getLoadingHtml();
-    const [html] = await Promise.all([this.getHtml(view.webview), delay(800)]);
+    const html = await this.getHtml(view.webview);
     if (!disposed && this.view === view) view.webview.html = html;
   }
 
