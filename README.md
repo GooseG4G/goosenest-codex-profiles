@@ -35,7 +35,7 @@ Select a saved account and confirm the switch. Codex Profiles restarts the Exten
 
 Expand an OpenAI account to see the usage windows and reset times returned by Codex.
 
-Usage data refreshes at most once per minute for the active account and any expanded account. Closed inactive accounts are not checked, and provider profiles do not request OpenAI account limits.
+Usage is fetched lazily when an account is first expanded and then no more than once per 24 hours for that account. A snapshot whose reset window has expired may be refreshed earlier so the next limits are observed. Closed inactive accounts are not checked, and provider profiles do not request OpenAI account limits.
 
 ## OpenAI-Compatible Providers
 
