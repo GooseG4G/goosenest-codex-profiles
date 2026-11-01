@@ -135,7 +135,6 @@ function resetLabel(timestamp: number): string {
 .usage-copy small, .remaining { min-height: 14px; color: var(--color-usage-secondary-text); font-size: 11px; line-height: 14px; }
 .track { position: relative; height: 7px; overflow: hidden; border-radius: 4px; background: var(--color-bg-progress-track); }
 .track i { display: block; height: 100%; border-radius: inherit; background: var(--color-bg-progress-fill); transition: width 560ms var(--ease-out); }
-.track.is-stale i { opacity: .45; }
 .remaining { text-align: right; font-variant-numeric: tabular-nums; }
 .skeleton { position: relative; overflow: hidden; border-radius: 4px; color: transparent; background: transparent; }
 .skeleton::before { position: absolute; inset: 1.5px 0; border-radius: inherit; background: var(--color-bg-skeleton); content: ''; }
