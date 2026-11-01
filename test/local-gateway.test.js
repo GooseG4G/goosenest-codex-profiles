@@ -171,16 +171,12 @@ test('usage is collected from response headers and websocket events', () => {
   }), { lastResponseUsage: { input_tokens: 12, output_tokens: 3 } });
 });
 
-test('usage metadata keeps plan and credits from response headers and rate-limit events', () => {
+test('usage metadata keeps plan and windows from response headers and rate-limit events', () => {
   const headers = new Headers({
     'x-codex-plan-type': 'free',
-    'x-codex-credits-has-credits': 'False',
-    'x-codex-credits-unlimited': 'False',
-    'x-codex-credits-balance': '',
   });
   assert.deepEqual(usageFromHeaders(headers), {
     planType: 'free',
-    creditsMeta: { hasCredits: 'False', unlimited: 'False', balance: null },
   });
   assert.deepEqual(usageFromEvent({
     type: 'codex.rate_limits',
@@ -189,12 +185,10 @@ test('usage metadata keeps plan and credits from response headers and rate-limit
       allowed: true,
       primary: { used_percent: 100, window_minutes: 43200, reset_at: 1234 },
     },
-    credits: { has_credits: false, unlimited: false, balance: null },
   }), {
     planType: 'free',
     ordinaryUsageAllowed: true,
     primary: { usedPercent: 100, windowDurationMins: 43200, resetsAt: 1234 },
-    creditsMeta: { has_credits: false, unlimited: false, balance: null },
   });
 });
 
