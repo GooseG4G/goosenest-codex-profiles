@@ -16,7 +16,7 @@
   --color-bg-dialog: var(--vscode-editorWidget-background, #191a1b);
   --color-bg-backdrop: rgb(5 6 7 / 78%);
   --color-bg-table-header: var(--vscode-sideBarSectionHeader-background, #1c1d1e);
-  --color-bg-row-hover: var(--vscode-list-hoverBackground, #1c1d1e);
+  --color-bg-row-hover: var(--color-bg-table-header);
   --color-bg-control-hover: var(--vscode-toolbar-hoverBackground, rgb(255 255 255 / 4%));
   --color-bg-control-pressed: var(--vscode-toolbar-activeBackground, rgb(255 255 255 / 7%));
   --color-bg-progress-track: #3b3b3b;
@@ -49,6 +49,11 @@
   --color-button-primary-hover-background: var(--vscode-button-hoverBackground, #fff);
   --color-button-primary-hover-border: var(--vscode-button-hoverBackground, #fff);
   --color-button-primary-foreground: var(--vscode-button-foreground, #171717);
+  --color-button-danger-background: var(--vscode-inputValidation-errorBackground, #7b332f);
+  --color-button-danger-hover-background: color-mix(in srgb, var(--color-button-danger-background) 84%, #fff 16%);
+  --color-button-danger-border: var(--vscode-inputValidation-errorBorder, #8a3f3a);
+  --color-button-danger-hover-border: color-mix(in srgb, var(--color-button-danger-border) 84%, #fff 16%);
+  --color-button-danger-foreground: var(--vscode-errorForeground, #fff);
   --color-icon-button-foreground: var(--vscode-icon-foreground, #c4c4c4);
   --color-icon-button-danger-foreground: var(--vscode-errorForeground, #f2766d);
   --color-icon-button-danger-hover-foreground: var(--vscode-errorForeground, #ff8c84);

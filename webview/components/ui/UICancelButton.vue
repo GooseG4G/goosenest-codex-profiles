@@ -1,10 +1,19 @@
 <script setup lang="ts">
 import UILineButton from './UILineButton.vue'
 
-defineProps<{ disabled?: boolean }>()
+withDefaults(defineProps<{
+  disabled?: boolean
+  pending?: boolean
+  type?: 'button' | 'submit'
+}>(), {
+  disabled: false,
+  pending: false,
+  type: 'button',
+})
+defineSlots<{ default?(): unknown }>()
 defineEmits<{ click: [event: MouseEvent] }>()
 </script>
 
 <template>
-  <UILineButton :disabled="disabled" @click="$emit('click', $event)">Cancel</UILineButton>
+  <UILineButton :disabled="disabled" :pending="pending" :type="type" @click="$emit('click', $event)"><slot>Cancel</slot></UILineButton>
 </template>

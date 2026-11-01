@@ -29,15 +29,17 @@ test('provider row hover and action motion match the Gateway controls', async ({
     provider.getByRole('button', { name: 'Delete profile' }),
   ]) {
     await button.hover()
-    await expect(button).toHaveCSS('transform', 'matrix(1.04, 0, 0, 1.04, 0, 0)')
-    await expect(button.locator('.icon')).toHaveCSS('transform', 'none')
+    await expect(button).toHaveCSS('transform', 'none')
+    await expect(button.locator('.surface')).toHaveCSS('transform', 'matrix(1.04, 0, 0, 1.04, 0, 0)')
+    await expect(button.locator('.content')).toHaveCSS('transform', 'matrix(1.04, 0, 0, 1.04, 0, 0)')
   }
 
   await row.click()
   const editButton = provider.getByRole('button', { name: 'Edit provider' })
   await editButton.hover()
-  await expect(editButton).toHaveCSS('transform', 'matrix(1.04, 0, 0, 1.04, 0, 0)')
-  await expect(editButton.locator('.icon')).toHaveCSS('transform', 'none')
+  await expect(editButton).toHaveCSS('transform', 'none')
+  await expect(editButton.locator('.surface')).toHaveCSS('transform', 'matrix(1.04, 0, 0, 1.04, 0, 0)')
+  await expect(editButton.locator('.content')).toHaveCSS('transform', 'matrix(1.04, 0, 0, 1.04, 0, 0)')
 })
 
 test('selected provider switch stays muted while its row is hovered', async ({ page, isMobile }) => {
@@ -83,17 +85,19 @@ test('profile details use measured collapse animation across panel widths', asyn
     await page.setViewportSize({ width, height: 700 })
     await page.goto('/?state=ready')
     const provider = page.locator('.profile-item').filter({ hasText: 'Local provider' })
-    await provider.locator('.profile-row').click()
-    const details = provider.locator('.details-collapse')
-    await expect(details).toBeVisible()
-    const openingAnimation = await details.evaluate((element) => {
-      const animation = element.getAnimations()[0]
+    const openingAnimation = await provider.locator('.profile-row').evaluate(async (row) => {
+      row.querySelector<HTMLButtonElement>('.item-action')?.click()
+      await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
+      const element = row.closest('.profile-item')?.querySelector<HTMLElement>('.details-collapse')
+      const animation = element?.getAnimations()[0]
       const effect = animation?.effect as KeyframeEffect | null
       return {
         duration: Number(effect?.getTiming().duration ?? 0),
         heights: effect?.getKeyframes().map((frame) => frame.height),
       }
     })
+    const details = provider.locator('.details-collapse')
+    await expect(details).toBeVisible()
     expect(openingAnimation.duration).toBe(160)
     expect(openingAnimation.heights?.[0]).toBe('0px')
     expect(openingAnimation.heights?.[1]).not.toBe('360px')
@@ -101,9 +105,11 @@ test('profile details use measured collapse animation across panel widths', asyn
     await page.waitForTimeout(180)
     await expect(details).toHaveCSS('height', `${await details.evaluate((element) => element.scrollHeight)}px`)
 
-    await provider.locator('.profile-row').click()
-    const closingAnimation = await details.evaluate((element) => {
-      const animation = element.getAnimations()[0]
+    const closingAnimation = await provider.locator('.profile-row').evaluate(async (row) => {
+      row.querySelector<HTMLButtonElement>('.item-action')?.click()
+      await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
+      const element = row.closest('.profile-item')?.querySelector<HTMLElement>('.details-collapse')
+      const animation = element?.getAnimations()[0]
       const effect = animation?.effect as KeyframeEffect | null
       return effect?.getKeyframes().map((frame) => frame.height)
     })
@@ -144,6 +150,51 @@ test('device sign-in uses shimmer pending controls instead of loading copy', asy
   await expect(openButton).toContainText('Go to OpenAI')
   await page.waitForTimeout(220)
   await expect(openButton).toHaveClass(/is-pending/)
+})
+
+test('completed device auth state adds the profile to the visible list', async ({ page }) => {
+  await page.goto('/?state=auth')
+  await page.evaluate(() => {
+    window.dispatchEvent(new MessageEvent('message', { data: {
+      type: 'state',
+      profiles: [{ id: 'new-profile', kind: 'default', name: 'new@example.com', active: true, authExpired: false, lastUsedAt: new Date().toISOString(), usage: null }],
+      awaitingSignIn: false,
+      addError: '',
+      deviceAuth: null,
+    } }))
+  })
+  await expect(page.locator('.profile-item')).toHaveCount(1)
+  await expect(page.getByText('new@example.com')).toBeVisible()
+  await expect(page.getByRole('dialog')).toHaveCount(0)
+})
+
+test('reauth completion updates the expired profile in the visible list', async ({ page }) => {
+  await page.goto('/?state=ready')
+  await page.evaluate(() => {
+    window.dispatchEvent(new MessageEvent('message', { data: {
+      type: 'state',
+      profiles: [{ id: 'expired-profile', kind: 'default', name: 'expired@example.com', active: false, authExpired: true, lastUsedAt: new Date(Date.now() - 86_400_000).toISOString(), usage: { planType: 'Pro', fetchedAt: null } }],
+      awaitingSignIn: false,
+      addError: '',
+      deviceAuth: null,
+    } }))
+  })
+  const profile = page.locator('.profile-item').filter({ hasText: 'expired@example.com' })
+  await profile.getByRole('button', { name: 'Use profile' }).click()
+  await expect(page.getByRole('dialog')).toContainText('Re-authenticate')
+  await expect(page.getByRole('button', { name: 'Re-authenticate' }).locator('.line-button-surface')).toHaveCSS('background-color', 'rgb(123, 51, 47)')
+  await page.getByRole('button', { name: 'Re-authenticate' }).click()
+  await page.evaluate(() => {
+    window.dispatchEvent(new MessageEvent('message', { data: {
+      type: 'state',
+      profiles: [{ id: 'expired-profile', kind: 'default', name: 'expired@example.com', active: true, authExpired: false, lastUsedAt: new Date().toISOString(), usage: { planType: 'Pro', fetchedAt: null } }],
+      awaitingSignIn: false,
+      addError: '',
+      deviceAuth: null,
+    } }))
+  })
+  await expect(profile.locator('.status-dot.expired')).toHaveCount(0)
+  await expect(profile.locator('.profile-copy')).toContainText('just now')
 })
 
 test('provider form exposes the Responses and WebSocket transport selector', async ({ page }) => {

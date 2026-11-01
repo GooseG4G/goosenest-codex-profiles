@@ -27,9 +27,6 @@ const transportLabel = computed(() =>
       class="provider-edit"
       accessible-label="Edit provider"
       title="Edit provider"
-      background="hover"
-      surface-motion="scale"
-      icon-motion="none"
       size="small"
       @click="emit('edit', $event)"
     >

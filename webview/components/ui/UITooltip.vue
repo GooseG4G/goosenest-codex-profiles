@@ -26,23 +26,17 @@ function updatePosition() {
   const anchorRect = anchor.getBoundingClientRect()
   const tipRect = tip.getBoundingClientRect()
   const gap = 7
-    const edge = 7
-  let top: number
-  let left: number
-
+  const edge = 7
+  let top = anchorRect.top - tipRect.height - gap
+  let left = anchorRect.left + (anchorRect.width - tipRect.width) / 2
   if (props.placement === 'horizontal') {
-    const rightSpace = window.innerWidth - anchorRect.right
-    const leftSpace = anchorRect.left
-    const placeRight = rightSpace >= tipRect.width + gap || rightSpace >= leftSpace
+    const placeRight =
+      window.innerWidth - anchorRect.right >= tipRect.width + gap ||
+      anchorRect.left < window.innerWidth - anchorRect.right
     top = anchorRect.top + (anchorRect.height - tipRect.height) / 2
     left = placeRight ? anchorRect.right + gap : anchorRect.left - tipRect.width - gap
-  } else {
-    // Prefer the vertical axis for tooltips; flip below only when above is tight.
-    const aboveSpace = anchorRect.top
-    const belowSpace = window.innerHeight - anchorRect.bottom
-    const placeAbove = aboveSpace >= tipRect.height + gap || aboveSpace >= belowSpace
-    top = placeAbove ? anchorRect.top - tipRect.height - gap : anchorRect.bottom + gap
-    left = anchorRect.left + (anchorRect.width - tipRect.width) / 2
+  } else if (top < edge) {
+    top = anchorRect.bottom + gap
   }
 
   position.value = {

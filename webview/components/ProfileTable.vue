@@ -6,7 +6,8 @@ import DeviceAuthDialog from './DeviceAuthDialog.vue'
 import UISearch from './ui/UISearch.vue'
 import UIToolbarButton from './ui/UIToolbarButton.vue'
 import ProfileListItem from './ProfileListItem.vue'
-import UIButton from './ui/UIButton.vue'
+import UICancelButton from './ui/UICancelButton.vue'
+import UIConfirmButton from './ui/UIConfirmButton.vue'
 import { vscode } from '../vscode'
 import { UserRoundPlus, UsersRound, X } from '@lucide/vue'
 
@@ -521,15 +522,13 @@ onUnmounted(() => {
           </div>
         </fieldset>
         <div class="actions">
-          <UIButton @click="closeProviderForm">Cancel</UIButton>
-          <UIButton
+          <UICancelButton @click="closeProviderForm" />
+          <UIConfirmButton
             type="submit"
-            variant="primary"
             :disabled="!canAddProvider"
-            :tooltip="canAddProvider ? undefined : 'Action unavailable'"
           >
             {{ editingProviderId ? 'Save' : 'Add' }}
-          </UIButton>
+          </UIConfirmButton>
         </div>
         </form>
       </div>

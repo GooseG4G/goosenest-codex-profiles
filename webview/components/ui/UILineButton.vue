@@ -3,7 +3,7 @@ import { computed } from 'vue'
 import { useDelayedVisibility } from '../../composables/useDelayedVisibility'
 
 const props = withDefaults(defineProps<{
-  variant?: 'primary' | 'secondary'
+  variant?: 'primary' | 'secondary' | 'ghost' | 'danger'
   disabled?: boolean
   pending?: boolean
   type?: 'button' | 'submit'
@@ -68,6 +68,8 @@ const classes = computed(() => [
 .line-button-content { position: relative; z-index: 1; display: inline-flex; align-items: center; justify-content: center; gap: 7px; }
 .line-button:focus-visible { --button-border: var(--color-focus); --button-focus-ring: 0 0 0 2px color-mix(in srgb, var(--color-focus) 24%, transparent); }
 .is-primary { --pending-shimmer: var(--color-shimmer-dark); --button-background: var(--color-button-primary-background); --button-border: var(--color-button-primary-border); --button-hover-background: var(--color-button-primary-hover-background); --button-hover-border: var(--color-button-primary-hover-border); --button-pressed-background: var(--color-button-primary-background); color: var(--color-button-primary-foreground); }
+.is-danger { --button-background: var(--color-button-danger-background); --button-border: var(--color-button-danger-border); --button-hover-background: var(--color-button-danger-hover-background); --button-hover-border: var(--color-button-danger-hover-border); --button-pressed-background: var(--color-button-danger-background); color: var(--color-button-danger-foreground); }
+.is-ghost { --button-background: transparent; --button-border: transparent; --button-hover-background: var(--color-bg-control-hover); --button-hover-border: transparent; --button-pressed-background: var(--color-bg-control-pressed); color: var(--color-text-secondary); }
 .line-button:disabled:not(.is-busy) { opacity: .48; cursor: not-allowed; }
 .is-busy { opacity: .56; cursor: wait; }
 .is-pending .line-button-content { opacity: .82; }
@@ -75,6 +77,8 @@ const classes = computed(() => [
 @keyframes button-shimmer { to { transform: translateX(100%); } }
 @media (hover: hover) and (pointer: fine) {
   .line-button:hover:not(:disabled) { --button-background: var(--button-hover-background); --button-border: var(--button-hover-border); transform: translateY(-1px); }
+  .is-danger:hover:not(:disabled) { --button-background: var(--color-button-danger-hover-background); --button-border: var(--color-button-danger-hover-border); }
+  .is-ghost:hover:not(:disabled) { color: var(--color-text-primary); }
 }
 .line-button:active:not(:disabled) { --button-background: var(--button-pressed-background); transform: translateY(1px); }
 @media (prefers-reduced-motion: reduce) {

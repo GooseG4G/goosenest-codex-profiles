@@ -37,9 +37,5 @@ export function useCollapseAnimation() {
       })
   }
 
-  function cancel(element: Element) {
-    animations.get(element as HTMLElement)?.cancel()
-  }
-
-  return { animate, cancel }
+  return { animate }
 }

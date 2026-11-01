@@ -88,7 +88,7 @@ function toggleKeyboard(event: KeyboardEvent) {
       <ProfileRowActions :active="profile.active" @activate="emit('activate')" @delete="emit('delete', $event)" />
     </template>
     <template v-if="hasDetails" #details>
-      <Transition :css="false" @enter="(element, done) => detailsAnimation.animate(element, true, done)" @leave="(element, done) => detailsAnimation.animate(element, false, done)" @enter-cancelled="detailsAnimation.cancel" @leave-cancelled="detailsAnimation.cancel">
+      <Transition :css="false" @enter="(element, done) => detailsAnimation.animate(element, true, done)" @leave="(element, done) => detailsAnimation.animate(element, false, done)">
         <div v-if="expanded" :id="`details-${profile.id}`" class="details-collapse">
           <div class="details-wrap">
             <ProviderDetails v-if="profile.kind === 'provider'" :profile="profile" @edit="emit('edit', $event)" />

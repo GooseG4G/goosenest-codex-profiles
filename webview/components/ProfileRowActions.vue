@@ -15,7 +15,7 @@ const emit = defineEmits<{
 <template>
   <div class="row-actions">
     <span class="row-action-slot">
-      <UIIconButton class="row-action-activate" :accessible-label="active ? 'Current profile' : 'Use profile'" :title="active ? 'Current profile' : 'Use profile'" background="hover" surface-motion="scale" icon-motion="none" size="small" :disabled="active" @click.stop="emit('activate', $event)">
+      <UIIconButton class="row-action-activate" :accessible-label="active ? 'Current profile' : 'Use profile'" :title="active ? 'Current profile' : 'Use profile'" size="small" :disabled="active" @click.stop="emit('activate', $event)">
         <template #icon><ArrowLeftRight /></template>
       </UIIconButton>
     </span>
