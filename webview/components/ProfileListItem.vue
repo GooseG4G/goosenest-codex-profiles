@@ -133,7 +133,7 @@ function toggleKeyboard(event: KeyboardEvent) {
 .details-collapse { display: grid; overflow: hidden; opacity: 1; }
 .details-wrap { min-height: 0; padding: 0 12px 12px; overflow: hidden; }
 @media (hover: hover) and (pointer: fine) {
-  .profile-item:hover .disclosure { color: var(--color-text-primary); }
+  .profile-item:hover .disclosure:not(.disabled) { color: var(--color-text-primary); }
 }
 @media (prefers-reduced-motion: reduce) { .profile-item { animation: none; transition: none; } }
 </style>
