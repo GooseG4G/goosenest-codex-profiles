@@ -2,7 +2,7 @@ const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 const lockfile = require('proper-lockfile');
-const { accountHome, isShardedRootEntry, legacyHome, providerHome, safeId } = require('./paths');
+const { accountHome, providerHome, safeId } = require('./paths');
 const { resolveProviderEnvKey } = require('../provider-config');
 
 const INDEX_VERSION = 1;
@@ -90,10 +90,6 @@ class ProfileRegistry {
       fs.promises.mkdir(this.paths.providersRoot, { recursive: true }),
       fs.promises.mkdir(this.paths.runtimeRoot, { recursive: true }),
     ]);
-    await Promise.all([
-      migrateFlatHomes(this.paths.accountsRoot),
-      migrateFlatHomes(this.paths.providersRoot),
-    ]);
     try {
       await fs.promises.access(this.paths.indexPath);
     } catch (error) {
@@ -179,38 +175,6 @@ class ProfileRegistry {
   }
 }
 
-async function migrateFlatHomes(root) {
-  let entries;
-  try {
-    entries = await fs.promises.readdir(root, { withFileTypes: true });
-  } catch (error) {
-    if (error.code === 'ENOENT') return;
-    throw error;
-  }
-  for (const entry of entries) {
-    if (!entry.isDirectory() || entry.name.startsWith('.')) continue;
-    if (isShardedRootEntry(root, entry.name)) continue;
-    let target;
-    try {
-      target = accountHome({ accountsRoot: root, providersRoot: root }, entry.name);
-    } catch {
-      continue;
-    }
-    const source = legacyHome(root, entry.name);
-    if (source === target || await existsPath(target)) continue;
-    await fs.promises.mkdir(path.dirname(target), { recursive: true });
-    await fs.promises.rename(source, target);
-  }
-}
-
-async function existsPath(filePath) {
-  try {
-    await fs.promises.access(filePath);
-    return true;
-  } catch {
-    return false;
-  }
-}
 
 module.exports = {
   INDEX_VERSION,

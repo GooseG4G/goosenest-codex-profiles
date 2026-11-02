@@ -1,7 +1,7 @@
 const assert = require('node:assert/strict');
 const path = require('node:path');
 const test = require('node:test');
-const { accountHome, createGatewayPaths, legacyHome } = require('../src/local-gateway/paths');
+const { accountHome, createGatewayPaths } = require('../src/local-gateway/paths');
 
 test('account homes use two directory shards and keep the complete id', () => {
   const paths = createGatewayPaths('C:/codex');
@@ -11,10 +11,3 @@ test('account homes use two directory shards and keep the complete id', () => {
   );
 });
 
-test('legacy home remains addressable for migration', () => {
-  const paths = createGatewayPaths('C:/codex');
-  assert.equal(
-    legacyHome(paths.accountsRoot, 'profile-123'),
-    path.join('C:/codex', 'profiles', 'accounts', 'profile-123'),
-  );
-});

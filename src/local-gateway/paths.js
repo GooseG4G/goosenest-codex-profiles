@@ -42,28 +42,11 @@ function providerHome(paths, id) {
   return shardedHome(paths.providersRoot, id);
 }
 
-function isShardedRootEntry(root, id) {
-  let target;
-  try {
-    target = shardedHome(root, id);
-  } catch {
-    return false;
-  }
-  const relative = path.relative(root, target).split(path.sep).filter(Boolean);
-  return relative[0] === id && relative.length >= 2;
-}
-
-function legacyHome(root, id) {
-  return path.join(root, safeId(id));
-}
-
 module.exports = {
   accountHome,
   createGatewayPaths,
   getCodexRoot,
-  legacyHome,
   providerHome,
   safeId,
   shardedHome,
-  isShardedRootEntry,
 };
