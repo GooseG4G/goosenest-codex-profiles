@@ -5,13 +5,19 @@ import UIConfirmDialog from './ui/UIConfirmDialog.vue'
 import UIChevronIcon from './ui/UIChevronIcon.vue'
 import UILineButton from './ui/UILineButton.vue'
 
-const props = defineProps<{ credits?: readonly UsageResetCredit[]; stale?: boolean; pendingId?: string | null }>()
+const props = defineProps<{
+  credits?: readonly UsageResetCredit[]
+  availableCount?: number
+  stale?: boolean
+  pendingId?: string | null
+}>()
 const emit = defineEmits<{ useReset: [id: string] }>()
 const requested = shallowRef<UsageResetCredit | null>(null)
 const expanded = shallowRef(false)
 const creditsId = useId()
 const available = computed(() => (props.credits ?? []).filter((credit) => credit.status === 'available'))
-const hasAvailable = computed(() => available.value.length > 0)
+const count = computed(() => Math.max(0, Number(props.availableCount ?? available.value.length), available.value.length))
+const hasAvailable = computed(() => count.value > 0 && available.value.length > 0)
 const canExpand = computed(() => hasAvailable.value && (!props.stale || Boolean(props.pendingId)))
 watch(canExpand, (value) => { if (!value) expanded.value = false })
 function title(credit: UsageResetCredit) { return credit.title?.trim() || 'Full reset (Weekly + 5 hr)' }
@@ -30,8 +36,7 @@ function confirmReset() {
   <section class="reset-widget" :class="{ empty: !hasAvailable, inert: !canExpand }">
     <button class="reset-summary" type="button" :disabled="!canExpand" :aria-expanded="canExpand ? expanded : false" :aria-controls="creditsId" @click="expanded = !expanded">
       <strong>Usage limit resets</strong>
-      <span v-if="!stale || pendingId" class="available">{{ available.length }} available</span>
-      <span v-else class="available-skeleton" aria-label="Loading usage limit resets" />
+      <span class="available">{{ count }} available</span>
       <UIChevronIcon :expanded="expanded" />
     </button>
     <div v-if="expanded && canExpand" :id="creditsId" class="reset-list">
@@ -67,16 +72,13 @@ function confirmReset() {
 .reset-summary:focus-visible { box-shadow: inset 0 0 0 1px var(--color-focus); }
 .reset-summary:disabled { cursor: default; }
 .reset-summary strong, .reset-item strong { font-size: 13px; font-weight: 600; }
-.available, .available-skeleton { justify-self: stretch; min-height: 24px; padding: 4px 9px; border-radius: 999px; }
+.available { justify-self: stretch; min-height: 24px; padding: 4px 9px; border-radius: 999px; }
 .available { color: var(--color-reset-badge-available-foreground, var(--color-text-primary)); font-size: 11px; font-weight: 650; line-height: 14px; text-align: center; background: var(--color-reset-badge-available-background, var(--color-bg-control-hover)); }
-.available-skeleton { position: relative; overflow: hidden; background: var(--color-bg-control-hover); }
-.available-skeleton::after { position: absolute; inset: 0; background: linear-gradient(100deg, transparent 15%, var(--color-shimmer-subtle) 50%, transparent 85%); content: ''; transform: translateX(-100%); animation: shimmer 1.35s linear infinite; }
 .reset-list { display: grid; overflow: hidden; }
 .reset-item { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 60px; padding: 8px 14px; }
 .reset-item span { display: grid; gap: 2px; }
 .reset-item small { color: var(--color-text-secondary); font-size: 11px; }
 .reset-item :deep(.reset-action) { --button-background: var(--color-reset-action-background, var(--color-button-secondary-background)); --button-border: var(--color-reset-action-border, var(--color-button-secondary-border)); --button-hover-background: var(--color-reset-action-hover-background, var(--color-button-secondary-hover-background)); --button-hover-border: var(--color-reset-action-hover-border, var(--color-button-secondary-hover-border)); --button-pressed-background: var(--color-reset-action-hover-background, var(--color-button-secondary-pressed-background)); flex: 0 0 auto; color: var(--color-reset-action-foreground, var(--color-text-primary)); }
-@keyframes shimmer { to { transform: translateX(100%); } }
 @media (hover: hover) and (pointer: fine) {
   .reset-widget:not(.inert):hover { background: var(--color-reset-card-hover-background, var(--color-reset-card-background)); }
 }

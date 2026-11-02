@@ -105,6 +105,7 @@ function toggleKeyboard(event: KeyboardEvent) {
               <UsageDisplay :usage="profile.usage?.limits" :busy="profile.busy" />
               <UsageResetWidget
                 :credits="profile.usage?.resets?.resetCredits"
+                :available-count="profile.usage?.resets?.availableResetCount"
                 :stale="profile.usage?.resets?.status === 'stale'"
                 :pending-id="profile.usage?.resets?.pendingResetId || resetPendingId"
                 @use-reset="emit('useReset', $event)"

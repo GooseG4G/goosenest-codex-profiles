@@ -237,7 +237,9 @@ function normalizeUsageResponse(result) {
     status: 'ready',
     fetchedAt: receivedAt,
     updatedAt: receivedAt,
-    planType: typeof snapshot.planType === 'string' ? snapshot.planType : null,
+    planType: typeof result.planType === 'string'
+      ? result.planType
+      : typeof snapshot.planType === 'string' ? snapshot.planType : null,
     ordinaryUsageAllowed: typeof result.ordinaryUsageAllowed === 'boolean' ? result.ordinaryUsageAllowed : null,
     primary,
     secondary,
