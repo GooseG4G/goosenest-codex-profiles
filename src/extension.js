@@ -1209,7 +1209,7 @@ async function activate(context) {
   usagePoller.start();
   let syncTimer;
   const stateWatcher = vscode.workspace.createFileSystemWatcher(
-    new vscode.RelativePattern(paths.profilesRoot, '{index.json,accounts/*/auth.json}'),
+    new vscode.RelativePattern(paths.profilesRoot, '{index.json,accounts/*/*/*/auth.json,providers/*/*/*/credentials.json}'),
   );
   const scheduleSync = () => {
     clearTimeout(syncTimer);

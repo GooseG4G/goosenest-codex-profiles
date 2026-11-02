@@ -29,18 +29,41 @@ function safeId(value) {
   return id;
 }
 
+function shardedHome(root, id) {
+  const profileId = safeId(id);
+  return path.join(root, profileId.slice(0, 2), profileId.slice(2, 4), profileId);
+}
+
 function accountHome(paths, id) {
-  return path.join(paths.accountsRoot, safeId(id));
+  return shardedHome(paths.accountsRoot, id);
 }
 
 function providerHome(paths, id) {
-  return path.join(paths.providersRoot, safeId(id));
+  return shardedHome(paths.providersRoot, id);
+}
+
+function isShardedRootEntry(root, id) {
+  let target;
+  try {
+    target = shardedHome(root, id);
+  } catch {
+    return false;
+  }
+  const relative = path.relative(root, target).split(path.sep).filter(Boolean);
+  return relative[0] === id && relative.length >= 2;
+}
+
+function legacyHome(root, id) {
+  return path.join(root, safeId(id));
 }
 
 module.exports = {
   accountHome,
   createGatewayPaths,
   getCodexRoot,
+  legacyHome,
   providerHome,
   safeId,
+  shardedHome,
+  isShardedRootEntry,
 };
