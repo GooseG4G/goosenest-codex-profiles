@@ -169,6 +169,7 @@ class ProfileRegistry {
         profile.usage.status = 'ready';
       }
       profile.updatedAt = profile.usage.updatedAt;
+      profile.lastSeenAt = profile.usage.updatedAt;
       return profile.usage;
     });
   }

@@ -132,7 +132,7 @@ function toggleKeyboard(event: KeyboardEvent) {
 .disclosure { display: inline-flex; width: 24px; height: 28px; margin-left: -4px; align-items: center; justify-content: center; color: var(--color-profile-disclosure-icon); border-radius: 5px; }
 .disclosure.disabled { color: var(--color-text-tertiary); opacity: .55; }
 .details-collapse { display: grid; overflow: hidden; opacity: 1; }
-.details-wrap { min-height: 0; padding: 0 12px 12px; overflow: hidden; }
+.details-wrap { display: grid; min-height: 0; gap: 8px; padding: 0 12px 12px; overflow: hidden; }
 @media (hover: hover) and (pointer: fine) {
   .profile-item:hover .disclosure:not(.disabled) { color: var(--color-text-primary); }
 }

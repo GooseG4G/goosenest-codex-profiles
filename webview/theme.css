@@ -79,8 +79,14 @@
   --color-usage-card-background: #242526;
   --color-usage-secondary-text: #aaa;
   --color-reset-card-background: var(--color-usage-card-background);
+  --color-reset-card-hover-background: #292a2b;
   --color-reset-badge-available-background: #006b2c;
   --color-reset-badge-available-foreground: #f0fff4;
+  --color-reset-action-background: #ededed;
+  --color-reset-action-border: #ededed;
+  --color-reset-action-hover-background: #fff;
+  --color-reset-action-hover-border: #fff;
+  --color-reset-action-foreground: #171717;
 }
 
 * {
