@@ -10,6 +10,7 @@ export interface UsageWindow {
 export interface UsageResetCredit {
   id: string
   status: string
+  resetType?: string | null
   title?: string | null
   description?: string | null
   grantedAt?: number | null

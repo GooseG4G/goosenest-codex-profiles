@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { computed, shallowRef, useId, watch } from 'vue'
 import type { UsageResetCredit } from '../types'
+import { useMinuteClock } from '../composables/useMinuteClock'
+import { formatRemainingTime } from '../utils/date'
 import UIConfirmDialog from './ui/UIConfirmDialog.vue'
 import UIChevronIcon from './ui/UIChevronIcon.vue'
 import UILineButton from './ui/UILineButton.vue'
@@ -15,15 +17,23 @@ const emit = defineEmits<{ useReset: [id: string] }>()
 const requested = shallowRef<UsageResetCredit | null>(null)
 const expanded = shallowRef(false)
 const creditsId = useId()
+const now = useMinuteClock()
 const available = computed(() => (props.credits ?? []).filter((credit) => credit.status === 'available'))
 const count = computed(() => Math.max(0, Number(props.availableCount ?? available.value.length), available.value.length))
 const hasAvailable = computed(() => count.value > 0 && available.value.length > 0)
 const canExpand = computed(() => hasAvailable.value && (!props.stale || Boolean(props.pendingId)))
 watch(canExpand, (value) => { if (!value) expanded.value = false })
-function title(credit: UsageResetCredit) { return credit.title?.trim() || 'Full reset (Weekly + 5 hr)' }
+function title(credit: UsageResetCredit) {
+  const value = credit.title?.trim()
+  if (credit.resetType === 'codexRateLimits' || credit.resetType === 'codex_rate_limits' || /^full reset$/i.test(value ?? '')) {
+    return 'Full reset (Weekly + 5 hr)'
+  }
+  return value || 'Full reset (Weekly + 5 hr)'
+}
 function expiry(credit: UsageResetCredit) {
   if (!credit.expiresAt) return credit.description?.trim() || 'No expiry date'
-  return `Expires ${new Intl.DateTimeFormat('en-US', { month: 'numeric', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZoneName: 'short' }).format(credit.expiresAt * 1000)}`
+  const remaining = formatRemainingTime(credit.expiresAt * 1000, now.value)
+  return remaining ? `Expires in ${remaining}` : 'Expired'
 }
 function confirmReset() {
   if (!requested.value || props.pendingId) return

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useMinuteClock } from '../composables/useMinuteClock'
+import { formatRemainingTime } from '../utils/date'
 import type { ProfileUsageLimits } from '../types'
 
 const props = defineProps<{
@@ -18,7 +19,7 @@ interface WindowInfo {
 const now = useMinuteClock()
 
 function windowLabel(key: WindowInfo['key'], duration: number): string {
-  if (key === 'secondary' && duration === 7 * 24 * 60) return 'Weekly limit'
+  if (duration === 7 * 24 * 60) return 'Weekly limit'
   if (duration === 5 * 60) return '5-hour limit'
   if (duration === 30 * 24 * 60) return 'Monthly limit'
   if (duration > 0 && duration % (7 * 24 * 60) === 0) return `${duration / (7 * 24 * 60)}-week limit`
@@ -54,17 +55,8 @@ const isStale = computed(() => {
 
 function resetLabel(timestamp: number): string {
   if (!timestamp) return 'Reset time unavailable'
-  const remainingMinutes = Math.max(0, Math.ceil((timestamp * 1000 - now.value) / 60_000))
-  if (remainingMinutes === 0) return 'Resets shortly'
-  const days = Math.floor(remainingMinutes / 1_440)
-  const hours = Math.floor((remainingMinutes % 1_440) / 60)
-  const minutes = remainingMinutes % 60
-  const parts = days
-    ? [`${days}d`, ...(hours ? [`${hours}h`] : [])]
-    : hours
-      ? [`${hours}h`, ...(minutes ? [`${minutes}m`] : [])]
-      : [`${minutes}m`]
-  return `Resets in ${parts.join(' ')}`
+  const remaining = formatRemainingTime(timestamp * 1000, now.value)
+  return remaining ? `Resets in ${remaining}` : 'Resets shortly'
 }
 </script>
 

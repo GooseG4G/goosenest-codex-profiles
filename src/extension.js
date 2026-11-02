@@ -223,6 +223,9 @@ function normalizeUsageResponse(result) {
     .map((credit) => ({
       id: credit.id ?? credit.reset_id,
       status: typeof credit.status === 'string' ? credit.status : 'unknown',
+      resetType: typeof (credit.resetType ?? credit.reset_type) === 'string'
+        ? credit.resetType ?? credit.reset_type
+        : null,
       title: typeof credit.title === 'string' ? credit.title : null,
       description: typeof credit.description === 'string' ? credit.description : null,
       grantedAt: Number.isFinite(credit.grantedAt)

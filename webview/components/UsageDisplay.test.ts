@@ -28,4 +28,17 @@ describe('UsageDisplay', () => {
     expect(wrapper.find('.usage-card.stale').exists()).toBe(true)
   })
 
+  it('uses Weekly limit for every exact seven-day window', () => {
+    const wrapper = mount(UsageDisplay, {
+      props: {
+        usage: {
+          fetchedAt: null,
+          primary: { usedPercent: 25, windowDurationMins: 10_080, resetsAt: 2_000_000_000 },
+        },
+      },
+    })
+    expect(wrapper.text()).toContain('Weekly limit')
+    expect(wrapper.text()).not.toContain('1-week limit')
+  })
+
 })

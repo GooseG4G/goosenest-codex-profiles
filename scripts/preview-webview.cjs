@@ -39,8 +39,8 @@ function profileState(mode) {
       resets: {
         status: 'ready',
         resetCredits: many ? [] : [
-          { id: 'reset-1', status: 'available', title: 'Full reset' },
-          { id: 'reset-2', status: 'available', title: 'Full reset' },
+          { id: 'reset-1', status: 'available', resetType: 'codexRateLimits', title: 'Full reset', expiresAt: now + 7_200 },
+          { id: 'reset-2', status: 'available', resetType: 'codexRateLimits', title: 'Full reset', expiresAt: now + 14_400 },
         ],
         availableResetCount: many ? 0 : 2,
       },

@@ -87,6 +87,9 @@ test('ready state renders usage, reset windows, and provider transport', async (
   expect(spacing.reset).toBeCloseTo(spacing.limits, 1)
   await resetWidget.hover()
   await expect(resetWidget).toHaveCSS('background-color', 'rgb(41, 42, 43)')
+  await resetWidget.click()
+  await expect(resetWidget).toContainText('Full reset (Weekly + 5 hr)')
+  await expect(resetWidget).toContainText('Expires in 2h')
   await expect(resetWidget).toHaveCSS('background-color', 'rgb(41, 42, 43)')
 })
 
