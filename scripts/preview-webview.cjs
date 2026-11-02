@@ -31,11 +31,21 @@ function profileState(mode) {
     lastUsedAt: new Date(Date.now() - (index + 1) * 3_600_000).toISOString(),
     busy: mode === 'loading',
     usage: mode === 'loading' ? null : {
-      status: 'ready', planType: many ? (index % 3 === 0 ? 'Pro' : index % 3 === 1 ? 'Team' : 'Plus') : 'Pro',
-      primary: { usedPercent: many ? (index * 7) % 80 : 42, windowDurationMins: 300, resetsAt: now + 7_200 },
-      secondary: { usedPercent: many ? (index * 11) % 70 : 18, windowDurationMins: 10_080, resetsAt: now + 86_400 },
-      resetCredits: [], availableResetCount: 0,
+      limits: {
+        status: 'ready',
+        primary: { usedPercent: many ? (index * 7) % 80 : 42, windowDurationMins: 300, resetsAt: now + 7_200 },
+        secondary: { usedPercent: many ? (index * 11) % 70 : 18, windowDurationMins: 10_080, resetsAt: now + 86_400 },
+      },
+      resets: {
+        status: 'ready',
+        resetCredits: many ? [] : [
+          { id: 'reset-1', status: 'available', title: 'Full reset' },
+          { id: 'reset-2', status: 'available', title: 'Full reset' },
+        ],
+        availableResetCount: many ? 0 : 2,
+      },
     },
+    plan: mode === 'loading' ? null : { planType: many ? (index % 3 === 0 ? 'Pro' : index % 3 === 1 ? 'Team' : 'Plus') : 'Pro' },
   }));
   return {
     profiles: [

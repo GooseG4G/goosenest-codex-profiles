@@ -74,7 +74,20 @@ test('ready state renders usage, reset windows, and provider transport', async (
   await expect(page.locator('.usage-card').first()).toHaveCSS('background-color', 'rgb(36, 37, 38)')
   await expect(page.locator('.track').first()).toHaveCSS('background-color', 'rgb(59, 59, 59)')
   await expect(page.locator('.track i').first()).toHaveCSS('background-color', 'rgb(170, 170, 170)')
-  await expect(page.locator('.reset-card')).toHaveCSS('background-color', 'rgb(36, 37, 38)')
+  const resetWidget = page.locator('.reset-widget')
+  await expect(resetWidget).toHaveCSS('background-color', 'rgb(36, 37, 38)')
+  const spacing = await page.evaluate(() => {
+    const cards = [...document.querySelectorAll<HTMLElement>('.usage-card')]
+    const reset = document.querySelector<HTMLElement>('.reset-widget')!
+    return {
+      limits: cards[1].getBoundingClientRect().top - cards[0].getBoundingClientRect().bottom,
+      reset: reset.getBoundingClientRect().top - cards[1].getBoundingClientRect().bottom,
+    }
+  })
+  expect(spacing.reset).toBeCloseTo(spacing.limits, 1)
+  await resetWidget.hover()
+  await expect(resetWidget).toHaveCSS('background-color', 'rgb(41, 42, 43)')
+  await expect(resetWidget).toHaveCSS('background-color', 'rgb(41, 42, 43)')
 })
 
 test('profile details use measured collapse animation across panel widths', async ({ page }) => {
@@ -170,7 +183,7 @@ test('reauth completion updates the expired profile in the visible list', async 
   await page.evaluate(() => {
     window.dispatchEvent(new MessageEvent('message', { data: {
       type: 'state',
-      profiles: [{ id: 'expired-profile', kind: 'default', name: 'expired@example.com', active: false, authExpired: true, lastUsedAt: new Date(Date.now() - 86_400_000).toISOString(), usage: { planType: 'Pro', fetchedAt: null } }],
+      profiles: [{ id: 'expired-profile', kind: 'default', name: 'expired@example.com', active: false, authExpired: true, lastUsedAt: new Date(Date.now() - 86_400_000).toISOString(), usage: null, plan: { planType: 'Pro', updatedAt: null } }],
       awaitingSignIn: false,
       addError: '',
       deviceAuth: null,
@@ -184,7 +197,7 @@ test('reauth completion updates the expired profile in the visible list', async 
   await page.evaluate(() => {
     window.dispatchEvent(new MessageEvent('message', { data: {
       type: 'state',
-      profiles: [{ id: 'expired-profile', kind: 'default', name: 'expired@example.com', active: true, authExpired: false, lastUsedAt: new Date().toISOString(), usage: { planType: 'Pro', fetchedAt: null } }],
+      profiles: [{ id: 'expired-profile', kind: 'default', name: 'expired@example.com', active: true, authExpired: false, lastUsedAt: new Date().toISOString(), usage: null, plan: { planType: 'Pro', updatedAt: null } }],
       awaitingSignIn: false,
       addError: '',
       deviceAuth: null,
@@ -200,7 +213,7 @@ test('expired profile replaces disclosure chevron with reauth indicator', async 
   await page.evaluate(() => {
     window.dispatchEvent(new MessageEvent('message', { data: {
       type: 'state',
-      profiles: [{ id: 'expired-profile', kind: 'default', name: 'expired@example.com', active: false, authExpired: true, lastUsedAt: null, usage: { planType: 'Pro', primary: { usedPercent: 20 } } }],
+      profiles: [{ id: 'expired-profile', kind: 'default', name: 'expired@example.com', active: false, authExpired: true, lastUsedAt: null, usage: { limits: { primary: { usedPercent: 20 } }, resets: null }, plan: { planType: 'Pro' } }],
       awaitingSignIn: false,
       addError: '',
       deviceAuth: null,
@@ -257,6 +270,8 @@ test('provider form exposes the Responses and WebSocket transport selector', asy
   })
   expect(gaps.transportGap).toBeCloseTo(gaps.inputGap, 1)
   await expect(page.getByRole('button', { name: 'HTTP/SSE' })).toHaveAttribute('aria-pressed', 'true')
+  await expect(page.locator('.transport-selection')).toHaveCSS('background-color', 'rgb(237, 237, 237)')
+  await expect(page.getByRole('button', { name: 'HTTP/SSE' })).toHaveCSS('color', 'rgb(23, 23, 23)')
   const websocket = page.getByRole('button', { name: 'WebSocket' })
   await websocket.hover()
   await expect(websocket).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)')
