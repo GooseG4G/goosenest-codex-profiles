@@ -12,7 +12,9 @@ describe('UsageResetWidget', () => {
   })
 
   it('shows reset action and emits only after confirmation', async () => {
-    const wrapper = mount(UsageResetWidget, { props: { credits: [credit] } })
+    const wrapper = mount(UsageResetWidget, {
+      props: { credits: [credit], windowDurations: [300, 10_080] },
+    })
     await wrapper.find('button.reset-summary').trigger('click')
     expect(wrapper.text()).toContain('Full reset (Weekly + 5 hr)')
     expect(wrapper.text()).toContain('Use reset')
@@ -21,6 +23,22 @@ describe('UsageResetWidget', () => {
     expect(confirm).not.toBeNull()
     confirm?.click()
     expect(wrapper.emitted('useReset')).toEqual([['reset-1']])
+  })
+
+  it.each([
+    [[300, 10_080], 'Full reset (Weekly + 5 hr)'],
+    [[300, 43_200], 'Full reset (Monthly + 5 hr)'],
+    [[10_080], 'Full reset (Weekly)'],
+    [[20_160, 300], 'Full reset (2-week + 5 hr)'],
+    [[300, 300], 'Full reset (5 hr)'],
+    [[], 'Full reset'],
+  ])('derives the reset title from %j', async (windowDurations, expected) => {
+    const wrapper = mount(UsageResetWidget, {
+      props: { credits: [credit], windowDurations },
+    })
+
+    await wrapper.get('button.reset-summary').trigger('click')
+    expect(wrapper.get('.reset-copy strong').text()).toBe(expected)
   })
 
   it('shows reset expiry as a relative duration', async () => {

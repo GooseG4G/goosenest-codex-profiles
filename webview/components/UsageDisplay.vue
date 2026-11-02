@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 import { useMinuteClock } from '../composables/useMinuteClock'
 import { formatRemainingTime } from '../utils/date'
+import { formatUsageLimitLabel } from '../utils/usage'
 import type { ProfileUsageLimits } from '../types'
 
 const props = defineProps<{
@@ -18,22 +19,16 @@ interface WindowInfo {
 
 const now = useMinuteClock()
 
-function windowLabel(key: WindowInfo['key'], duration: number): string {
-  if (duration === 7 * 24 * 60) return 'Weekly limit'
-  if (duration === 5 * 60) return '5-hour limit'
-  if (duration === 30 * 24 * 60) return 'Monthly limit'
-  if (duration > 0 && duration % (7 * 24 * 60) === 0) return `${duration / (7 * 24 * 60)}-week limit`
-  if (duration > 0 && duration % 60 === 0) return `${duration / 60}h limit`
-  return key === 'secondary' ? 'Secondary limit' : 'Primary limit'
-}
-
 const windows = computed<WindowInfo[]>(() =>
   (['primary', 'secondary'] as const).flatMap((key) => {
     const window = props.usage?.[key]
     if (!window || !Number.isFinite(window.usedPercent)) return []
     return [{
       key,
-      label: windowLabel(key, Number(window.windowDurationMins ?? 0)),
+      label: formatUsageLimitLabel(
+        window.windowDurationMins,
+        key === 'secondary' ? 'Secondary limit' : 'Primary limit',
+      ),
       used: Math.max(0, Math.min(100, window.usedPercent)),
       reset: Number(window.resetsAt ?? 0),
     }]

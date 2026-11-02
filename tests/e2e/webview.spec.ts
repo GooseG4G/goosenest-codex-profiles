@@ -273,6 +273,7 @@ test('provider form exposes the Responses and WebSocket transport selector', asy
   })
   expect(gaps.transportGap).toBeCloseTo(gaps.inputGap, 1)
   await expect(page.getByRole('button', { name: 'HTTP/SSE' })).toHaveAttribute('aria-pressed', 'true')
+  await expect(page.getByRole('button', { name: 'HTTP/SSE' })).toHaveCSS('font-weight', '600')
   await expect(page.locator('.transport-selection')).toHaveCSS('background-color', 'rgb(237, 237, 237)')
   await expect(page.getByRole('button', { name: 'HTTP/SSE' })).toHaveCSS('color', 'rgb(23, 23, 23)')
   const websocket = page.getByRole('button', { name: 'WebSocket' })

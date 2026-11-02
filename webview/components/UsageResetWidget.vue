@@ -3,6 +3,7 @@ import { computed, shallowRef, useId, watch } from 'vue'
 import type { UsageResetCredit } from '../types'
 import { useMinuteClock } from '../composables/useMinuteClock'
 import { formatRemainingTime } from '../utils/date'
+import { formatUsageResetScope } from '../utils/usage'
 import UIConfirmDialog from './ui/UIConfirmDialog.vue'
 import UIChevronIcon from './ui/UIChevronIcon.vue'
 import UILineButton from './ui/UILineButton.vue'
@@ -12,6 +13,7 @@ const props = defineProps<{
   availableCount?: number
   stale?: boolean
   pendingId?: string | null
+  windowDurations?: readonly (number | null | undefined)[]
 }>()
 const emit = defineEmits<{ useReset: [id: string] }>()
 const requested = shallowRef<UsageResetCredit | null>(null)
@@ -26,9 +28,10 @@ watch(canExpand, (value) => { if (!value) expanded.value = false })
 function title(credit: UsageResetCredit) {
   const value = credit.title?.trim()
   if (credit.resetType === 'codexRateLimits' || credit.resetType === 'codex_rate_limits' || /^full reset$/i.test(value ?? '')) {
-    return 'Full reset (Weekly + 5 hr)'
+    const scope = formatUsageResetScope(props.windowDurations)
+    return scope ? `Full reset (${scope})` : 'Full reset'
   }
-  return value || 'Full reset (Weekly + 5 hr)'
+  return value || 'Full reset'
 }
 function expiry(credit: UsageResetCredit) {
   if (!credit.expiresAt) return credit.description?.trim() || 'No expiry date'

@@ -108,6 +108,10 @@ function toggleKeyboard(event: KeyboardEvent) {
                 :available-count="profile.usage?.resets?.availableResetCount"
                 :stale="profile.usage?.resets?.status === 'stale'"
                 :pending-id="profile.usage?.resets?.pendingResetId || resetPendingId"
+                :window-durations="[
+                  profile.usage?.limits?.primary?.windowDurationMins,
+                  profile.usage?.limits?.secondary?.windowDurationMins,
+                ]"
                 @use-reset="emit('useReset', $event)"
               />
             </template>

@@ -675,7 +675,7 @@ onUnmounted(() => {
 .transport-switch { position: relative; display: grid; grid-template-columns: 1fr 1fr; gap: 2px; padding: 2px; border: 1px solid var(--vscode-widget-border, var(--color-border-default)); border-radius: 999px; background: var(--vscode-input-background, var(--color-bg-surface)); }
 .transport-selection { position: absolute; z-index: 0; top: 2px; bottom: 2px; left: 2px; width: calc(50% - 3px); border-radius: 999px; background: var(--color-button-primary-background); box-shadow: 0 1px 2px rgb(0 0 0 / 22%); transition: transform 220ms cubic-bezier(.22,1,.36,1); }
 .transport-selection.websocket { transform: translateX(calc(100% + 2px)); }
-.transport-option { position: relative; z-index: 1; min-height: 32px; padding: 5px 10px; color: var(--vscode-descriptionForeground, var(--color-text-secondary)); border: 0; border-radius: 999px; outline: none; background: transparent; cursor: pointer; font-size: 11px; transition: color 140ms ease, transform 180ms cubic-bezier(.22,1,.36,1); }
+.transport-option { position: relative; z-index: 1; min-height: 32px; padding: 5px 10px; color: var(--vscode-descriptionForeground, var(--color-text-secondary)); border: 0; border-radius: 999px; outline: none; background: transparent; cursor: pointer; font-size: 11px; font-weight: 600; transition: color 140ms ease, transform 180ms cubic-bezier(.22,1,.36,1); }
 .transport-option.selected { color: var(--color-button-primary-foreground); }
 .transport-option:hover:not(.selected) { color: var(--vscode-foreground, var(--color-text-primary)); background: transparent; }
 .transport-option:active { transform: scale(.98); }
