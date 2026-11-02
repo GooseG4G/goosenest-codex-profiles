@@ -5,7 +5,7 @@ import UsageResetWidget from './UsageResetWidget.vue'
 const credit = { id: 'reset-1', status: 'available', title: 'Full reset' }
 
 describe('UsageResetWidget', () => {
-  it('is inert with no available credits', () => {
+  it('is inert with no available credits', async () => {
     const wrapper = mount(UsageResetWidget, { props: { credits: [{ ...credit, status: 'redeemed' }] } })
     expect(wrapper.text()).toContain('0 available')
     expect(wrapper.find('button.reset-summary').attributes('disabled')).toBeDefined()

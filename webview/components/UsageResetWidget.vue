@@ -21,6 +21,8 @@ const expanded = shallowRef(false)
 const creditsId = useId()
 const now = useMinuteClock()
 const available = computed(() => (props.credits ?? []).filter((credit) => credit.status === 'available'))
+const history = computed(() => (props.credits ?? []).filter((credit) => credit.status !== 'available'))
+const visibleCredits = computed(() => [...available.value, ...history.value])
 const count = computed(() => Math.max(0, Number(props.availableCount ?? available.value.length), available.value.length))
 const hasAvailable = computed(() => count.value > 0 && available.value.length > 0)
 const canExpand = computed(() => hasAvailable.value && (!props.stale || Boolean(props.pendingId)))
@@ -38,6 +40,11 @@ function expiry(credit: UsageResetCredit) {
   const remaining = formatRemainingTime(credit.expiresAt * 1000, now.value)
   return remaining ? `Expires in ${remaining}` : 'Expired'
 }
+function historyLabel(credit: UsageResetCredit) {
+  if (credit.status === 'redeeming') return 'Using…'
+  if (credit.status === 'redeemed') return 'Used'
+  return 'Unavailable'
+}
 function confirmReset() {
   if (!requested.value || props.pendingId) return
   emit('useReset', requested.value.id)
@@ -52,20 +59,28 @@ function confirmReset() {
       <span class="available">{{ count }} available</span>
       <UIChevronIcon :expanded="expanded" />
     </button>
-    <div v-if="expanded && canExpand" :id="creditsId" class="reset-list">
-      <article v-for="credit in available" :key="credit.id" class="reset-item">
-        <span class="reset-copy"><strong>{{ title(credit) }}</strong><small>{{ expiry(credit) }}</small></span>
-        <UILineButton
-          class="reset-action"
-          variant="secondary"
-          size="small"
-          :disabled="Boolean(pendingId)"
-          @click.stop="requested = credit"
-        >
-          {{ pendingId === credit.id ? 'Using…' : 'Use reset' }}
-        </UILineButton>
-      </article>
-    </div>
+    <Transition name="credits">
+      <div v-if="expanded && canExpand" :id="creditsId" class="credits">
+        <div class="credits-clip">
+          <div class="reset-list">
+            <article v-for="credit in visibleCredits" :key="credit.id" class="reset-item" :class="{ 'reset-history': credit.status !== 'available' }">
+              <span class="reset-copy"><strong>{{ title(credit) }}</strong><small>{{ credit.status === 'available' ? expiry(credit) : historyLabel(credit) }}</small></span>
+              <UILineButton
+                v-if="credit.status === 'available'"
+                class="reset-action"
+                variant="secondary"
+                size="small"
+                :disabled="Boolean(pendingId)"
+                @click.stop="requested = credit"
+              >
+                {{ pendingId === credit.id ? 'Using…' : 'Use reset' }}
+              </UILineButton>
+              <span v-else class="reset-status">{{ historyLabel(credit) }}</span>
+            </article>
+          </div>
+        </div>
+      </div>
+    </Transition>
   </section>
   <UIConfirmDialog
     :open="Boolean(requested)"
@@ -87,12 +102,23 @@ function confirmReset() {
 .reset-summary strong, .reset-item strong { font-size: 13px; font-weight: 600; }
 .available { justify-self: stretch; min-height: 24px; padding: 4px 9px; border-radius: 999px; }
 .available { color: var(--color-reset-badge-available-foreground, var(--color-text-primary)); font-size: 11px; font-weight: 650; line-height: 14px; text-align: center; background: var(--color-reset-badge-available-background, var(--color-bg-control-hover)); }
-.reset-list { display: grid; overflow: hidden; }
+.credits { display: grid; grid-template-rows: 1fr; opacity: 1; }
+.credits-clip { min-height: 0; overflow: hidden; }
+.reset-list { display: grid; }
 .reset-item { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 60px; padding: 8px 14px; }
 .reset-item span { display: grid; gap: 2px; }
 .reset-item small { color: var(--color-text-secondary); font-size: 11px; }
+.reset-history { opacity: .62; }
+.reset-status { flex: 0 0 auto; color: var(--color-text-secondary); font-size: 11px; font-weight: 600; }
 .reset-item :deep(.reset-action) { --button-background: var(--color-reset-action-background, var(--color-button-secondary-background)); --button-border: var(--color-reset-action-border, var(--color-button-secondary-border)); --button-hover-background: var(--color-reset-action-hover-background, var(--color-button-secondary-hover-background)); --button-hover-border: var(--color-reset-action-hover-border, var(--color-button-secondary-hover-border)); --button-pressed-background: var(--color-reset-action-hover-background, var(--color-button-secondary-pressed-background)); flex: 0 0 auto; color: var(--color-reset-action-foreground, var(--color-text-primary)); }
 @media (hover: hover) and (pointer: fine) {
   .reset-widget:not(.inert):hover { background: var(--color-reset-card-hover-background, var(--color-reset-card-background)); }
+}
+.credits-enter-active, .credits-leave-active {
+  transition: grid-template-rows var(--duration-slow) var(--ease-out), opacity var(--duration-normal) var(--ease-standard);
+}
+.credits-enter-from, .credits-leave-to { grid-template-rows: 0fr; opacity: 0; }
+@media (prefers-reduced-motion: reduce) {
+  .credits-enter-active, .credits-leave-active { transition: none; }
 }
 </style>

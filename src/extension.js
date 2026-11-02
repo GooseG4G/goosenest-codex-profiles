@@ -321,6 +321,45 @@ async function consumeCodexReset(codexHome, resetId, requestId = crypto.randomUU
   return response.json().catch(() => ({}));
 }
 
+function changedUsageWindowCount(snapshot, previous) {
+  if (!snapshot || !previous) return 0;
+  let changed = 0;
+  for (const key of ['primary', 'secondary']) {
+    const current = snapshot[key];
+    const old = previous[key];
+    if (!current || !old) continue;
+    const currentUsed = Number(current.usedPercent);
+    const oldUsed = Number(old.usedPercent);
+    const currentReset = Number(current.resetsAt);
+    const oldReset = Number(old.resetsAt);
+    const alreadyReset = Number.isFinite(currentUsed)
+      && Number.isFinite(oldUsed)
+      && oldUsed <= 0
+      && currentUsed <= 0;
+    if (alreadyReset || (
+      (Number.isFinite(currentUsed) && Number.isFinite(oldUsed) && currentUsed < oldUsed)
+      || (Number.isFinite(currentReset) && Number.isFinite(oldReset) && currentReset !== oldReset)
+    )) changed += 1;
+  }
+  return changed;
+}
+
+async function readCodexUsageAfterReset(codexHome, previous, windowsReset) {
+  let usage = await readCodexUsage(codexHome);
+  const expected = Math.min(Math.max(Number(windowsReset) || 0, 0), 2);
+  if (expected <= 0) return usage;
+  for (const delayMs of [250, 500, 1000, 2000]) {
+    if (changedUsageWindowCount(usage, previous) >= expected) return usage;
+    await new Promise((resolve) => setTimeout(resolve, delayMs));
+    usage = await readCodexUsage(codexHome);
+  }
+  const changed = changedUsageWindowCount(usage, previous);
+  if (changed < expected) {
+    throw new Error(`Codex usage snapshot confirmed ${changed}/${expected} reset windows.`);
+  }
+  return usage;
+}
+
 class ProfileStore {
   constructor(context, paths) {
     this.context = context;
@@ -537,7 +576,20 @@ class ProfileStore {
         }
       }
 
-      profile.usage = usage;
+      const previousCredits = Array.isArray(profile.usage?.resetCredits)
+        ? profile.usage.resetCredits
+        : [];
+      const nextCreditIds = new Set((usage.resetCredits || []).map((credit) => credit.id));
+      const redeemedId = profile.usage?.pendingResetId;
+      const history = previousCredits
+        .filter((credit) => !nextCreditIds.has(credit.id))
+        .map((credit) => credit.id === redeemedId
+          ? { ...credit, status: 'redeemed' }
+          : credit)
+        .filter((credit) => credit.status !== 'available' || credit.id === redeemedId);
+      profile.usage = history.length
+        ? { ...usage, resetCredits: [...(usage.resetCredits || []), ...history] }
+        : usage;
       await this.writeState(state);
     });
   }
@@ -800,6 +852,7 @@ class UsagePoller {
     this.timer = undefined;
     this.inFlight = new Map();
     this.pendingIds = new Set();
+    this.resetExpectations = new Map();
     this.hotIds = new Set();
     this.scratchHomePromise = undefined;
     this.disposed = false;
@@ -843,7 +896,11 @@ class UsagePoller {
     }
   }
 
-  request(ids) {
+  request(ids, options = {}) {
+    const windowsReset = Number(options.windowsReset) || 0;
+    if (windowsReset > 0) {
+      for (const id of ids.filter(Boolean)) this.resetExpectations.set(id, windowsReset);
+    }
     for (const id of ids.filter(Boolean)) this.pendingIds.add(id);
     if (this.pendingIds.size && !this.running) void this.tick();
   }
@@ -916,7 +973,11 @@ class UsagePoller {
               scratchAuthPath = path.join(codexHome, 'auth.json');
               await writeAtomic(scratchAuthPath, target.contents);
             }
-            const usage = await readCodexUsage(codexHome);
+            const windowsReset = this.resetExpectations.get(target.id) || 0;
+            const usage = windowsReset
+              ? await readCodexUsageAfterReset(codexHome, target.usage, windowsReset)
+              : await readCodexUsage(codexHome);
+            this.resetExpectations.delete(target.id);
             const refreshedAuth = target.active
               ? null
               : await fs.promises.readFile(scratchAuthPath).catch(() => null);
@@ -1023,8 +1084,13 @@ class ProfilesViewProvider {
         });
         await this.sendState();
         try {
-          await consumeCodexReset(accountHome(this.store.paths, profileId), resetId, requestId);
-          this.usagePoller?.request([profileId]);
+          const result = await consumeCodexReset(accountHome(this.store.paths, profileId), resetId, requestId);
+          const responseWindows = Number(result?.windows_reset ?? result?.windowsReset);
+          if (!Number.isInteger(responseWindows) || ![1, 2].includes(responseWindows)) {
+            throw new Error('Codex reset response did not report windows_reset=1 or 2.');
+          }
+          const expectedWindows = responseWindows;
+          this.usagePoller?.request([profileId], { windowsReset: expectedWindows });
         } catch (error) {
           await this.store.updateUsage(profileId, { pendingResetId: null, pendingResetRequestId: null, status: 'ready' });
           await this.sendState();
