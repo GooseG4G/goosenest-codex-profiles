@@ -7,17 +7,20 @@ const props = withDefaults(defineProps<{
   disabled?: boolean
   pending?: boolean
   type?: 'button' | 'submit'
+  size?: 'default' | 'small'
 }>(), {
   variant: 'secondary',
   disabled: false,
   pending: false,
   type: 'button',
+  size: 'default',
 })
 
 const emit = defineEmits<{ click: [event: MouseEvent] }>()
 const showPending = useDelayedVisibility(() => props.pending)
 const classes = computed(() => [
   `is-${props.variant}`,
+  `is-${props.size}`,
   { 'is-busy': props.pending, 'is-pending': showPending.value },
 ])
 </script>
@@ -66,6 +69,7 @@ const classes = computed(() => [
 }
 .line-button-surface { position: absolute; z-index: 0; inset: 0; border: 1px solid var(--button-border); border-radius: inherit; background: var(--button-background); box-shadow: var(--button-focus-ring, none); transition: background-color 140ms ease, border-color 140ms ease; }
 .line-button-content { position: relative; z-index: 1; display: inline-flex; align-items: center; justify-content: center; gap: 7px; }
+.line-button.is-small { height: 30px; padding: 0 12px; border-radius: 999px; }
 .line-button:focus-visible { --button-border: var(--color-focus); --button-focus-ring: 0 0 0 2px color-mix(in srgb, var(--color-focus) 24%, transparent); }
 .is-primary { --pending-shimmer: var(--color-shimmer-dark); --button-background: var(--color-button-primary-background); --button-border: var(--color-button-primary-border); --button-hover-background: var(--color-button-primary-hover-background); --button-hover-border: var(--color-button-primary-hover-border); --button-pressed-background: var(--color-button-primary-background); color: var(--color-button-primary-foreground); }
 .is-danger { --button-background: var(--color-button-danger-background); --button-border: var(--color-button-danger-border); --button-hover-background: var(--color-button-danger-hover-background); --button-hover-border: var(--color-button-danger-hover-border); --button-pressed-background: var(--color-button-danger-background); color: var(--color-button-danger-foreground); }

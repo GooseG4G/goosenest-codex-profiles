@@ -3,6 +3,7 @@ import { computed, shallowRef, useId, watch } from 'vue'
 import type { UsageResetCredit } from '../types'
 import UIConfirmDialog from './ui/UIConfirmDialog.vue'
 import UIChevronIcon from './ui/UIChevronIcon.vue'
+import UILineButton from './ui/UILineButton.vue'
 
 const props = defineProps<{ credits?: readonly UsageResetCredit[]; stale?: boolean; pendingId?: string | null }>()
 const emit = defineEmits<{ useReset: [id: string] }>()
@@ -36,9 +37,15 @@ function confirmReset() {
     <div v-if="expanded && canExpand" :id="creditsId" class="reset-list">
       <article v-for="credit in available" :key="credit.id" class="reset-item">
         <span class="reset-copy"><strong>{{ title(credit) }}</strong><small>{{ expiry(credit) }}</small></span>
-        <button class="reset-action" type="button" :disabled="Boolean(pendingId)" @click.stop="requested = credit">
+        <UILineButton
+          class="reset-action"
+          variant="secondary"
+          size="small"
+          :disabled="Boolean(pendingId)"
+          @click.stop="requested = credit"
+        >
           {{ pendingId === credit.id ? 'Using…' : 'Use reset' }}
-        </button>
+        </UILineButton>
       </article>
     </div>
   </section>
@@ -53,9 +60,11 @@ function confirmReset() {
 </template>
 
 <style scoped>
-.reset-widget { display: grid; overflow: hidden; border: 1px solid var(--color-border-default); border-radius: 7px; background: var(--color-reset-card-background); }
+.reset-widget { display: grid; overflow: hidden; border: 1px solid var(--color-border-default); border-radius: 7px; background: var(--color-reset-card-background); transition: background-color var(--duration-fast) var(--ease-standard); }
+.reset-widget:not(.inert) { cursor: pointer; }
 .reset-widget.empty { color: var(--color-text-secondary); }
-.reset-summary { display: grid; grid-template-columns: minmax(0, 1fr) 84px 18px; align-items: center; gap: 10px; width: 100%; height: 50px; padding: 8px 14px; border: 0; color: var(--color-text-primary); text-align: left; background: transparent; }
+.reset-summary { display: grid; grid-template-columns: minmax(0, 1fr) 84px 18px; align-items: center; gap: 10px; width: 100%; height: 50px; padding: 8px 14px; border: 0; outline: none; color: var(--color-text-primary); text-align: left; background: transparent; }
+.reset-summary:focus-visible { box-shadow: inset 0 0 0 1px var(--color-focus); }
 .reset-summary:disabled { cursor: default; }
 .reset-summary strong, .reset-item strong { font-size: 13px; font-weight: 600; }
 .available, .available-skeleton { justify-self: stretch; min-height: 24px; padding: 4px 9px; border-radius: 999px; }
@@ -66,7 +75,9 @@ function confirmReset() {
 .reset-item { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 60px; padding: 8px 14px; }
 .reset-item span { display: grid; gap: 2px; }
 .reset-item small { color: var(--color-text-secondary); font-size: 11px; }
-.reset-item button { border: 1px solid var(--color-border-default); border-radius: 999px; padding: 5px 9px; color: var(--color-text-primary); background: var(--color-bg-control); cursor: pointer; }
-.reset-item button:disabled { opacity: .6; cursor: default; }
+.reset-item :deep(.reset-action) { --button-background: var(--color-reset-action-background, var(--color-button-secondary-background)); --button-border: var(--color-reset-action-border, var(--color-button-secondary-border)); --button-hover-background: var(--color-reset-action-hover-background, var(--color-button-secondary-hover-background)); --button-hover-border: var(--color-reset-action-hover-border, var(--color-button-secondary-hover-border)); --button-pressed-background: var(--color-reset-action-hover-background, var(--color-button-secondary-pressed-background)); flex: 0 0 auto; color: var(--color-reset-action-foreground, var(--color-text-primary)); }
 @keyframes shimmer { to { transform: translateX(100%); } }
+@media (hover: hover) and (pointer: fine) {
+  .reset-widget:not(.inert):hover { background: var(--color-reset-card-hover-background, var(--color-reset-card-background)); }
+}
 </style>
