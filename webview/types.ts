@@ -35,6 +35,15 @@ export interface ProfileUsage {
 export type ProfileUsageLimits = Pick<ProfileUsage, 'primary' | 'secondary' | 'status' | 'fetchedAt' | 'updatedAt' | 'error' | 'errorCode'>
 export type ProfileUsageResets = Pick<ProfileUsage, 'resetCredits' | 'availableResetCount' | 'pendingResetId' | 'pendingResetRequestId' | 'status' | 'fetchedAt' | 'updatedAt' | 'error' | 'errorCode'>
 
+export interface ProfileUsageResources {
+  limits: ProfileUsageLimits | null
+  resets: ProfileUsageResets | null
+}
+export interface ProfilePlan {
+  planType?: string | null
+  updatedAt?: string | null
+}
+
 export interface Profile {
   id: string
   kind: ProfileKind
@@ -45,9 +54,8 @@ export interface Profile {
   envKey?: string
   provider?: string
   transport?: ProviderTransport
-  usage?: ProfileUsage | null
-  usageLimits?: ProfileUsageLimits | null
-  usageResets?: ProfileUsageResets | null
+  usage?: ProfileUsageResources | null
+  plan?: ProfilePlan | null
   authExpired?: boolean
   lastUsedAt?: string | null
 }

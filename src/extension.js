@@ -424,9 +424,8 @@ class ProfileStore {
           name: profile.name,
           active: profile.id === state.activeId,
             lastUsedAt: profile.lastSeenAt || null,
-          usage: profile.usage || null,
-          usageLimits,
-          usageResets,
+          usage: usage ? { limits: usageLimits, resets: usageResets } : null,
+          plan: usage ? { planType: usage.planType || null, updatedAt: usage.updatedAt || usage.fetchedAt || null } : null,
         });
       }
     }

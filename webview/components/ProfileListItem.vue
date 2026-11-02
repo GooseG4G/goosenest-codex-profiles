@@ -23,7 +23,7 @@ const emit = defineEmits<{
 }>()
 const detailsAnimation = useCollapseAnimation()
 const needsAuthentication = computed(() => Boolean(props.profile.authExpired))
-const hasUsage = computed(() => props.profile.kind !== 'provider' && Boolean(props.profile.usageLimits?.primary || props.profile.usageLimits?.secondary || props.profile.usage?.primary || props.profile.usage?.secondary))
+const hasUsage = computed(() => props.profile.kind !== 'provider' && Boolean(props.profile.usage?.limits?.primary || props.profile.usage?.limits?.secondary))
 const hasDetails = computed(() => !needsAuthentication.value && (props.profile.kind === 'provider' || hasUsage.value))
 const subtitle = computed(() => {
   const relativeAge = props.profile.active ? 'just now' : props.profile.lastUsedAt ? formatRelativeAge(props.profile.lastUsedAt) : ''
@@ -31,7 +31,7 @@ const subtitle = computed(() => {
     const domain = providerDomain(props.profile.baseUrl)
     return relativeAge ? `${domain}, used ${relativeAge}` : domain
   }
-  const plan = props.profile.usage?.planType?.trim()
+  const plan = props.profile.plan?.planType?.trim()
   if (!plan) return 'Unknown'
   const formattedPlan = plan.split(/[-_\s]+/).map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase()).join(' ')
   return relativeAge ? `${formattedPlan}, used ${relativeAge}` : formattedPlan
@@ -102,11 +102,11 @@ function toggleKeyboard(event: KeyboardEvent) {
           <div class="details-wrap">
             <ProviderDetails v-if="profile.kind === 'provider'" :profile="profile" @edit="emit('edit', $event)" />
             <template v-else>
-              <UsageDisplay :usage="profile.usageLimits || profile.usage" :busy="profile.busy" />
+              <UsageDisplay :usage="profile.usage?.limits" :busy="profile.busy" />
               <UsageResetWidget
-                :credits="profile.usageResets?.resetCredits || profile.usage?.resetCredits"
-                :stale="profile.usageResets?.status === 'stale' || profile.usage?.status === 'stale'"
-                :pending-id="profile.usageResets?.pendingResetId || profile.usage?.pendingResetId || resetPendingId"
+                :credits="profile.usage?.resets?.resetCredits"
+                :stale="profile.usage?.resets?.status === 'stale'"
+                :pending-id="profile.usage?.resets?.pendingResetId || resetPendingId"
                 @use-reset="emit('useReset', $event)"
               />
             </template>
